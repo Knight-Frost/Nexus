@@ -21,8 +21,8 @@ class StoreContractRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'listing_id' => ['required', 'uuid', 'exists:listings,id'],
-            'tenant_id' => ['required', 'uuid', 'exists:users,id'],
+            'listing_id' => ['required', 'exists:listings,id'],
+            'tenant_id' => ['required', 'exists:users,id'],
             'rent_amount' => ['required', 'integer', 'min:0', 'max:9999999999'], // Max ~$99M in cents
             'currency' => ['sometimes', 'string', 'size:3', 'uppercase'],
             'billing_cycle' => ['sometimes', Rule::enum(BillingCycle::class)],
