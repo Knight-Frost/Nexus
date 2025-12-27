@@ -23,11 +23,8 @@ class ContractObserver
      */
     public function updated(Contract $contract): void
     {
-        // Get the original status before the update
-        $originalStatus = $contract->getOriginal('status');
-        
         // Check if status changed to ACTIVE
-        if ($originalStatus !== ContractStatus::ACTIVE && $contract->status === ContractStatus::ACTIVE) {
+        if ($contract->isDirty('status') && $contract->status === ContractStatus::ACTIVE) {
             // Generate first rent entry
             $this->ledgerService->generateFirstRentEntry($contract);
         }

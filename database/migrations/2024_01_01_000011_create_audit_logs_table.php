@@ -18,11 +18,11 @@ return new class extends Migration
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
             
-            // Actor - who performed the action
-            $table->morphs('actor'); // user, admin, or system
+            // Actor - who performed the action (nullable for system-generated actions)
+            $table->nullableMorphs('actor'); // user, admin, or system (null for system)
             
             // Subject - what was acted upon
-            $table->morphs('subject'); // listing, user, property, etc.
+            $table->nullableMorphs('subject'); // listing, user, property, etc.
             
             // Action details
             $table->string('action'); // e.g., 'created', 'updated', 'deleted', 'approved', 'rejected'
@@ -48,7 +48,7 @@ return new class extends Migration
             
             $table->timestamp('created_at'); // Immutable - no updated_at
             
-            // Indexes (morphs() already creates indexes for actor and subject)
+            // Indexes (nullableMorphs() already creates indexes for actor and subject)
             $table->index(['action', 'created_at']);
             $table->index('severity');
             $table->index('created_at');

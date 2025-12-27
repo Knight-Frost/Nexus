@@ -17,7 +17,7 @@ class AuditService
      * Log an action
      */
     public function log(
-        Model $actor,
+        ?Model $actor,  // Nullable for system-generated actions
         string $action,
         ?Model $subject = null,
         ?string $description = null,
@@ -27,8 +27,8 @@ class AuditService
         string $severity = 'info'
     ): AuditLog {
         return AuditLog::create([
-            'actor_type' => get_class($actor),
-            'actor_id' => $actor->id,
+            'actor_type' => $actor ? get_class($actor) : null,
+            'actor_id' => $actor?->id,
             'subject_type' => $subject ? get_class($subject) : null,
             'subject_id' => $subject ? $subject->id : null,
             'action' => $action,
