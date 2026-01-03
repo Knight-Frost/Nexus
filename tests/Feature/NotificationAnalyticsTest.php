@@ -266,12 +266,12 @@ class NotificationAnalyticsTest extends TestCase
     public function test_analytics_api_filters_by_notification_type()
     {
         Notification::factory()->create([
-            'user_id' => $this->tenant->id,
+            'user_id' => $this->admin->id,
             'type' => NotificationType::RENT_GENERATED,
         ]);
         
         Notification::factory()->create([
-            'user_id' => $this->tenant->id,
+            'user_id' => $this->admin->id,
             'type' => NotificationType::PAYMENT_FAILED,
         ]);
 

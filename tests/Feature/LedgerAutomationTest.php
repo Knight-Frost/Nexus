@@ -36,7 +36,6 @@ class LedgerAutomationTest extends TestCase
         parent::setUp();
 
         // Register observer
-        Contract::observe(\App\Observers\ContractObserver::class);
 
         $this->landlord = User::factory()->landlord()->create();
         $this->tenant = User::factory()->tenant()->create();
