@@ -26,6 +26,7 @@ class InvalidateAnalyticsCacheJob implements ShouldQueue
     public $tries = 3;
     public $backoff = 5;
     public $deleteWhenMissingModels = true;
+    protected $queue = 'analytics-invalidation';
 
     private string $domain;
     private array $scopes;
@@ -34,9 +35,6 @@ class InvalidateAnalyticsCacheJob implements ShouldQueue
     {
         $this->domain = $domain;
         $this->scopes = $scopes;
-        
-        // Set queue via method instead of property
-        $this->onQueue('analytics-invalidation');
     }
 
     /**
@@ -48,14 +46,14 @@ class InvalidateAnalyticsCacheJob implements ShouldQueue
         // Phase 5.5: Emit job started event
         event(new CacheJobStarted(
             domain: $this->domain,
-            queue: 'analytics-invalidation',
+            queue: $this->queue,
             scopes: $this->scopes
         ));
         
         // Phase 5.5: Structured log
         Log::info('cache.job.started', [
             'domain' => $this->domain,
-            'queue' => 'analytics-invalidation',
+            'queue' => $this->queue,
             'has_scopes' => !empty($this->scopes),
             'attempt' => $this->attempts(),
         ]);

@@ -105,30 +105,20 @@ class AnalyticsCacheInvalidator
 
     /**
      * Phase 5.4: Estimate total key count across all roles
-     * Phase 5.5: Handle ArrayStore gracefully (returns 0 for non-Redis)
      */
     private static function estimateKeyCount(string $env, string $domain, array $roles): int
     {
-        // Check if we're using Redis
-        $driver = config('cache.default');
-        if ($driver !== 'redis') {
-            // ArrayStore or other non-Redis drivers don't support pattern matching
-            // Return 0 to force sync path
-            return 0;
-        }
-        
         $totalKeys = 0;
         
         foreach ($roles as $role) {
             $pattern = "{$env}:analytics:{$domain}:{$role}:*";
             
             try {
-                $redis = Cache::getRedis();
-                $keys = $redis->keys($pattern);
+                $keys = Cache::getRedis()->keys($pattern);
                 $totalKeys += is_array($keys) ? count($keys) : 0;
             } catch (\Exception $e) {
-                // Redis connection failed - assume small count for sync
-                return 0;
+                // Array cache or Redis unavailable - assume small count
+                $totalKeys += 10;
             }
         }
         
@@ -180,16 +170,8 @@ class AnalyticsCacheInvalidator
         $pattern = "{$env}:analytics:{$domain}:{$role}:*";
         $invalidatedCount = 0;
         
-        // Check cache driver
-        $driver = config('cache.default');
-        if ($driver !== 'redis') {
-            // ArrayStore doesn't support pattern matching - return 0
-            return 0;
-        }
-        
         try {
-            $redis = Cache::getRedis();
-            $keys = $redis->keys($pattern);
+            $keys = Cache::getRedis()->keys($pattern);
             
             if (!is_array($keys) || count($keys) === 0) {
                 return 0;
@@ -257,16 +239,8 @@ class AnalyticsCacheInvalidator
         $pattern = "{$env}:analytics:{$domain}:{$role}:*";
         $invalidatedCount = 0;
         
-        // Check cache driver
-        $driver = config('cache.default');
-        if ($driver !== 'redis') {
-            // ArrayStore doesn't support pattern matching - return 0
-            return 0;
-        }
-        
         try {
-            $redis = Cache::getRedis();
-            $keys = $redis->keys($pattern);
+            $keys = Cache::getRedis()->keys($pattern);
             
             if (is_array($keys)) {
                 foreach ($keys as $key) {
