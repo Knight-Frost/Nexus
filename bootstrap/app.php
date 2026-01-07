@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => \App\Http\Middleware\EnsureTenant::class,
             'landlord' => \App\Http\Middleware\EnsureLandlord::class,
+            'rate.limit.role' => \App\Http\Middleware\RateLimitByRole::class,
+            'metrics' => \App\Http\Middleware\MetricsMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

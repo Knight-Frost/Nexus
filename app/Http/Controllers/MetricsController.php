@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Services\MetricsService;
+
+/**
+ * MetricsController - Phase 7.5 Task 2
+ * 
+ * Provides API endpoints to access application metrics.
+ * Only accessible to authenticated admin users.
+ */
+class MetricsController extends Controller
+{
+    public function __construct(
+        private MetricsService $metricsService
+    ) {}
+
+    /**
+     * Get comprehensive metrics summary
+     * 
+     * GET /api/admin/metrics
+     */
+    public function summary(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->metricsService->getSummary(),
+        ]);
+    }
+    
+    /**
+     * Get latency metrics
+     * 
+     * GET /api/admin/metrics/latency
+     */
+    public function latency(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->metricsService->getLatencyPercentiles(),
+        ]);
+    }
+    
+    /**
+     * Get error rate metrics
+     * 
+     * GET /api/admin/metrics/errors?minutes=5
+     */
+    public function errors(Request $request): JsonResponse
+    {
+        $minutes = $request->query('minutes', 5);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $this->metricsService->getErrorRate($minutes),
+        ]);
+    }
+    
+    /**
+     * Get request rate metrics
+     * 
+     * GET /api/admin/metrics/requests?minutes=5
+     */
+    public function requests(Request $request): JsonResponse
+    {
+        $minutes = $request->query('minutes', 5);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $this->metricsService->getRequestRate($minutes),
+        ]);
+    }
+    
+    /**
+     * Get queue depth metrics
+     * 
+     * GET /api/admin/metrics/queue
+     */
+    public function queue(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->metricsService->getQueueDepth(),
+        ]);
+    }
+    
+    /**
+     * Get recent requests
+     * 
+     * GET /api/admin/metrics/recent?limit=20
+     */
+    public function recent(Request $request): JsonResponse
+    {
+        $limit = $request->query('limit', 20);
+        
+        return response()->json([
+            'success' => true,
+            'data' => $this->metricsService->getRecentRequests($limit),
+        ]);
+    }
+}

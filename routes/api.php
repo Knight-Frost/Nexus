@@ -35,6 +35,7 @@ use App\Http\Controllers\Admin\AdminFeatureController;
 use App\Http\Controllers\Admin\AdminAuditController;
 use App\Http\Controllers\Admin\AdminContractController;
 use App\Http\Controllers\Admin\AdminLedgerController;
+use App\Http\Controllers\MetricsController;
 
 // ============================================================================
 // WEBHOOK CONTROLLERS
@@ -70,12 +71,17 @@ use App\Http\Controllers\Analytics\PlatformAnalyticsController;
 | - Landlord: auth:sanctum + landlord middleware
 | - Admin: auth:sanctum,admin guard
 |
+| Phase 7.5: Rate limiting and metrics applied to all routes
+|
 */
+
+// Apply metrics middleware to all API routes
+Route::middleware(['metrics'])->group(function () {
 
 // ============================================================================
 // PUBLIC ROUTES (NO AUTH)
 // ============================================================================
-Route::prefix('listings')->group(function () {
+Route::middleware(['rate.limit.role'])->prefix('listings')->group(function () {
     Route::get('/', [PublicListingController::class, 'index']);
     Route::get('/featured', [PublicListingController::class, 'featured']);
     Route::get('/{id}', [PublicListingController::class, 'show']);
@@ -84,7 +90,7 @@ Route::prefix('listings')->group(function () {
 // ============================================================================
 // TENANT ROUTES
 // ============================================================================
-Route::middleware(['auth:sanctum', 'tenant'])->prefix('tenant')->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'rate.limit.role'])->prefix('tenant')->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [TenantDashboardController::class, 'index']);
@@ -112,7 +118,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('tenant')->group(function 
 // ============================================================================
 // LANDLORD ROUTES
 // ============================================================================
-Route::middleware(['auth:sanctum', 'landlord'])->prefix('landlord')->group(function () {
+Route::middleware(['auth:sanctum', 'landlord', 'rate.limit.role'])->prefix('landlord')->group(function () {
 
     // Onboarding
     Route::get('/onboarding', [LandlordOnboardingController::class, 'index']);
@@ -154,7 +160,7 @@ Route::middleware(['auth:sanctum', 'landlord'])->prefix('landlord')->group(funct
 // ============================================================================
 // ADMIN ROUTES
 // ============================================================================
-Route::middleware(['auth:sanctum,admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum,admin', 'rate.limit.role'])->prefix('admin')->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [AdminDashboardController::class, 'index']);
@@ -182,6 +188,16 @@ Route::middleware(['auth:sanctum,admin'])->prefix('admin')->group(function () {
     Route::get('/ledger', [AdminLedgerController::class, 'index']);
     Route::get('/ledger/{ledgerEntry}', [AdminLedgerController::class, 'show']);
     Route::post('/ledger/{ledgerEntry}/late-fee', [AdminLedgerController::class, 'generateLateFee']);
+    
+    // Metrics (Phase 7.5)
+    Route::prefix('metrics')->group(function () {
+        Route::get('/', [MetricsController::class, 'summary']);
+        Route::get('/latency', [MetricsController::class, 'latency']);
+        Route::get('/errors', [MetricsController::class, 'errors']);
+        Route::get('/requests', [MetricsController::class, 'requests']);
+        Route::get('/queue', [MetricsController::class, 'queue']);
+        Route::get('/recent', [MetricsController::class, 'recent']);
+    });
 });
 
 // ============================================================================
@@ -192,7 +208,7 @@ Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle']);
 // ============================================================================
 // NOTIFICATION ROUTES - Phase 3.5
 // ============================================================================
-Route::middleware(['auth:sanctum'])->prefix('notifications')->group(function () {
+Route::middleware(['auth:sanctum', 'rate.limit.role'])->prefix('notifications')->group(function () {
     Route::get('/', [NotificationController::class, 'index']);
     Route::get('/unread', [NotificationController::class, 'unread']);
     Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
@@ -203,7 +219,7 @@ Route::middleware(['auth:sanctum'])->prefix('notifications')->group(function () 
 // ============================================================================
 // NOTIFICATION PREFERENCE ROUTES - Phase 3.8
 // ============================================================================
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'rate.limit.role'])->group(function () {
     Route::get('/notification-preferences', [NotificationPreferenceController::class, 'index']);
     Route::put('/notification-preferences', [NotificationPreferenceController::class, 'update']);
 });
@@ -211,7 +227,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // ============================================================================
 // ANALYTICS ROUTES - Phase 4.0
 // ============================================================================
-Route::middleware('auth:sanctum')->prefix('analytics')->group(function () {
+Route::middleware(['auth:sanctum', 'rate.limit.role'])->prefix('analytics')->group(function () {
     // Phase 4.0a - Notification Analytics
     Route::get('/notifications', [NotificationAnalyticsController::class, 'index']);
     
@@ -222,3 +238,5 @@ Route::middleware('auth:sanctum')->prefix('analytics')->group(function () {
     Route::get('/contracts', [ContractAnalyticsController::class, 'index']);
     Route::get('/platform', [PlatformAnalyticsController::class, 'index']);
 });
+
+}); // End metrics middleware group
