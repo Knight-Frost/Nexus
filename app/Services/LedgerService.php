@@ -195,7 +195,10 @@ class LedgerService
                 $count++;
 
                 // Fire event for notification system
-                event(new LedgerEntryMarkedOverdue($entry));
+                $tenant = $entry->tenant;
+                if ($tenant) {
+                    event(new LedgerEntryMarkedOverdue($entry, $tenant));
+                }
 
                 // Audit log
                 $this->auditService->log(

@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('contracts', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            
-            // Relationships
-            $table->foreignUuid('listing_id')->unique()->constrained('listings')->onDelete('cascade');
-            $table->foreignUuid('landlord_id')->constrained('users')->onDelete('cascade');
-            $table->foreignUuid('tenant_id')->constrained('users')->onDelete('cascade');
+
+            // Relationships - using foreignId to match integer PKs in referenced tables
+            $table->foreignId('listing_id')->unique()->constrained('listings')->onDelete('cascade');
+            $table->foreignId('landlord_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('tenant_id')->constrained('users')->onDelete('cascade');
             
             // Financial terms
             $table->bigInteger('rent_amount'); // Stored in cents
@@ -35,8 +35,8 @@ return new class extends Migration
             $table->enum('terminated_by', ['landlord', 'tenant', 'admin'])->nullable();
             $table->text('termination_reason')->nullable();
             
-            // Admin tracking
-            $table->foreignUuid('admin_id')->nullable()->constrained('admins')->onDelete('set null');
+            // Admin tracking - using foreignId to match integer PK in admins table
+            $table->foreignId('admin_id')->nullable()->constrained('admins')->onDelete('set null');
             
             $table->timestamps();
             

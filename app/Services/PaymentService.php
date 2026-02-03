@@ -72,8 +72,8 @@ class PaymentService
             throw new \Exception('This ledger entry cannot be paid');
         }
 
-        // Verify tenant owns this entry
-        if ($entry->tenant_id != $tenant->id) {
+        // Verify tenant owns this entry (using strict type comparison)
+        if ((int) $entry->tenant_id !== (int) $tenant->id) {
             throw new \Exception('You cannot pay another tenant\'s obligation');
         }
 

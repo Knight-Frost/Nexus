@@ -197,30 +197,37 @@ class LedgerAutomationService
             ->get();
         
         foreach ($overdueEntries as $entry) {
-            // Update status to OVERDUE (using saveQuietly to bypass immutability check)
-            $entry->status = LedgerStatus::OVERDUE;
-            $entry->saveQuietly();
-            
-            // Audit log
-            $this->auditService->log(
-                actor: null, // System-generated
-                action: 'ledger_entry_marked_overdue',
-                subject: $entry,
-                description: "Ledger entry {$entry->id} marked as overdue (due date: {$entry->due_date->format('Y-m-d')})",
-                metadata: [
-                    'ledger_entry_id' => $entry->id,
-                    'type' => $entry->type->value,
-                    'due_date' => $entry->due_date->toDateString(),
-                    'amount_cents' => $entry->amount_cents,
-                ],
-                severity: 'warning'
-            );
-            
-            // Phase 3.5: Fire domain event for notification
-            $tenant = User::find($entry->tenant_id);
-            event(new LedgerEntryMarkedOverdue($entry, $tenant));
-            
-            $count++;
+            try {
+                // Use proper status transition method to respect immutability
+                $entry->transitionStatus(LedgerStatus::OVERDUE);
+
+                // Audit log
+                $this->auditService->log(
+                    actor: null, // System-generated
+                    action: 'ledger_entry_marked_overdue',
+                    subject: $entry,
+                    description: "Ledger entry {$entry->id} marked as overdue (due date: {$entry->due_date->format('Y-m-d')})",
+                    metadata: [
+                        'ledger_entry_id' => $entry->id,
+                        'type' => $entry->type->value,
+                        'due_date' => $entry->due_date->toDateString(),
+                        'amount_cents' => $entry->amount_cents,
+                    ],
+                    severity: 'warning'
+                );
+
+                // Phase 3.5: Fire domain event for notification
+                $tenant = User::find($entry->tenant_id);
+                event(new LedgerEntryMarkedOverdue($entry, $tenant));
+
+                $count++;
+            } catch (\InvalidArgumentException $e) {
+                // Log transition failure but continue processing other entries
+                \Illuminate\Support\Facades\Log::warning("Failed to mark entry as overdue", [
+                    'entry_id' => $entry->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
         
         return $count;

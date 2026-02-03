@@ -12,6 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Add security headers to all API responses
+        $middleware->api(append: [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
+
         // Register custom middleware aliases
         $middleware->alias([
             'tenant' => \App\Http\Middleware\EnsureTenant::class,
@@ -20,10 +25,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.or.landlord' => \App\Http\Middleware\EnsureAdminOrLandlord::class,
             'rate.limit.role' => \App\Http\Middleware\RateLimitByRole::class,
             'metrics' => \App\Http\Middleware\MetricsMiddleware::class,
+            'security.headers' => \App\Http\Middleware\SecurityHeaders::class,
         ]);
 
-        // Enable Sanctum's stateful middleware for SPA authentication
-        $middleware->statefulApi();
+        // Note: Using token-based authentication (Bearer tokens stored in localStorage)
+        // NOT SPA cookie-based authentication, so statefulApi() is not needed.
+        // If you need SPA mode with cookies, uncomment the line below and have
+        // the frontend call GET /sanctum/csrf-cookie before login.
+        // $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // In production, don't expose detailed exception messages

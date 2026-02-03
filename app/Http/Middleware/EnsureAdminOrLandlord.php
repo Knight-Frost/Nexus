@@ -49,6 +49,20 @@ class EnsureAdminOrLandlord
 
         // Check if user is a landlord
         if ($user instanceof \App\Models\User && $user->user_type === UserType::LANDLORD) {
+            // Security: Check if account is active
+            if (!$user->is_active) {
+                return response()->json([
+                    'message' => 'Your account has been deactivated.'
+                ], 403);
+            }
+
+            // Security: Check if account is suspended
+            if ($user->suspended_at !== null) {
+                return response()->json([
+                    'message' => 'Your account has been suspended.'
+                ], 403);
+            }
+
             return $next($request);
         }
 

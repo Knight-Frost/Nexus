@@ -130,10 +130,9 @@ class ListingService
      */
     public function publishListing(Listing $listing): Listing
     {
-        
-    if (!in_array($listing->status, [ListingStatus::DRAFT, ListingStatus::PENDING_REVIEW])) {
-    throw new \Exception('Only draft or pending review listings can be published');
-}
+        if (!in_array($listing->status, [ListingStatus::DRAFT, ListingStatus::PENDING_REVIEW], true)) {
+            throw new \Exception('Only draft or pending review listings can be published');
+        }
 
         $listing->update([
             'status' => ListingStatus::ACTIVE,

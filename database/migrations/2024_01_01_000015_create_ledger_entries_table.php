@@ -17,14 +17,14 @@ return new class extends Migration
     {
         Schema::create('ledger_entries', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            
-            // Relationships
+
+            // Relationships - contract uses UUID, users use integer IDs
             $table->foreignUuid('contract_id')->constrained('contracts')->onDelete('cascade');
-            $table->foreignUuid('tenant_id')->constrained('users')->onDelete('cascade');
-            $table->foreignUuid('landlord_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('tenant_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('landlord_id')->constrained('users')->onDelete('cascade');
             
-            // Entry details
-            $table->enum('type', ['rent', 'late_fee']);
+            // Entry details - includes payment type for recording payments
+            $table->enum('type', ['rent', 'late_fee', 'payment', 'refund']);
             $table->bigInteger('amount_cents'); // Always positive, stored in cents
             $table->char('currency', 3)->default('USD');
             

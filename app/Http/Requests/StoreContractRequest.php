@@ -5,10 +5,11 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Enums\BillingCycle;
+use App\Enums\UserType;
 
 /**
  * StoreContractRequest
- * 
+ *
  * Validates contract creation by landlord.
  */
 class StoreContractRequest extends FormRequest
@@ -22,8 +23,14 @@ class StoreContractRequest extends FormRequest
     {
         return [
             'listing_id' => ['required', 'exists:listings,id'],
-            'tenant_id' => ['required', 'exists:users,id'],
-            'rent_amount' => ['required', 'integer', 'min:0', 'max:9999999999'], // Max ~$99M in cents
+            // Security: Ensure tenant_id is a valid tenant user, not a landlord
+            'tenant_id' => [
+                'required',
+                Rule::exists('users', 'id')->where(function ($query) {
+                    $query->where('user_type', UserType::TENANT->value);
+                }),
+            ],
+            'rent_amount' => ['required', 'integer', 'min:1', 'max:9999999999'], // Min $0.01, Max ~$99M in cents
             'currency' => ['sometimes', 'string', 'size:3', 'uppercase'],
             'billing_cycle' => ['sometimes', Rule::enum(BillingCycle::class)],
             'payment_day' => ['required', 'integer', 'min:1', 'max:28'],

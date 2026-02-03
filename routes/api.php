@@ -3,6 +3,11 @@
 use Illuminate\Support\Facades\Route;
 
 // ============================================================================
+// AUTHENTICATION CONTROLLER
+// ============================================================================
+use App\Http\Controllers\AuthController;
+
+// ============================================================================
 // PUBLIC CONTROLLERS
 // ============================================================================
 use App\Http\Controllers\Public\PublicListingController;
@@ -74,6 +79,20 @@ use App\Http\Controllers\Analytics\PlatformAnalyticsController;
 | Phase 7.5: Rate limiting and metrics applied to all routes
 |
 */
+
+// ============================================================================
+// AUTHENTICATION ROUTES (NO AUTH REQUIRED)
+// ============================================================================
+Route::middleware(['rate.limit.role'])->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+});
+
+// Authenticated routes
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/user', [AuthController::class, 'user']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+});
 
 // Apply metrics middleware to all API routes
 Route::middleware(['metrics'])->group(function () {

@@ -26,6 +26,7 @@ class RateLimitByRole
     private const RATE_LIMITS = [
         UserType::TENANT->value => 60,
         UserType::LANDLORD->value => 120,
+        'admin' => 300, // Higher limit for admin operations
         'public' => 30,
     ];
 
@@ -68,13 +69,18 @@ class RateLimitByRole
     protected function resolveRateLimitKey(Request $request): string
     {
         $user = $request->user();
-        
+
         if ($user) {
-            // Authenticated: use user ID + role
+            // Check if user is an Admin
+            if ($user instanceof \App\Models\Admin) {
+                return "api:rate-limit:admin:{$user->id}";
+            }
+
+            // Authenticated user: use user ID + role
             $role = $user->user_type?->value ?? 'unknown';
             return "api:rate-limit:{$role}:{$user->id}";
         }
-        
+
         // Unauthenticated: use IP address
         return "api:rate-limit:public:{$request->ip()}";
     }
@@ -85,12 +91,20 @@ class RateLimitByRole
     protected function resolveMaxAttempts(Request $request): int
     {
         $user = $request->user();
-        
-        if ($user && isset($user->user_type)) {
-            $roleValue = $user->user_type->value;
-            return self::RATE_LIMITS[$roleValue] ?? self::RATE_LIMITS['public'];
+
+        if ($user) {
+            // Check if user is an Admin
+            if ($user instanceof \App\Models\Admin) {
+                return self::RATE_LIMITS['admin'];
+            }
+
+            // Regular user with user_type
+            if (isset($user->user_type)) {
+                $roleValue = $user->user_type->value;
+                return self::RATE_LIMITS[$roleValue] ?? self::RATE_LIMITS['public'];
+            }
         }
-        
+
         return self::RATE_LIMITS['public'];
     }
 }
