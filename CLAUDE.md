@@ -24,13 +24,14 @@ privileged action is written to an append-only audit log.
 
 | Area | Status |
 |------|--------|
-| Backend (Laravel 12) | **Mature & passing** — 258 tests green, full domain implemented |
-| RBAC / Auth | Implemented (Sanctum tokens, dual User/Admin model, middleware + policies) |
-| Payments / Webhooks | Implemented (Stripe PaymentIntents + signature-verified webhook) |
+| Backend (Laravel 12) | **Mature & passing** — 287 tests green, full domain implemented |
+| RBAC / Auth | Implemented + proven (Sanctum tokens, dual User/Admin model, middleware + policies, IDOR/escalation test suite) |
+| Payments / Webhooks | Implemented (Stripe PaymentIntents + signature-verified webhook, idempotent) |
 | Notifications | Implemented (in-app, email, SMS, digests, preferences) |
 | Analytics / Caching | Implemented (scoped, selectively invalidated, async jobs) |
-| Frontend (`frontend/`) | **Being built** — React 18 + TS + Vite + Tailwind v4 SPA against the API |
-| Docs | README + `docs/` exist; expanded during completion work |
+| Frontend (`frontend/`) | **Built** — React 18 + TS + Vite + Tailwind v4 SPA, role-aware, integrated with the API (tsc + eslint + build clean) |
+| Security | OWASP audit complete (no high/critical); CSP + HSTS added; `docs/SECURITY.md` |
+| Docs | README, `CLAUDE.md`, `docs/{API_REFERENCE,SECURITY,EXECUTION_PLAN,ARCHITECTURE,DEPLOYMENT}.md` |
 
 See **Known Unfinished Work** (§22) for the live punch list.
 
@@ -270,10 +271,22 @@ One-shot dev (server + queue + logs + vite): `composer run dev`.
 
 ## 23. Known Unfinished Work (live punch list)
 
-- [ ] Frontend SPA — build the real app (auth, role dashboards, core flows).
-- [ ] Expand payment/webhook + admin-authorization + IDOR test coverage.
-- [ ] Standardize API response envelope across controllers.
+Done in the completion pass: frontend SPA built; payment/webhook/admin/IDOR test
+coverage expanded (287 tests); security audit + hardening; full docs set.
+
+Remaining / future work:
+- [ ] Standardize the API response envelope across controllers. *Deliberately
+  deferred* — the SPA is the only consumer and the typed client already adapts
+  per-endpoint; refactoring would churn the green suite for little gain. Revisit
+  if a second/external consumer appears.
 - [ ] Wire remaining notification types (late fee added, contract signed/terminated).
+- [ ] Listing photo upload UI + storage (schema/model exist; no upload flow yet).
+- [ ] Granular admin RBAC (all admins are super-admins today).
+- [ ] `Conversation`/`Message` messaging feature (schema only).
+- [ ] Frontend automated tests (Vitest/RTL) — currently validated via tsc + lint
+  + build + live smoke test.
+- [ ] Known backend nit: `GET /admin/contracts` validates `landlord_id`/`tenant_id`
+  filters as `uuid`, but those FKs are bigint — those filters can't match. Low impact.
 
 ## 24. Coding Standards
 

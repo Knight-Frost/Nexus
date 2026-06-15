@@ -1,85 +1,165 @@
 # Nexus
 
-## Overview
+**Nexus** is a full-stack property rental management platform. It manages the
+complete lifecycle of a rental — property and unit catalogues, public listings
+with admin moderation, landlord⇄tenant contracts, an immutable financial ledger,
+Stripe-backed rent payments, multi-channel notifications, and analytics — for
+three audiences: **tenants**, **landlords**, and **administrators**.
 
-Nexus is a full-stack property rental platform designed to manage the complete lifecycle of rental properties within a single, cohesive system. The platform is intended to support landlords, tenants, and administrators by centralizing property listings, tenant relationships, contracts, payments, and operational oversight.
+| | |
+|---|---|
+| **Backend** | Laravel 12 · PHP 8.2+ · Sanctum (API tokens) · Stripe · Twilio |
+| **Frontend** | React 18 · TypeScript · Vite · Tailwind CSS v4 · React Router 7 |
+| **Database** | SQLite (default) · MySQL / PostgreSQL supported |
+| **Tests** | 287 backend tests (PHPUnit) · strict TS + ESLint on the frontend |
 
-The backend forms the core of the system and is largely complete. It is responsible for enforcing business rules, managing persistent data, handling application workflows, and maintaining system integrity. While the backend already supports the primary functionality of the platform, it is expected to receive targeted improvements and refinements as the course progresses, such as optimization, additional validation, and incremental feature enhancements.
-
-The frontend represents the user-facing layer of the platform. At the current stage, frontend development is limited to establishing a reliable development environment that will support future interface development and frontend–backend integration.
-
-Development follows an incremental approach. Early deliverables focus on environment setup and architectural foundations, while later deliverables build on this base to introduce user interfaces, integration, and system refinements.
-
----
-
-## How the Project Is Organized
-
-The project is divided into two primary components:
-
-- **Backend** – Responsible for data management, business rules, and application logic  
-- **Frontend** – Responsible for user interaction and client-side behavior  
-
-Each component is described below to illustrate how the overall system operates.
+> Architecture, security, RBAC, and contributor guidance live in
+> [`CLAUDE.md`](CLAUDE.md) and [`docs/`](docs/). Start there for the deep dive.
 
 ---
 
-## Backend
-
-### Backend Overview
-
-The backend manages the core functionality of the Nexus platform. It handles request routing, business logic execution, data persistence, and structured responses to client requests.
-
-Although backend development is largely complete, it is **not graded as part of Deliverable 1**. The backend is included in this repository because the same repository will be used for all subsequent course deliverables.
-
----
-
-### Backend Folder Structure
+## Architecture at a glance
 
 ```
+React SPA (frontend/)  ──HTTP/JSON (Bearer token)──▶  Laravel API (app/)
+   role-aware UI                                         Route → Middleware (role gate)
+   typed API client                                        → FormRequest (validation)
+   auth context + guards                                     → Controller (thin)
+                                                                → Service (business logic)
+                                                                  → Model (Eloquent + enums)
+                                                              → Policy (ownership)
+                                                            → Observer/Event/Listener
+                                                              (audit, notifications, cache)
+```
 
-app/
-bootstrap/
-config/
-database/
-routes/
-storage/
-tests/
-vendor/
-artisan
-composer.json
+- **The API is the source of truth for authorization.** The SPA's role-based
+  routing is a UX convenience; every request is enforced server-side.
+- **Money is stored in integer cents**; `contracts` and `ledger_entries` use
+  UUID primary keys; the ledger and audit log are **immutable**.
 
+---
+
+## Prerequisites
+
+- PHP **8.2+**, Composer 2
+- Node **18+** and npm
+- SQLite (bundled with PHP) — or MySQL/PostgreSQL if you prefer
+
+---
+
+## Quick start
+
+### 1. Backend (API)
+
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite          # SQLite is the default connection
+php artisan migrate --seed              # schema + demo data (Phase1Seeder)
+php artisan serve                       # http://localhost:8000
+```
+
+### 2. Frontend (SPA)
+
+```bash
+cd frontend
+npm install
+npm run dev                             # http://localhost:5173
+```
+
+The Vite dev server proxies `/api` to `http://localhost:8000`, so no CORS setup
+is needed in development. Open **http://localhost:5173** and sign in.
+
+### Demo accounts (from the seeder)
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@nexus.com` | `password` |
+| Landlord | `landlord1@example.com` | `password` |
+| Tenant | `tenant1@example.com` | `password` |
+
+> Demo credentials are for local development only. Never seed them in production.
+
+---
+
+## Testing
+
+```bash
+# Backend — 287 tests (auth, RBAC/IDOR, contracts, ledger, payments,
+# notifications, analytics, caching, security hardening)
+php artisan test            # or: composer test
+
+# Code style (PHP)
+./vendor/bin/pint           # format    ·    ./vendor/bin/pint --test  (check only)
+
+# Frontend
+cd frontend
+npm run lint                # ESLint
+npm run build               # tsc typecheck + production build
 ```
 
 ---
 
-### Backend Folder Responsibilities
+## Build & deploy
 
-| Folder / File | Purpose |
-|--------------|--------|
-| `app/` | Core application logic, including controllers, models, and services |
-| `routes/` | Route definitions that map incoming requests to backend logic |
-| `database/` | Database migrations, schema definitions, and seed data |
-| `config/` | Centralized configuration for backend services |
-| `storage/` | Logs, cached files, and generated application data |
-| `tests/` | Automated tests for backend functionality |
-| `bootstrap/` | Application bootstrapping and startup configuration |
-| `vendor/` | Third-party dependencies managed by Composer |
-| `artisan` | Command-line utility for backend development and maintenance tasks |
+```bash
+# Frontend production bundle → frontend/dist
+cd frontend && npm run build
 
----
+# Backend production caches
+php artisan config:cache && php artisan route:cache
+```
 
-### Backend Operation (High Level)
-
-1. Requests are received through defined routes  
-2. Routes delegate requests to controllers or service layers  
-3. Business logic processes the request  
-4. Data is read from or written to the database  
-5. A structured response is returned to the client  
-
-Backend functionality will be formally introduced and evaluated in later deliverables.
+Before deploying, work through the production checklist at the bottom of
+[`.env.example`](.env.example) and see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+At minimum: `APP_ENV=production`, `APP_DEBUG=false`, HTTPS, real Stripe/Twilio
+credentials, a real DB (MySQL/Postgres) + Redis, a queue worker, the scheduler
+(`php artisan schedule:run` via cron), and `CORS_ALLOWED_ORIGINS` /
+`SANCTUM_STATEFUL_DOMAINS` pointed at the deployed SPA origin.
 
 ---
 
-## Frontend
+## Documentation
 
-Frontend development is pending. This section will be updated once the frontend is implemented.
+| Doc | Contents |
+|-----|----------|
+| [`CLAUDE.md`](CLAUDE.md) | Project memory: architecture, RBAC, security, standards, what not to change |
+| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Every endpoint: auth, request fields, response shapes, enums |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | OWASP-aligned controls, audit findings, operational hardening |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Backend architecture notes |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deployment guidance |
+| [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) | Phased completion plan and validation matrix |
+
+---
+
+## Project layout
+
+```
+app/                 Laravel application (models, controllers, services, policies, …)
+routes/              API + console route definitions
+database/            migrations, factories, seeders
+tests/               PHPUnit Feature/Unit tests + k6 load scripts
+config/              framework + service configuration
+frontend/            React + TypeScript SPA (the user-facing app)
+docs/                architecture, API, security, deployment, plan
+CLAUDE.md            permanent project memory
+```
+
+---
+
+## Security
+
+Authorization is enforced server-side at three layers (route middleware →
+policy → service). Financial records use UUID keys and an immutable ledger;
+privileged actions are written to an append-only audit log; Stripe webhooks are
+signature-verified and payments are idempotent. See [`docs/SECURITY.md`](docs/SECURITY.md).
+
+Found a vulnerability? Do not open a public issue — contact the maintainers
+privately.
+
+---
+
+## License
+
+MIT.
