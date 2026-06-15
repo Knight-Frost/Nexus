@@ -1,0 +1,179 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Nexus Design System (Tailwind v4, CSS-first tokens)
+   A restrained, premium palette: warm neutral canvas, deep "evergreen" brand
+   accent (trust / real estate / money), and clear semantic states.
+   ========================================================================== */
+@theme {
+  /* Brand — evergreen */
+  --color-brand-50: #ecfdf6;
+  --color-brand-100: #d1faec;
+  --color-brand-200: #a7f3da;
+  --color-brand-300: #6ee7bf;
+  --color-brand-400: #34d3a2;
+  --color-brand-500: #10b886;
+  --color-brand-600: #069169;
+  --color-brand-700: #047357;
+  --color-brand-800: #065c47;
+  --color-brand-900: #064b3b;
+  --color-brand-950: #022c22;
+
+  /* Ink — warm slate neutrals for text, borders, surfaces */
+  --color-ink-50: #f7f7f6;
+  --color-ink-100: #efeeec;
+  --color-ink-200: #e2e1dd;
+  --color-ink-300: #cbc9c3;
+  --color-ink-400: #a3a099;
+  --color-ink-500: #7a766e;
+  --color-ink-600: #5c5851;
+  --color-ink-700: #44413c;
+  --color-ink-800: #2b2926;
+  --color-ink-900: #1a1917;
+  --color-ink-950: #0f0e0d;
+
+  /* Semantic */
+  --color-success-50: #ecfdf3;
+  --color-success-500: #16a34a;
+  --color-success-600: #15803d;
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #d97706;
+  --color-warning-600: #b45309;
+  --color-danger-50: #fef2f2;
+  --color-danger-500: #dc2626;
+  --color-danger-600: #b91c1c;
+  --color-info-50: #eff6ff;
+  --color-info-500: #2563eb;
+  --color-info-600: #1d4ed8;
+
+  /* Canvas */
+  --color-canvas: #fafaf8;
+  --color-surface: #ffffff;
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Radii */
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+
+  /* Shadows — soft, layered, never harsh */
+  --shadow-sm: 0 1px 2px 0 rgb(15 14 13 / 0.04), 0 1px 3px 0 rgb(15 14 13 / 0.06);
+  --shadow-md: 0 2px 4px -1px rgb(15 14 13 / 0.05), 0 8px 16px -4px rgb(15 14 13 / 0.08);
+  --shadow-lg: 0 12px 32px -8px rgb(15 14 13 / 0.12), 0 2px 6px -2px rgb(15 14 13 / 0.06);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Base layer ---------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--color-ink-200);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    color: var(--color-ink-950);
+  }
+
+  /* Accessible, brand-consistent focus ring everywhere */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Refined scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-200);
+    border-radius: 9999px;
+    border: 2px solid var(--color-canvas);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-300);
+  }
+}
+
+/* ---- Reusable motion ----------------------------------------------------- */
+@layer utilities {
+  @keyframes nx-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes nx-rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes nx-scale-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes nx-shimmer {
+    100% { transform: translateX(100%); }
+  }
+
+  .animate-fade-in {
+    animation: nx-fade-in 0.3s var(--ease-out-soft) both;
+  }
+  .animate-rise {
+    animation: nx-rise 0.4s var(--ease-out-soft) both;
+  }
+  .animate-scale-in {
+    animation: nx-scale-in 0.2s var(--ease-out-soft) both;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-ink-100);
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.6),
+      transparent
+    );
+    animation: nx-shimmer 1.5s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-rise,
+    .animate-scale-in {
+      animation: none;
+    }
+    .skeleton::after {
+      animation: none;
+    }
+  }
+}
