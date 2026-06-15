@@ -148,10 +148,15 @@ function AuthNav({ variant }: { variant: 'full' | 'minimal' }) {
       {variant === 'full' && (
         <>
           <nav className="hidden items-center gap-8 lg:flex">
-            {['Platform', 'Security', 'Solutions', 'Resources', 'About'].map((l) => (
-              <Link key={l} to="/" className="text-sm text-ink-600 transition hover:text-ink-900">
-                {l}
-              </Link>
+            {[
+              { l: 'Listings', h: '/#listings' },
+              { l: 'How it works', h: '/#how' },
+              { l: 'Security', h: '/#trust' },
+              { l: 'For you', h: '/#roles' },
+            ].map((it) => (
+              <a key={it.l} href={it.h} className="text-sm text-ink-700 transition hover:text-brand-400">
+                {it.l}
+              </a>
             ))}
           </nav>
           <div className="flex items-center gap-3 sm:gap-5">
