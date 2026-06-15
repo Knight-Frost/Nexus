@@ -5,7 +5,7 @@ export interface AuthContextValue {
   user: AuthUser | null;
   /** True only during the initial "do we have a valid session?" check. */
   initializing: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (email: string, password: string, remember?: boolean) => Promise<AuthUser>;
   register: (payload: {
     email: string;
     password: string;

@@ -50,13 +50,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<AuthUser> => {
-    const { user: u, token } = await authApi.login(email, password);
-    setToken(token);
-    const authUser = toAuthUser(u);
-    setUser(authUser);
-    return authUser;
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string, remember = true): Promise<AuthUser> => {
+      const { user: u, token } = await authApi.login(email, password);
+      setToken(token, remember);
+      const authUser = toAuthUser(u);
+      setUser(authUser);
+      return authUser;
+    },
+    [],
+  );
 
   const register = useCallback(
     async (payload: {
