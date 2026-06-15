@@ -178,7 +178,6 @@ export function Landing() {
   const roles = [
     { img: IMG.cabin, k: 'I am a tenant', t: 'Find your next home', p: 'Search, save, and apply with confidence, then manage rent and contracts in one place.', cta: 'Browse rentals', feature: false },
     { img: IMG.suburban, k: 'I am a landlord', t: 'Run your properties', p: 'List units, track contracts, and follow rent and tenant activity from a single console.', cta: 'List a property', feature: true },
-    { img: IMG.rolls, k: 'I am an admin', t: 'Protect the platform', p: 'Review listings, moderate content, and watch audit logs to keep Nexus fair for everyone.', cta: 'Open console', feature: false },
   ];
   const feats = [
     { ic: Ic.layers, t: 'Role-aware dashboards', p: 'Tenants, landlords, and admins each see exactly what matters to them.' },

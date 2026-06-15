@@ -138,7 +138,7 @@
 .nx-band p{color:var(--ivory-dim);max-width:46ch;margin-top:18px;font-size:16px}
 
 /* roles */
-.nx-roles{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px}
+.nx-roles{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin-top:48px;max-width:880px}
 @media(max-width:860px){.nx-roles{grid-template-columns:1fr}}
 .nx-role{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);transition:transform .3s,border-color .3s,box-shadow .3s}
 .nx-role:hover{transform:translateY(-5px);border-color:var(--line-strong);box-shadow:0 30px 60px -34px rgba(0,0,0,.9)}
