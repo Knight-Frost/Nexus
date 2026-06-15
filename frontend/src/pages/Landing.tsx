@@ -153,7 +153,7 @@ export function Landing() {
 
   // Authenticated visitors go straight to the app; guests are invited to register.
   const ctaTo = user ? '/app' : '/register';
-  const ctaLabel = user ? 'Go to dashboard' : 'Request access';
+  const ctaLabel = user ? 'Go to dashboard' : 'Register now';
   const exploreTo = user ? '/app' : '/register';
 
   const listings = [
@@ -203,7 +203,7 @@ export function Landing() {
             <a href="#trust">Security</a>
             <a href="#roles">For you</a>
             <Link to={ctaTo} className="nx-req">
-              {user ? 'Dashboard' : 'Request access'}
+              {user ? 'Dashboard' : 'Register now'}
             </Link>
           </div>
         </div>
@@ -415,7 +415,7 @@ export function Landing() {
                 <Link to="/login">Sign in</Link>
                 <Link to="/register">Create account</Link>
                 <a href="#trust">Security</a>
-                <a href="#access">Request access</a>
+                <a href="#access">Register now</a>
               </div>
             </div>
           </div>
