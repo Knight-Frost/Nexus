@@ -165,10 +165,13 @@
 /* cta */
 .nx-cta{position:relative;overflow:hidden;text-align:center;padding:clamp(90px,12vw,150px) 0}
 .nx-cta-img{position:absolute;inset:0}
-.nx-cta-img img{width:100%;height:100%;object-fit:cover;opacity:.22}
-.nx-cta-scrim{position:absolute;inset:0;background:radial-gradient(80% 90% at 50% 50%,rgba(14,17,19,.5),var(--ink))}
+.nx-cta-img img{width:100%;height:100%;object-fit:cover;opacity:.6}
+/* Lighter scrim so the room shows through; a soft vignette blends the edges
+   back into the dark page. Text legibility comes from local text-shadows below. */
+.nx-cta-scrim{position:absolute;inset:0;background:radial-gradient(85% 95% at 50% 50%,rgba(14,17,19,.18),rgba(14,17,19,.74))}
 .nx-cta-in{position:relative;z-index:2}
-.nx-cta h2{font-family:var(--serif);font-weight:500;font-size:clamp(32px,5vw,58px);letter-spacing:-.02em;line-height:1.04;margin:18px auto 0;max-width:16ch}
+.nx-cta .nx-eyebrow{text-shadow:0 1px 12px rgba(10,12,14,.85)}
+.nx-cta h2{font-family:var(--serif);font-weight:500;font-size:clamp(32px,5vw,58px);letter-spacing:-.02em;line-height:1.04;margin:18px auto 0;max-width:16ch;text-shadow:0 0 44px rgba(10,12,14,.9),0 2px 12px rgba(10,12,14,.78)}
 .nx-cta .acts{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
 
 /* footer */
