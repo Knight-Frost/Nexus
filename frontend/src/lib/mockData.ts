@@ -1,0 +1,901 @@
+/**
+ * Ghana-realistic mock data for Nexus local development and Storybook.
+ *
+ * Currency conventions (mirrors the backend):
+ *  - Contract.rent_amount and LedgerEntry.amount_cents → INTEGER CENTS
+ *  - Unit.rent_amount / Unit.security_deposit → DECIMAL STRINGS ("4500.00")
+ *  - Dashboard revenue / balance fields → INTEGER CENTS
+ *
+ * All dates are ISO 8601 strings.
+ */
+
+import type {
+  Listing,
+  Contract,
+  LedgerEntry,
+  Property,
+  AppNotification,
+  AuditLog,
+} from '@/lib/types';
+
+/* ==========================================================================
+   1. MOCK_LISTINGS — 8 Accra listings
+   ========================================================================== */
+export const MOCK_LISTINGS: Listing[] = [
+  {
+    id: 1,
+    unit_id: 101,
+    landlord_id: 10,
+    title: 'Spacious 3-Bed Executive Apartment in East Legon',
+    description:
+      'Fully tiled 3-bedroom apartment with en-suite bathrooms, fitted kitchen, 24/7 water supply, and backup generator. Located in a secure compound estate close to the A&C Mall. Ideal for professionals and families.',
+    status: 'active',
+    rejection_reason: null,
+    published_at: '2026-04-01T08:00:00.000Z',
+    expires_at: '2026-10-01T08:00:00.000Z',
+    featured: true,
+    view_count: 312,
+    pets_allowed: false,
+    pet_policy: null,
+    lease_duration_months: 12,
+    move_in_date: '2026-07-01',
+    unit: {
+      id: 101,
+      property_id: 1,
+      unit_number: 'A3',
+      internal_name: 'Block A — Floor 3',
+      bedrooms: '3',
+      bathrooms: '3',
+      square_feet: 1650,
+      rent_amount: '8500.00',
+      security_deposit: '17000.00',
+      availability_status: 'available',
+      available_from: '2026-07-01',
+      amenities: ['Generator', 'Water tank', 'DSTV', 'Parking', 'Security'],
+      is_active: true,
+      created_at: '2026-01-10T09:00:00.000Z',
+      updated_at: '2026-05-20T11:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-04-01T08:00:00.000Z',
+    updated_at: '2026-05-20T11:00:00.000Z',
+  },
+  {
+    id: 2,
+    unit_id: 102,
+    landlord_id: 10,
+    title: 'Luxury 4-Bed Villa with Pool — Cantonments',
+    description:
+      'Magnificent detached villa on a private plot in Cantonments. Features a 12-metre private pool, landscaped garden, 4 en-suite bedrooms, home cinema, and a fully equipped chef\'s kitchen. Minutes from embassies and top international schools.',
+    status: 'active',
+    rejection_reason: null,
+    published_at: '2026-03-15T10:00:00.000Z',
+    expires_at: '2026-09-15T10:00:00.000Z',
+    featured: true,
+    view_count: 541,
+    pets_allowed: true,
+    pet_policy: 'Well-behaved pets welcome with a refundable pet deposit of GH₵ 5,000.',
+    lease_duration_months: 24,
+    move_in_date: '2026-08-01',
+    unit: {
+      id: 102,
+      property_id: 2,
+      unit_number: 'Villa-1',
+      internal_name: null,
+      bedrooms: '4',
+      bathrooms: '5',
+      square_feet: 3800,
+      rent_amount: '14000.00',
+      security_deposit: '28000.00',
+      availability_status: 'available',
+      available_from: '2026-08-01',
+      amenities: ['Pool', 'Generator', 'Solar panels', 'BQ', 'CCTV', 'Garden', 'Parking x3'],
+      is_active: true,
+      created_at: '2025-12-01T09:00:00.000Z',
+      updated_at: '2026-05-01T09:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-03-15T10:00:00.000Z',
+    updated_at: '2026-05-01T09:00:00.000Z',
+  },
+  {
+    id: 3,
+    unit_id: 103,
+    landlord_id: 11,
+    title: 'Modern 2-Bed Apartment — Labone Close',
+    description:
+      'Tastefully finished 2-bedroom apartment on the quiet cul-de-sac of Labone Close. Open-plan living, marble floors, modular kitchen, and a private balcony overlooking the courtyard garden. Walking distance to Labone market and restaurants.',
+    status: 'active',
+    rejection_reason: null,
+    published_at: '2026-05-02T07:30:00.000Z',
+    expires_at: '2026-11-02T07:30:00.000Z',
+    featured: false,
+    view_count: 188,
+    pets_allowed: false,
+    pet_policy: null,
+    lease_duration_months: 12,
+    move_in_date: '2026-07-15',
+    unit: {
+      id: 103,
+      property_id: 3,
+      unit_number: 'B2',
+      internal_name: 'Courtyard Wing — Unit 2',
+      bedrooms: '2',
+      bathrooms: '2',
+      square_feet: 1100,
+      rent_amount: '5800.00',
+      security_deposit: '11600.00',
+      availability_status: 'available',
+      available_from: '2026-07-15',
+      amenities: ['Generator', 'Water tank', 'Air conditioning', 'Parking'],
+      is_active: true,
+      created_at: '2026-02-14T08:00:00.000Z',
+      updated_at: '2026-05-02T07:30:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-05-02T07:30:00.000Z',
+    updated_at: '2026-05-02T07:30:00.000Z',
+  },
+  {
+    id: 4,
+    unit_id: 104,
+    landlord_id: 12,
+    title: 'Contemporary Studio — Osu Oxford Street',
+    description:
+      'Compact, well-designed studio apartment in the heart of Osu. Perfect for young professionals. Open-plan sleeping and living area, wet room, kitchenette, and high-speed fibre internet. Steps from restaurants, cafes, and nightlife.',
+    status: 'active',
+    rejection_reason: null,
+    published_at: '2026-05-10T09:00:00.000Z',
+    expires_at: '2026-11-10T09:00:00.000Z',
+    featured: false,
+    view_count: 94,
+    pets_allowed: false,
+    pet_policy: null,
+    lease_duration_months: 6,
+    move_in_date: '2026-06-20',
+    unit: {
+      id: 104,
+      property_id: 4,
+      unit_number: 'S1',
+      internal_name: 'Studio — Ground Floor',
+      bedrooms: '0',
+      bathrooms: '1',
+      square_feet: 420,
+      rent_amount: '2800.00',
+      security_deposit: '5600.00',
+      availability_status: 'available',
+      available_from: '2026-06-20',
+      amenities: ['Fibre internet', 'Air conditioning', 'Security', 'Water tank'],
+      is_active: true,
+      created_at: '2026-04-20T10:00:00.000Z',
+      updated_at: '2026-05-10T09:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-05-10T09:00:00.000Z',
+    updated_at: '2026-05-10T09:00:00.000Z',
+  },
+  {
+    id: 5,
+    unit_id: 105,
+    landlord_id: 11,
+    title: 'Airport Residential — 3-Bed Townhouse',
+    description:
+      'Well-maintained 3-storey townhouse in Airport Residential Area. Three bedrooms with wardrobes, 2.5 baths, rooftop terrace, and private carport. Close to Kotoka International Airport and major corporate offices.',
+    status: 'pending_review',
+    rejection_reason: null,
+    published_at: null,
+    expires_at: null,
+    featured: false,
+    view_count: 0,
+    pets_allowed: true,
+    pet_policy: 'Small pets only. Non-refundable GH₵ 2,000 cleaning fee applies.',
+    lease_duration_months: 12,
+    move_in_date: '2026-08-15',
+    unit: {
+      id: 105,
+      property_id: 5,
+      unit_number: 'TH-04',
+      internal_name: null,
+      bedrooms: '3',
+      bathrooms: '3',
+      square_feet: 2100,
+      rent_amount: '7200.00',
+      security_deposit: '14400.00',
+      availability_status: 'pending',
+      available_from: '2026-08-15',
+      amenities: ['Rooftop terrace', 'Generator', 'Parking', 'DSTV', 'Water tank'],
+      is_active: true,
+      created_at: '2026-05-05T12:00:00.000Z',
+      updated_at: '2026-06-01T14:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-06-01T14:00:00.000Z',
+    updated_at: '2026-06-15T10:00:00.000Z',
+  },
+  {
+    id: 6,
+    unit_id: 106,
+    landlord_id: 13,
+    title: 'Affordable 2-Bed Self-Contained — Adenta',
+    description:
+      'Clean and quiet 2-bedroom self-contained apartment in Adenta Housing. Tiled throughout, security door, and shared compound. Great for families on a budget. Close to Adenta market and shuttle routes.',
+    status: 'active',
+    rejection_reason: null,
+    published_at: '2026-04-18T08:00:00.000Z',
+    expires_at: '2026-10-18T08:00:00.000Z',
+    featured: false,
+    view_count: 237,
+    pets_allowed: false,
+    pet_policy: null,
+    lease_duration_months: 12,
+    move_in_date: '2026-07-01',
+    unit: {
+      id: 106,
+      property_id: 6,
+      unit_number: 'C2',
+      internal_name: 'Block C Ground',
+      bedrooms: '2',
+      bathrooms: '1',
+      square_feet: 780,
+      rent_amount: '3200.00',
+      security_deposit: '6400.00',
+      availability_status: 'available',
+      available_from: '2026-07-01',
+      amenities: ['Water tank', 'Security', 'Parking'],
+      is_active: true,
+      created_at: '2026-03-10T09:00:00.000Z',
+      updated_at: '2026-04-18T08:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-04-18T08:00:00.000Z',
+    updated_at: '2026-04-18T08:00:00.000Z',
+  },
+  {
+    id: 7,
+    unit_id: 107,
+    landlord_id: 13,
+    title: 'Spintex Road — 1-Bed Furnished Apartment',
+    description:
+      'Fully furnished and serviced 1-bedroom apartment on the Spintex Road corridor. Includes all furniture, 55" smart TV, washing machine, and fibre internet. Short-let and long-let options available.',
+    status: 'draft',
+    rejection_reason: null,
+    published_at: null,
+    expires_at: null,
+    featured: false,
+    view_count: 0,
+    pets_allowed: false,
+    pet_policy: null,
+    lease_duration_months: 6,
+    move_in_date: null,
+    unit: {
+      id: 107,
+      property_id: 7,
+      unit_number: 'F1',
+      internal_name: 'Furnished Suite 1',
+      bedrooms: '1',
+      bathrooms: '1',
+      square_feet: 620,
+      rent_amount: '4500.00',
+      security_deposit: '9000.00',
+      availability_status: 'available',
+      available_from: null,
+      amenities: ['Fully furnished', 'Smart TV', 'Washing machine', 'Fibre', 'Air conditioning'],
+      is_active: true,
+      created_at: '2026-06-01T10:00:00.000Z',
+      updated_at: '2026-06-10T15:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-06-10T15:00:00.000Z',
+    updated_at: '2026-06-15T09:00:00.000Z',
+  },
+  {
+    id: 8,
+    unit_id: 108,
+    landlord_id: 14,
+    title: 'Dansoman — 3-Bed Family House',
+    description:
+      'Solid 3-bedroom storey house in a calm Dansoman neighbourhood. Large compound suitable for children, dedicated BQ, and garage. Well-established area with good roads and easy access to Graphic Road.',
+    status: 'rejected',
+    rejection_reason: 'Listing photos are required before approval. Please upload at least 3 photos of the interior and exterior.',
+    published_at: null,
+    expires_at: null,
+    featured: false,
+    view_count: 0,
+    pets_allowed: true,
+    pet_policy: null,
+    lease_duration_months: 24,
+    move_in_date: '2026-09-01',
+    unit: {
+      id: 108,
+      property_id: 8,
+      unit_number: 'House-1',
+      internal_name: null,
+      bedrooms: '3',
+      bathrooms: '2',
+      square_feet: 1850,
+      rent_amount: '4200.00',
+      security_deposit: '8400.00',
+      availability_status: 'available',
+      available_from: '2026-09-01',
+      amenities: ['BQ', 'Garage', 'Compound', 'Water tank'],
+      is_active: true,
+      created_at: '2026-05-25T08:00:00.000Z',
+      updated_at: '2026-06-05T11:00:00.000Z',
+    },
+    photos: [],
+    primary_photo: null,
+    created_at: '2026-06-05T11:00:00.000Z',
+    updated_at: '2026-06-12T16:00:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   2. MOCK_CONTRACTS — 3 contracts
+   ========================================================================== */
+export const MOCK_CONTRACTS: Contract[] = [
+  {
+    id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890',
+    listing_id: 3,
+    landlord_id: 11,
+    tenant_id: 20,
+    rent_amount: 580000, // GH₵ 5,800 in cents
+    currency: 'GHS',
+    billing_cycle: 'monthly',
+    payment_day: 1,
+    start_date: '2026-02-01',
+    end_date: '2027-01-31',
+    status: 'active',
+    terminated_by: null,
+    termination_reason: null,
+    created_at: '2026-01-20T10:00:00.000Z',
+  },
+  {
+    id: 'd2e3f4a5-b6c7-8901-bcde-fa2345678901',
+    listing_id: 6,
+    landlord_id: 13,
+    tenant_id: 21,
+    rent_amount: 320000, // GH₵ 3,200 in cents
+    currency: 'GHS',
+    billing_cycle: 'monthly',
+    payment_day: 5,
+    start_date: '2026-07-05',
+    end_date: '2027-07-04',
+    status: 'draft',
+    terminated_by: null,
+    termination_reason: null,
+    created_at: '2026-06-14T09:00:00.000Z',
+  },
+  {
+    id: 'e3f4a5b6-c7d8-9012-cdef-ab3456789012',
+    listing_id: 1,
+    landlord_id: 10,
+    tenant_id: 22,
+    rent_amount: 750000, // GH₵ 7,500 in cents
+    currency: 'GHS',
+    billing_cycle: 'monthly',
+    payment_day: 1,
+    start_date: '2025-01-01',
+    end_date: '2025-12-31',
+    status: 'expired',
+    terminated_by: null,
+    termination_reason: null,
+    created_at: '2024-12-15T08:00:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   3. MOCK_LEDGER — 6 ledger entries
+   ========================================================================== */
+export const MOCK_LEDGER: LedgerEntry[] = [
+  {
+    id: 'led-0001-aaaa-bbbb-cccc-ddddeeee0001',
+    contract_id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890',
+    tenant_id: 20,
+    landlord_id: 11,
+    type: 'rent',
+    amount_cents: 580000,
+    currency: 'GHS',
+    billing_period_start: '2026-06-01',
+    billing_period_end: '2026-06-30',
+    due_date: '2026-06-01',
+    status: 'paid',
+    related_rent_entry_id: null,
+    stripe_payment_intent_id: 'pi_3PZqABCD1234efgh5678',
+    created_at: '2026-06-01T00:01:00.000Z',
+  },
+  {
+    id: 'led-0002-aaaa-bbbb-cccc-ddddeeee0002',
+    contract_id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890',
+    tenant_id: 20,
+    landlord_id: 11,
+    type: 'rent',
+    amount_cents: 580000,
+    currency: 'GHS',
+    billing_period_start: '2026-07-01',
+    billing_period_end: '2026-07-31',
+    due_date: '2026-07-01',
+    status: 'pending',
+    related_rent_entry_id: null,
+    stripe_payment_intent_id: null,
+    created_at: '2026-07-01T00:01:00.000Z',
+  },
+  {
+    id: 'led-0003-aaaa-bbbb-cccc-ddddeeee0003',
+    contract_id: 'e3f4a5b6-c7d8-9012-cdef-ab3456789012',
+    tenant_id: 22,
+    landlord_id: 10,
+    type: 'rent',
+    amount_cents: 750000,
+    currency: 'GHS',
+    billing_period_start: '2025-12-01',
+    billing_period_end: '2025-12-31',
+    due_date: '2025-12-01',
+    status: 'overdue',
+    related_rent_entry_id: null,
+    stripe_payment_intent_id: null,
+    created_at: '2025-12-01T00:01:00.000Z',
+  },
+  {
+    id: 'led-0004-aaaa-bbbb-cccc-ddddeeee0004',
+    contract_id: 'e3f4a5b6-c7d8-9012-cdef-ab3456789012',
+    tenant_id: 22,
+    landlord_id: 10,
+    type: 'late_fee',
+    amount_cents: 37500, // 5% of 750000
+    currency: 'GHS',
+    billing_period_start: null,
+    billing_period_end: null,
+    due_date: '2025-12-16',
+    status: 'pending',
+    related_rent_entry_id: 'led-0003-aaaa-bbbb-cccc-ddddeeee0003',
+    stripe_payment_intent_id: null,
+    created_at: '2025-12-16T08:00:00.000Z',
+  },
+  {
+    id: 'led-0005-aaaa-bbbb-cccc-ddddeeee0005',
+    contract_id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890',
+    tenant_id: 20,
+    landlord_id: 11,
+    type: 'rent',
+    amount_cents: 580000,
+    currency: 'GHS',
+    billing_period_start: '2026-05-01',
+    billing_period_end: '2026-05-31',
+    due_date: '2026-05-01',
+    status: 'paid',
+    related_rent_entry_id: null,
+    stripe_payment_intent_id: 'pi_3OYpZEFG5678ijkl9012',
+    created_at: '2026-05-01T00:01:00.000Z',
+  },
+  {
+    id: 'led-0006-aaaa-bbbb-cccc-ddddeeee0006',
+    contract_id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890',
+    tenant_id: 20,
+    landlord_id: 11,
+    type: 'rent',
+    amount_cents: 580000,
+    currency: 'GHS',
+    billing_period_start: '2026-04-01',
+    billing_period_end: '2026-04-30',
+    due_date: '2026-04-01',
+    status: 'paid',
+    related_rent_entry_id: null,
+    stripe_payment_intent_id: 'pi_3NXoYDEF4567ghij8901',
+    created_at: '2026-04-01T00:01:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   4. MOCK_PROPERTIES — 3 properties
+   ========================================================================== */
+export const MOCK_PROPERTIES: Property[] = [
+  {
+    id: 1,
+    landlord_id: 10,
+    name: 'East Legon Heights',
+    property_type: 'apartment',
+    street_address: '14 Boundary Road',
+    street_address_2: 'East Legon',
+    city: 'Accra',
+    state: 'Greater Accra',
+    zip_code: 'GA-123-4567',
+    country: 'Ghana',
+    year_built: 2019,
+    lot_size: '0.35 acres',
+    description: 'A gated compound of 8 luxury apartments in the heart of East Legon.',
+    is_active: true,
+    units_count: 8,
+    created_at: '2026-01-05T08:00:00.000Z',
+    updated_at: '2026-05-20T11:00:00.000Z',
+  },
+  {
+    id: 2,
+    landlord_id: 10,
+    name: 'Cantonments Villa Estate',
+    property_type: 'single_family',
+    street_address: '7A Cantonments Road',
+    street_address_2: null,
+    city: 'Accra',
+    state: 'Greater Accra',
+    zip_code: 'GA-200-0012',
+    country: 'Ghana',
+    year_built: 2017,
+    lot_size: '0.8 acres',
+    description: 'Premium detached villas with private pools in the prestigious Cantonments enclave.',
+    is_active: true,
+    units_count: 3,
+    created_at: '2025-11-20T09:00:00.000Z',
+    updated_at: '2026-05-01T09:00:00.000Z',
+  },
+  {
+    id: 3,
+    landlord_id: 11,
+    name: 'Labone Close Residences',
+    property_type: 'multi_family',
+    street_address: '3 Labone Close',
+    street_address_2: null,
+    city: 'Accra',
+    state: 'Greater Accra',
+    zip_code: 'GA-110-3390',
+    country: 'Ghana',
+    year_built: 2021,
+    lot_size: '0.5 acres',
+    description: 'Boutique residential block of 6 units overlooking a private courtyard garden.',
+    is_active: true,
+    units_count: 6,
+    created_at: '2026-02-01T08:00:00.000Z',
+    updated_at: '2026-05-02T07:30:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   5. MOCK_NOTIFICATIONS — 5 notifications
+   ========================================================================== */
+export const MOCK_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: 'notif-aaaa-1111-bbbb-cccc-dddd00000001',
+    user_id: 20,
+    type: 'rent_due_soon',
+    title: 'Rent Due in 3 Days',
+    message: 'Your rent of GH₵ 5,800 for Labone Close Residences is due on 1 July 2026. Please ensure your payment is ready.',
+    data: { amount_cents: 580000, due_date: '2026-07-01', contract_id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890' },
+    read_at: null,
+    created_at: '2026-06-28T08:00:00.000Z',
+  },
+  {
+    id: 'notif-aaaa-2222-bbbb-cccc-dddd00000002',
+    user_id: 20,
+    type: 'payment_succeeded',
+    title: 'Payment Confirmed',
+    message: 'Your rent payment of GH₵ 5,800 for June 2026 has been received. Thank you.',
+    data: { amount_cents: 580000, stripe_payment_intent_id: 'pi_3PZqABCD1234efgh5678' },
+    read_at: '2026-06-03T10:00:00.000Z',
+    created_at: '2026-06-02T14:30:00.000Z',
+  },
+  {
+    id: 'notif-aaaa-3333-bbbb-cccc-dddd00000003',
+    user_id: 20,
+    type: 'contract_signed',
+    title: 'Your Contract is Now Active',
+    message: 'The tenancy agreement for Labone Close Residences, Unit B2 is now active. Your lease runs from 1 Feb 2026 to 31 Jan 2027.',
+    data: { contract_id: 'c1a2b3d4-e5f6-7890-abcd-ef1234567890' },
+    read_at: '2026-01-22T09:00:00.000Z',
+    created_at: '2026-01-20T16:00:00.000Z',
+  },
+  {
+    id: 'notif-aaaa-4444-bbbb-cccc-dddd00000004',
+    user_id: 22,
+    type: 'rent_overdue',
+    title: 'Rent Overdue — Action Required',
+    message: 'Your rent payment of GH₵ 7,500 for December 2025 is now overdue. A late fee of GH₵ 375 has been applied. Please pay immediately to avoid further charges.',
+    data: { amount_cents: 750000, late_fee_cents: 37500 },
+    read_at: null,
+    created_at: '2025-12-16T08:05:00.000Z',
+  },
+  {
+    id: 'notif-aaaa-5555-bbbb-cccc-dddd00000005',
+    user_id: 21,
+    type: 'contract_signed',
+    title: 'Contract Draft Ready for Review',
+    message: 'Your landlord has prepared a tenancy agreement for Adenta Housing, Unit C2. Please review and sign.',
+    data: { contract_id: 'd2e3f4a5-b6c7-8901-bcde-fa2345678901' },
+    read_at: null,
+    created_at: '2026-06-14T10:00:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   6. MOCK_AUDIT_LOGS — 6 audit log entries
+   ========================================================================== */
+export const MOCK_AUDIT_LOGS: AuditLog[] = [
+  {
+    id: 1001,
+    actor_type: 'Admin',
+    actor_id: 1,
+    subject_type: 'Listing',
+    subject_id: 3,
+    action: 'listing.approved',
+    description: 'Listing "Modern 2-Bed Apartment — Labone Close" approved and set to active.',
+    ip_address: '197.255.100.12',
+    severity: 'info',
+    metadata: { listing_id: 3, status_from: 'pending_review', status_to: 'active' },
+    created_at: '2026-05-02T07:31:00.000Z',
+  },
+  {
+    id: 1002,
+    actor_type: 'Admin',
+    actor_id: 1,
+    subject_type: 'Listing',
+    subject_id: 8,
+    action: 'listing.rejected',
+    description: 'Listing "Dansoman — 3-Bed Family House" rejected. Reason: photos required.',
+    ip_address: '197.255.100.12',
+    severity: 'warning',
+    metadata: { listing_id: 8, reason: 'Listing photos are required before approval.' },
+    created_at: '2026-06-12T16:00:00.000Z',
+  },
+  {
+    id: 1003,
+    actor_type: 'User',
+    actor_id: 20,
+    subject_type: 'LedgerEntry',
+    subject_id: null,
+    action: 'payment.initiated',
+    description: 'Tenant Kwame Asante initiated rent payment of GH₵ 5,800 via Stripe.',
+    ip_address: '154.120.45.67',
+    severity: 'info',
+    metadata: { amount_cents: 580000, stripe_pi: 'pi_3PZqABCD1234efgh5678' },
+    created_at: '2026-06-02T14:28:00.000Z',
+  },
+  {
+    id: 1004,
+    actor_type: 'Admin',
+    actor_id: 1,
+    subject_type: 'LedgerEntry',
+    subject_id: null,
+    action: 'late_fee.generated',
+    description: 'Late fee of GH₵ 375 applied to overdue December 2025 rent for contract e3f4a5b6.',
+    ip_address: null,
+    severity: 'warning',
+    metadata: { fee_cents: 37500, contract_id: 'e3f4a5b6-c7d8-9012-cdef-ab3456789012' },
+    created_at: '2025-12-16T08:00:00.000Z',
+  },
+  {
+    id: 1005,
+    actor_type: 'User',
+    actor_id: 10,
+    subject_type: 'Contract',
+    subject_id: null,
+    action: 'contract.sent',
+    description: 'Landlord Yaw Mensah sent contract draft to tenant Ama Serwaa for unit A3.',
+    ip_address: '41.66.200.88',
+    severity: 'info',
+    metadata: { contract_id: 'e3f4a5b6-c7d8-9012-cdef-ab3456789012' },
+    created_at: '2024-12-15T08:05:00.000Z',
+  },
+  {
+    id: 1006,
+    actor_type: 'User',
+    actor_id: 22,
+    subject_type: 'Contract',
+    subject_id: null,
+    action: 'contract.terminated',
+    description: 'Tenant Ama Serwaa initiated early termination of contract e3f4a5b6. Reason: relocating abroad.',
+    ip_address: '154.120.45.90',
+    severity: 'critical',
+    metadata: {
+      contract_id: 'e3f4a5b6-c7d8-9012-cdef-ab3456789012',
+      terminated_by: 'tenant',
+      reason: 'Relocating abroad',
+    },
+    created_at: '2025-11-30T11:00:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   7. MOCK_TENANT_DASHBOARD
+   ========================================================================== */
+export const MOCK_TENANT_DASHBOARD = {
+  upcoming_rent: {
+    amount_cents: 580000, // GH₵ 5,800
+    due_date: '2026-07-01',
+    status: 'pending' as const,
+  },
+  active_contract: MOCK_CONTRACTS[0],
+  balance_cents: 0,
+  saved_count: 5,
+  application_count: 2,
+};
+
+/* ==========================================================================
+   8. MOCK_LANDLORD_DASHBOARD
+   ========================================================================== */
+export const MOCK_LANDLORD_DASHBOARD = {
+  total_units: 17,
+  occupied_units: 13,
+  occupancy_pct: 76,
+  monthly_revenue_cents: 16500000, // GH₵ 165,000
+  overdue_cents: 787500,           // GH₵ 7,875
+  pending_applications: 4,
+  pending_maintenance: 2,
+  revenue_history: [
+    13200000, // Jan
+    13200000, // Feb
+    14800000, // Mar
+    14800000, // Apr
+    15600000, // May
+    16500000, // Jun
+    16500000, // Jul (projected)
+  ],
+};
+
+/* ==========================================================================
+   9. MOCK_ADMIN_DASHBOARD
+   ========================================================================== */
+export const MOCK_ADMIN_DASHBOARD = {
+  review_queue: 7,
+  verification_queue: 3,
+  open_disputes: 2,
+  ledger_volume_cents: 248750000, // GH₵ 2,487,500 platform-wide YTD
+  platform_alerts: [
+    {
+      type: 'danger' as const,
+      message: '2 Stripe webhook deliveries failed in the last 24 hours. Check the event log.',
+      time: '2026-06-18T05:12:00.000Z',
+    },
+    {
+      type: 'warning' as const,
+      message: '3 landlord identity verifications have been pending for more than 5 days.',
+      time: '2026-06-17T09:00:00.000Z',
+    },
+    {
+      type: 'info' as const,
+      message: 'Platform processed GH₵ 248,750 in rent payments this month — up 18% MoM.',
+      time: '2026-06-18T00:00:00.000Z',
+    },
+  ],
+  recent_audit: [
+    {
+      action: 'listing.rejected',
+      subject: 'Listing #8 — Dansoman',
+      time: '2026-06-12T16:00:00.000Z',
+      severity: 'warning' as const,
+    },
+    {
+      action: 'listing.approved',
+      subject: 'Listing #3 — Labone',
+      time: '2026-05-02T07:31:00.000Z',
+      severity: 'info' as const,
+    },
+    {
+      action: 'contract.terminated',
+      subject: 'Contract e3f4a5b6',
+      time: '2025-11-30T11:00:00.000Z',
+      severity: 'critical' as const,
+    },
+    {
+      action: 'late_fee.generated',
+      subject: 'Contract e3f4a5b6',
+      time: '2025-12-16T08:00:00.000Z',
+      severity: 'warning' as const,
+    },
+    {
+      action: 'payment.initiated',
+      subject: 'Kwame Asante — GH₵ 5,800',
+      time: '2026-06-02T14:28:00.000Z',
+      severity: 'info' as const,
+    },
+  ],
+};
+
+/* ==========================================================================
+   10. MOCK_MAINTENANCE_REQUESTS
+   ========================================================================== */
+export const MOCK_MAINTENANCE_REQUESTS: {
+  id: string;
+  unit: string;
+  property: string;
+  issue: string;
+  status: 'open' | 'in_progress' | 'resolved';
+  priority: 'urgent' | 'normal' | 'low';
+  created_at: string;
+}[] = [
+  {
+    id: 'maint-0001',
+    unit: 'A3',
+    property: 'East Legon Heights',
+    issue: 'Generator fails to auto-start during power outage. Tenants without power for several hours.',
+    status: 'open' as const,
+    priority: 'urgent' as const,
+    created_at: '2026-06-16T20:00:00.000Z',
+  },
+  {
+    id: 'maint-0002',
+    unit: 'B2',
+    property: 'Labone Close Residences',
+    issue: 'Kitchen tap dripping continuously. Possible worn washer.',
+    status: 'in_progress' as const,
+    priority: 'normal' as const,
+    created_at: '2026-06-10T09:00:00.000Z',
+  },
+  {
+    id: 'maint-0003',
+    unit: 'Villa-1',
+    property: 'Cantonments Villa Estate',
+    issue: 'Pool pump making unusual noise. Pool water circulation reduced.',
+    status: 'open' as const,
+    priority: 'normal' as const,
+    created_at: '2026-06-14T11:30:00.000Z',
+  },
+  {
+    id: 'maint-0004',
+    unit: 'C2',
+    property: 'Adenta Housing',
+    issue: 'Bedroom ceiling paint peeling near window. Suspected roof leak from recent rains.',
+    status: 'resolved' as const,
+    priority: 'low' as const,
+    created_at: '2026-05-28T14:00:00.000Z',
+  },
+];
+
+/* ==========================================================================
+   11. MOCK_APPLICANTS
+   ========================================================================== */
+export const MOCK_APPLICANTS: {
+  id: string;
+  name: string;
+  email: string;
+  property: string;
+  unit: string;
+  applied_at: string;
+  status: 'pending' | 'approved' | 'rejected';
+  verified: boolean;
+}[] = [
+  {
+    id: 'appl-0001',
+    name: 'Kofi Boateng',
+    email: 'k.boateng@gmail.com',
+    property: 'East Legon Heights',
+    unit: 'A3',
+    applied_at: '2026-06-10T08:30:00.000Z',
+    status: 'pending',
+    verified: true,
+  },
+  {
+    id: 'appl-0002',
+    name: 'Adwoa Owusu',
+    email: 'adwoa.owusu@yahoo.com',
+    property: 'Labone Close Residences',
+    unit: 'B2',
+    applied_at: '2026-06-08T11:00:00.000Z',
+    status: 'approved',
+    verified: true,
+  },
+  {
+    id: 'appl-0003',
+    name: 'Efua Darko',
+    email: 'efua.d@hotmail.com',
+    property: 'Adenta Housing',
+    unit: 'C2',
+    applied_at: '2026-06-12T14:00:00.000Z',
+    status: 'pending',
+    verified: false,
+  },
+  {
+    id: 'appl-0004',
+    name: 'Nana Akosua Asare',
+    email: 'na.asare@ug.edu.gh',
+    property: 'East Legon Heights',
+    unit: 'A3',
+    applied_at: '2026-06-13T10:45:00.000Z',
+    status: 'rejected',
+    verified: true,
+  },
+];

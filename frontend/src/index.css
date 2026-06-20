@@ -1,74 +1,243 @@
 @import 'tailwindcss';
 
 /* ==========================================================================
-   Nexus Design System (Tailwind v4, CSS-first tokens)
-   Dark, editorial "evergreen-gold" theme — unified with the landing page.
-   Tokens are SEMANTIC: the `ink` scale runs dark→light so higher numbers are
-   lighter text on the dark canvas; `brand` is gold; `surface`/`canvas` are the
-   dark elevations. Components reference these, so the whole app themes together.
+   Nexus Design System — "Nexus Jade"
+   Sophisticated oxidized mineral teal. Premium architecture, trust.
+   Dark mode: luminous jade glows against obsidian.
+   Light mode: deep rich jade on warm pearl surfaces.
+
+   Tokens are SEMANTIC, not literal:
+     - `ink`      runs surfaces/borders (low) -> text (high). Values flip
+                  per theme; the meaning of each step is constant.
+     - `brand`    is the jade accent. Luminous on dark, deep-rich on light.
+     - `on-brand` is the text color that sits ON a brand fill (button face).
+     - `canvas`/`surface` are page + elevated backgrounds.
+
+   DARK values live in @theme (the default). LIGHT values override the same
+   custom properties under `:root[data-theme='light']`. Tailwind v4 emits
+   utilities as `var(--color-*)`, so overriding the variable re-themes the app.
    ========================================================================== */
+
 @theme {
-  /* Brand — gold */
-  --color-brand-50: #211d13; /* faint gold-tinted dark (chips, active bg) */
-  --color-brand-100: #2c2716;
-  --color-brand-200: #463c22; /* rings / hairlines */
-  --color-brand-300: #6f5d33;
-  --color-brand-400: #e3cb8c; /* gold-soft (text/hover on dark) */
-  --color-brand-500: #d8b46a; /* focus ring */
-  --color-brand-600: #c9a45b; /* gold */
-  --color-brand-700: #c9a45b; /* primary accent / button bg */
-  --color-brand-800: #e3cb8c; /* gold text on dark (links, badges, hovers) */
-  --color-brand-900: #9a7842; /* gold-deep */
-  --color-brand-950: #18130b;
+  /* ── Obsidian Pearl — approved tenant dashboard palette (June 2026) ─────── */
+  /* These do NOT participate in the brand/ink semantic scale.                 */
+  /* Sidebar and hero use obsidian always; never override these per theme.     */
+  --color-obsidian:        #1B1C2A; /* sidebar bg, hero overlay base */
+  --color-obsidian-light:  #252638; /* active nav item bg */
+  --color-obsidian-dim:    #13141F; /* deepest shadow areas */
+  --color-obsidian-border: #2D2E40; /* dividers inside obsidian surface */
+  --color-mint:            #22C49A; /* accent: CTAs, active nav, progress, name */
+  --color-mint-dim:        #19A881; /* hover / pressed state */
+  --color-mint-light:      #D4F5EC; /* status badge backgrounds */
+  --color-pearl:           #F0F0EA; /* light-mode page background */
+  --color-on-obsidian:     #FFFFFF;
+  --color-on-mint:         #FFFFFF;
 
-  /* Ink — dark→light. Low = dark elevations/borders, high = light text. */
-  --color-ink-50: #1b2026; /* subtle elevated surface / row hover */
-  --color-ink-100: #20262d; /* hover bg / skeleton */
-  --color-ink-200: #262d34; /* default borders */
-  --color-ink-300: #353d45; /* stronger borders / dividers */
-  --color-ink-400: #6b726f; /* faint text / placeholders */
-  --color-ink-500: #909896; /* muted / secondary text */
-  --color-ink-600: #aab0ab; /* readable secondary text */
-  --color-ink-700: #c2bdb2; /* body text */
-  --color-ink-800: #cdc8bc; /* labels / strong-ish text */
-  --color-ink-900: #ebe7de; /* primary text */
-  --color-ink-950: #f4f1ea; /* headings (ivory) */
+  /* Brand — Nexus Jade luminous on dark obsidian */
+  --color-brand-50:  #0D1F1B;
+  --color-brand-100: #142A25;
+  --color-brand-200: #1D3D37;
+  --color-brand-300: #2A5249;
+  --color-brand-400: #2DA89C;
+  --color-brand-500: #2ABFAD; /* focus ring */
+  --color-brand-600: #0E8478; /* button fill — controlled, not blinding */
+  --color-brand-700: #2EC8B6; /* text links on dark — luminous jade */
+  --color-brand-800: #46D6C6; /* emphasized text */
+  --color-brand-900: #2ABFAD;
+  --color-brand-950: #0A1918;
 
-  /* Semantic — accents readable on dark, with dark-tinted backgrounds */
-  --color-success-50: #13211a;
-  --color-success-500: #7fb394;
-  --color-success-600: #7fb394;
-  --color-warning-50: #241c11;
-  --color-warning-500: #d9a24b;
-  --color-warning-600: #d9a24b;
-  --color-danger-50: #261515;
-  --color-danger-500: #e08585;
-  --color-danger-600: #d65f5f;
-  --color-info-50: #141d24;
-  --color-info-500: #8fb3cc;
-  --color-info-600: #8fb3cc;
+  /* Ink — graphite scale for dark, surfaces->text */
+  --color-ink-50:  #181E2C; /* subtlest surface, row hover */
+  --color-ink-100: #1E2438; /* hover bg, skeleton */
+  --color-ink-200: #252D40; /* default borders */
+  --color-ink-300: #2E384E; /* stronger borders */
+  --color-ink-400: #4F5E7A; /* placeholders */
+  --color-ink-500: #7880A0; /* muted text */
+  --color-ink-600: #98A4C0; /* readable secondary text */
+  --color-ink-700: #B8C0D4; /* body text */
+  --color-ink-800: #CAD0E4; /* labels / strong text */
+  --color-ink-900: #E0E6F2; /* primary text */
+  --color-ink-950: #EEF2FA; /* headings */
 
-  /* Canvas */
-  --color-canvas: #0e1113;
-  --color-surface: #161b20;
+  /* Semantic — DARK defaults */
+  --color-success-50:  #0D1E17;
+  --color-success-500: #34CC84;
+  --color-success-600: #34CC84;
+  --color-warning-50:  #1E1606;
+  --color-warning-500: #F0A42A;
+  --color-warning-600: #F0A42A;
+  --color-danger-50:   #1C0E0C;
+  --color-danger-500:  #F46054;
+  --color-danger-600:  #F46054;
+  /* Solid danger fill for buttons — dark enough to carry a white label (5.4:1). */
+  --color-danger-solid: #C23420;
+  --color-danger-solid-hover: #A62A18;
+  --color-info-50:  #0C1420;
+  --color-info-500: #5C8ED6;
+  --color-info-600: #5C8ED6;
 
-  /* Typography — editorial serif display + clean sans + mono accents */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
-    Roboto, Helvetica, Arial, sans-serif;
-  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* Canvas + on-brand (DARK defaults) */
+  --color-canvas:   #0C0F18; /* obsidian, barely blue-black */
+  --color-surface:  #131820; /* card/sidebar surface */
+  --color-on-brand: #FFFFFF;
+
+  /* Typography — switching to Space Grotesk + Hanken Grotesque */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans:    'Hanken Grotesque', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
 
   /* Radii */
-  --radius-xl: 0.875rem;
+  --radius-xl:  0.875rem;
   --radius-2xl: 1.125rem;
 
-  /* Shadows — deep, for elevation on the dark canvas */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 0 rgb(0 0 0 / 0.4);
-  --shadow-md: 0 2px 6px -1px rgb(0 0 0 / 0.4), 0 12px 26px -6px rgb(0 0 0 / 0.55);
-  --shadow-lg: 0 26px 60px -20px rgb(0 0 0 / 0.7), 0 4px 14px -4px rgb(0 0 0 / 0.5);
+  /* Shadows — DARK defaults (deep cinematic) */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.6);
+  --shadow-md: 0 2px 6px -1px rgb(0 0 0 / 0.55), 0 12px 26px -6px rgb(0 0 0 / 0.65);
+  --shadow-lg: 0 26px 60px -20px rgb(0 0 0 / 0.85), 0 4px 14px -4px rgb(0 0 0 / 0.55);
 
   /* Motion */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ==========================================================================
+   LIGHT THEME
+   Warm pearl canvas. Deep rich jade is the primary interactive color.
+   Canvas: #F0EDE8 (warm pearl — slightly warm, NOT cold porcelain).
+   Contrast targets (measured against #F0EDE8 canvas):
+     - ink-500 (#6C6660) ~4.5:1  — muted text minimum (WCAG AA for body)
+     - ink-700 (#363230) ~9.5:1  — body text
+     - ink-950 (#0E0C08) ~20:1   — headings
+     - brand-600 (#0A7068) → primary fills; on-brand = #FFFFFF
+     - brand-700 (#096058) → active nav text / text links
+   `:root[data-theme='light']` (specificity 0,2,0) beats @theme's `:root`
+   (0,1,0), so these win whenever the attribute is present.
+   ========================================================================== */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* Brand — deep rich jade on warm pearl */
+  --color-brand-50:  #EBF4F1;
+  --color-brand-100: #CDE8E2;
+  --color-brand-200: #A0D4CC;
+  --color-brand-300: #5ABFB4;
+  --color-brand-400: #1EA098;
+  --color-brand-500: #0D8278; /* focus ring */
+  --color-brand-600: #0A7068; /* primary button fill */
+  --color-brand-700: #096058; /* text links / active nav */
+  --color-brand-800: #085050;
+  --color-brand-900: #063E3A;
+  --color-brand-950: #032828;
+
+  /* Ink — warm stone scale for light, surfaces->text */
+  --color-ink-50:  #EDEBE5; /* subtle elevated surface / row hover */
+  --color-ink-100: #E2DED8; /* hover bg / skeleton */
+  --color-ink-200: #D6D0C8; /* default borders */
+  --color-ink-300: #C4BDB4; /* stronger borders / dividers */
+  --color-ink-400: #9C968E; /* placeholders */
+  --color-ink-500: #6C6660; /* muted text — 4.5:1+ on canvas */
+  --color-ink-600: #4E4844; /* secondary text */
+  --color-ink-700: #363230; /* body text */
+  --color-ink-800: #262220; /* labels */
+  --color-ink-900: #181410; /* primary text */
+  --color-ink-950: #0E0C08; /* headings */
+
+  /* Semantic — refined on warm pearl surfaces */
+  --color-success-50:  #E6F4EC;
+  --color-success-500: #0A7A50;
+  --color-success-600: #086040;
+  --color-warning-50:  #FEF0DC;
+  --color-warning-500: #BE6200;
+  --color-warning-600: #9A5000;
+  --color-danger-50:   #FDECEC;
+  --color-danger-500:  #C02018;
+  --color-danger-600:  #9E1A12;
+  --color-danger-solid: #C02018;
+  --color-danger-solid-hover: #9E1A12;
+  --color-info-50:  #EAF0FC;
+  --color-info-500: #1954B4;
+  --color-info-600: #143E98;
+
+  /* Canvas + on-brand (white text on jade button) */
+  --color-canvas:   #F4F6F9; /* clean white-gray — neutral app background */
+  --color-surface:  #FFFFFF;
+  --color-on-brand: #FFFFFF;
+
+  /* Shadows — crisp, warm-tinted */
+  --shadow-sm: 0 1px 2px rgb(14 12 8 / 0.04), 0 1px 3px rgb(14 12 8 / 0.06);
+  --shadow-md: 0 2px 6px -1px rgb(14 12 8 / 0.06), 0 12px 26px -6px rgb(14 12 8 / 0.10);
+  --shadow-lg: 0 26px 60px -20px rgb(14 12 8 / 0.15), 0 4px 14px -4px rgb(14 12 8 / 0.08);
+}
+
+/* ==========================================================================
+   NESTABLE DARK SCOPE
+   @theme already makes dark the page default, but a NESTED `[data-theme='dark']`
+   lets a subtree force dark even when the page root is light (e.g. auth screens
+   built on a dark photographic composition). Values mirror @theme's dark exactly.
+   ========================================================================== */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-brand-50:  #0D1F1B;
+  --color-brand-100: #142A25;
+  --color-brand-200: #1D3D37;
+  --color-brand-300: #2A5249;
+  --color-brand-400: #2DA89C;
+  --color-brand-500: #2ABFAD;
+  --color-brand-600: #0E8478;
+  --color-brand-700: #2EC8B6;
+  --color-brand-800: #46D6C6;
+  --color-brand-900: #2ABFAD;
+  --color-brand-950: #0A1918;
+
+  --color-ink-50:  #181E2C;
+  --color-ink-100: #1E2438;
+  --color-ink-200: #252D40;
+  --color-ink-300: #2E384E;
+  --color-ink-400: #4F5E7A;
+  --color-ink-500: #7880A0;
+  --color-ink-600: #98A4C0;
+  --color-ink-700: #B8C0D4;
+  --color-ink-800: #CAD0E4;
+  --color-ink-900: #E0E6F2;
+  --color-ink-950: #EEF2FA;
+
+  --color-success-50:  #0D1E17;
+  --color-success-500: #34CC84;
+  --color-success-600: #34CC84;
+  --color-warning-50:  #1E1606;
+  --color-warning-500: #F0A42A;
+  --color-warning-600: #F0A42A;
+  --color-danger-50:   #1C0E0C;
+  --color-danger-500:  #F46054;
+  --color-danger-600:  #F46054;
+  --color-danger-solid: #C23420;
+  --color-danger-solid-hover: #A62A18;
+  --color-info-50:  #0C1420;
+  --color-info-500: #5C8ED6;
+  --color-info-600: #5C8ED6;
+
+  --color-canvas:   #0C0F18;
+  --color-surface:  #131820;
+  --color-on-brand: #FFFFFF;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.6);
+  --shadow-md: 0 2px 6px -1px rgb(0 0 0 / 0.55), 0 12px 26px -6px rgb(0 0 0 / 0.65);
+  --shadow-lg: 0 26px 60px -20px rgb(0 0 0 / 0.85), 0 4px 14px -4px rgb(0 0 0 / 0.55);
+}
+
+/* ==========================================================================
+   SPECIAL CSS CUSTOM PROPERTIES
+   Not part of @theme — not emitted as Tailwind utilities. Used directly in
+   component CSS for domain-specific styling (GH₵ amounts, etc.).
+   ========================================================================== */
+:root {
+  --color-money:    #C4A85E; /* champagne gold for GH₵ amounts — dark default */
+  --color-money-bg: rgba(196, 168, 94, 0.14);
+}
+
+:root[data-theme='light'] {
+  --color-money:    #9A7A3A;
+  --color-money-bg: #F5EED6;
 }
 
 /* ---- Base layer ---------------------------------------------------------- */
@@ -80,7 +249,7 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
-    color-scheme: dark;
+    color-scheme: dark; /* light override sets this to `light` above */
   }
 
   body {
@@ -88,7 +257,7 @@
     background-color: var(--color-canvas);
     color: var(--color-ink-900);
     font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-feature-settings: 'cv02' 'cv03' 'cv04' 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -96,8 +265,8 @@
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.015em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
     color: var(--color-ink-950);
   }
 
@@ -105,13 +274,13 @@
   :focus-visible {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 4px;
   }
 
-  /* Refined scrollbar */
+  /* Refined scrollbar — themes with the ink scale */
   ::-webkit-scrollbar {
-    width: 11px;
-    height: 11px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-thumb {
     background: var(--color-ink-300);
@@ -121,41 +290,72 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-ink-400);
   }
+
+  /* Smooth color crossfade ONLY during an explicit theme switch. The
+     ThemeProvider adds `.theme-anim` to <html> for ~320ms around the toggle,
+     so we pay the transition cost only then — never on normal interaction. */
+  .theme-anim,
+  .theme-anim * {
+    transition:
+      background-color 0.3s var(--ease-out-soft),
+      border-color 0.3s var(--ease-out-soft),
+      color 0.3s var(--ease-out-soft),
+      fill 0.3s var(--ease-out-soft),
+      stroke 0.3s var(--ease-out-soft) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .theme-anim,
+    .theme-anim * {
+      transition: none !important;
+    }
+  }
 }
 
-/* ---- Reusable motion ----------------------------------------------------- */
+/* ---- Utilities layer ----------------------------------------------------- */
 @layer utilities {
   @keyframes nx-fade-in {
     from { opacity: 0; }
-    to { opacity: 1; }
+    to   { opacity: 1; }
   }
+
   @keyframes nx-rise {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
+
   @keyframes nx-scale-in {
-    from { opacity: 0; transform: scale(0.97); }
-    to { opacity: 1; transform: scale(1); }
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
   }
+
   @keyframes nx-shimmer {
-    100% { transform: translateX(100%); }
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+
+  @keyframes nx-pulse-dot {
+    0%   { transform: scale(1);   opacity: 1; }
+    50%  { transform: scale(1.4); opacity: 0.7; }
+    100% { transform: scale(1);   opacity: 1; }
   }
 
   .animate-fade-in {
-    animation: nx-fade-in 0.3s var(--ease-out-soft) both;
+    animation: nx-fade-in 0.35s var(--ease-out-soft) both;
   }
   .animate-rise {
-    animation: nx-rise 0.4s var(--ease-out-soft) both;
+    animation: nx-rise 0.35s var(--ease-out-soft) both;
   }
   .animate-scale-in {
-    animation: nx-scale-in 0.2s var(--ease-out-soft) both;
+    animation: nx-scale-in 0.35s var(--ease-out-soft) both;
   }
 
-  /* Skeleton shimmer (subtle on dark) */
+  /* Skeleton shimmer — sheen polarity flips so it reads on either canvas */
   .skeleton {
     position: relative;
     overflow: hidden;
     background: var(--color-ink-100);
+    border-radius: var(--radius-xl);
   }
   .skeleton::after {
     content: '';
@@ -165,10 +365,18 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgb(255 255 255 / 0.06),
+      rgb(255 255 255 / 0.07),
       transparent
     );
-    animation: nx-shimmer 1.5s infinite;
+    animation: nx-shimmer 1.6s infinite;
+  }
+  :root[data-theme='light'] .skeleton::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(14 12 8 / 0.05),
+      transparent
+    );
   }
 
   @media (prefers-reduced-motion: reduce) {

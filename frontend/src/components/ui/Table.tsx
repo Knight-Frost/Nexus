@@ -1,8 +1,7 @@
 import { cn } from '@/lib/cn';
 
 /**
- * Lightweight, accessible table primitives with a refined, dense-but-legible
- * style. Use <Table.Root> wrapping a Card for elevation.
+ * Spacious, readable table primitives.
  */
 export function Table({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -13,18 +12,15 @@ export function Table({ children, className }: { children: React.ReactNode; clas
 }
 
 export function THead({ children }: { children: React.ReactNode }) {
-  return (
-    <thead>
-      <tr className="border-b border-ink-200 text-left">{children}</tr>
-    </thead>
-  );
+  return <thead>{children}</thead>;
 }
 
 export function TH({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <th
       className={cn(
-        'whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500',
+        'text-left text-xs font-semibold uppercase tracking-wider text-ink-500 ' +
+        'py-3 px-4 border-b border-ink-200 bg-ink-50/50 whitespace-nowrap',
         className,
       )}
     >
@@ -34,7 +30,7 @@ export function TH({ children, className }: { children?: React.ReactNode; classN
 }
 
 export function TBody({ children }: { children: React.ReactNode }) {
-  return <tbody className="divide-y divide-ink-100">{children}</tbody>;
+  return <tbody>{children}</tbody>;
 }
 
 export function TR({
@@ -49,13 +45,35 @@ export function TR({
   return (
     <tr
       onClick={onClick}
-      className={cn(onClick && 'cursor-pointer transition hover:bg-ink-50/70', className)}
+      className={cn(
+        'hover:bg-ink-50 transition-colors cursor-default',
+        onClick && 'cursor-pointer',
+        className,
+      )}
     >
       {children}
     </tr>
   );
 }
 
-export function TD({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <td className={cn('px-4 py-3 text-ink-700', className)}>{children}</td>;
+export function TD({
+  children,
+  className,
+  first,
+}: {
+  children?: React.ReactNode;
+  className?: string;
+  first?: boolean;
+}) {
+  return (
+    <td
+      className={cn(
+        'py-3.5 px-4 border-b border-ink-200 text-ink-800',
+        first && 'font-medium text-ink-900',
+        className,
+      )}
+    >
+      {children}
+    </td>
+  );
 }

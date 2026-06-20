@@ -128,7 +128,7 @@ export function GoogleIcon({ size = 20 }: { size?: number }) {
 export function AuthLogo() {
   return (
     <Link to="/" className="inline-flex items-center gap-3">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-900 font-display text-lg font-semibold text-canvas shadow-[0_6px_18px_-8px_rgba(201,164,91,0.7)]">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-900 font-display text-lg font-semibold text-on-brand shadow-[0_6px_18px_-8px_rgba(201,164,91,0.7)]">
         N
       </span>
       <span className="text-lg font-semibold tracking-[0.24em] text-ink-950">NEXUS</span>
@@ -166,7 +166,7 @@ function AuthNav() {
         </span>
         <Link
           to={onRegister ? '/login' : '/register'}
-          className="rounded-lg border border-brand-600/70 px-4 py-2 text-sm font-medium text-brand-400 transition hover:bg-brand-600 hover:text-canvas"
+          className="rounded-lg border border-brand-600/70 px-4 py-2 text-sm font-medium text-brand-400 transition hover:bg-brand-600 hover:text-on-brand"
         >
           {onRegister ? 'Sign in' : 'Create account'}
         </Link>
@@ -203,7 +203,10 @@ export function AuthScene({
   footer: FooterItem[];
 }) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-canvas">
+    // Always dark: the auth screen is one full-bleed dark-photo composition, so
+    // it reads correctly only with light text. data-theme="dark" re-themes just
+    // this subtree even when the rest of the app is in light mode.
+    <div data-theme="dark" className="relative min-h-screen overflow-hidden bg-canvas">
       <div className="absolute inset-0">
         <img src={heroImg} alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0" style={{ background: SCRIM }} />

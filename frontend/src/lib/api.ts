@@ -1,46 +1,74 @@
 /**
- * HTTP client. A single axios instance with:
- *  - bearer-token injection from storage
- *  - error normalization to a typed ApiError (so UI never inspects raw axios)
- *  - a 401 hook the AuthContext registers, to log the user out on token expiry
+ * HTTP clients.
  *
- * Per-endpoint functions below encode the (inconsistent) backend response
- * shapes once, so components always receive clean, typed data.
+ * `http`        — unauthenticated (login, register, public listings).
+ * `portalHttp`  — one axios instance per portal; each reads only its own token
+ *                 and routes 401s to its own registered handler, so a tenant 401
+ *                 never logs out the landlord or admin session.
  */
 import axios, { AxiosError, type AxiosInstance } from 'axios';
-import { getToken } from './storage';
+import { type Portal, getPortalToken } from './storage';
 import type { ApiError } from './types';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api';
+
+// ---- Unauthenticated client (login / register / public listings) ---------
 
 export const http: AxiosInstance = axios.create({
   baseURL,
   headers: { Accept: 'application/json' },
 });
 
-http.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-/** AuthContext registers a handler so expired tokens trigger a clean logout. */
-let onUnauthorized: (() => void) | null = null;
-export function setUnauthorizedHandler(handler: () => void): void {
-  onUnauthorized = handler;
-}
-
 http.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401 && onUnauthorized) {
-      onUnauthorized();
-    }
-    return Promise.reject(normalizeError(error));
-  },
+  (error: AxiosError) => Promise.reject(normalizeError(error)),
 );
+
+// ---- Per-portal 401 handlers --------------------------------------------
+
+const portalUnauthorizedHandlers = new Map<Portal, () => void>();
+
+export function setPortalUnauthorizedHandler(portal: Portal, handler: () => void): void {
+  portalUnauthorizedHandlers.set(portal, handler);
+}
+
+// ---- Portal-scoped client factory ----------------------------------------
+
+function makePortalClient(portal: Portal): AxiosInstance {
+  const instance = axios.create({
+    baseURL,
+    headers: { Accept: 'application/json' },
+  });
+
+  instance.interceptors.request.use((config) => {
+    const token = getPortalToken(portal);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
+
+  instance.interceptors.response.use(
+    (response) => response,
+    (error: AxiosError) => {
+      if (error.response?.status === 401) {
+        portalUnauthorizedHandlers.get(portal)?.();
+      }
+      return Promise.reject(normalizeError(error));
+    },
+  );
+
+  return instance;
+}
+
+/** One axios instance per portal — isolated tokens, isolated 401 handlers. */
+export const portalHttp: Record<Portal, AxiosInstance> = {
+  tenant: makePortalClient('tenant'),
+  landlord: makePortalClient('landlord'),
+  admin: makePortalClient('admin'),
+};
+
+// ---- Error helpers -------------------------------------------------------
 
 export function normalizeError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {

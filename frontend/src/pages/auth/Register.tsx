@@ -237,7 +237,7 @@ export function Register() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-400 to-brand-600 py-4 text-sm font-semibold text-canvas shadow-[0_12px_30px_-12px_rgba(201,164,91,0.8)] transition hover:brightness-105 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-400 to-brand-600 py-4 text-sm font-semibold text-on-brand shadow-[0_12px_30px_-12px_rgba(201,164,91,0.8)] transition hover:brightness-105 disabled:opacity-60"
           >
             {submitting ? 'Creating account…' : 'Create account'}
             {!submitting && <Icons.arrow width={18} height={18} />}

@@ -1,0 +1,246 @@
+/* ==========================================================================
+   NEXUS — "Editorial" app skin · WARM PAPER & OXBLOOD
+   --------------------------------------------------------------------------
+   A warm, light, editorial identity: bone-paper canvas, near-black ink, a
+   single oxblood accent used as punctuation. Type is a characterful serif
+   display (Fraunces) over a humanist grotesk body (Hanken Grotesque) with
+   IBM Plex Mono for tracked caps/data. The goal is "print magazine", not
+   "light SaaS" — so hierarchy comes from type scale + hairlines, and oxblood
+   is rationed.
+
+   Applied as a SCOPED SKIN via `[data-skin='editorial']` on the AppShell root,
+   so routes that don't render AppShell are unaffected. We re-declare the same
+   SEMANTIC token names the app already uses (`--color-canvas`, `--color-ink-*`,
+   `--color-brand-*`, ...), so every token-based page re-skins instantly; the
+   flagship pages are then hand-rebuilt to fully exploit the language.
+
+   Light-first. The wrapper also carries `data-theme="light"`. (A dark variant
+   could later live under `[data-skin='editorial'][data-theme='dark']`.)
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,0,700;9..144,1,400;9..144,1,500&family=Hanken+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+[data-skin='editorial'] {
+  color-scheme: light;
+
+  /* ── Brand = OXBLOOD ramp ───────────────────────────────────────────────
+     Buttons fill oxblood with paper-white text. Links/active use the darker
+     #872117 for AA contrast on the bone canvas. Light steps are tint washes. */
+  --color-brand-50:  #F7E7E2; /* tint background (badges, icon boxes) */
+  --color-brand-100: #F0D5CD;
+  --color-brand-200: #E2B4A8;
+  --color-brand-300: #CD8678;
+  --color-brand-400: #B5503F;
+  --color-brand-500: #9E3024; /* focus ring */
+  --color-brand-600: #9E3024; /* primary button fill */
+  --color-brand-700: #872117; /* text links / active nav — AA on paper */
+  --color-brand-800: #6E1A12;
+  --color-brand-900: #571309;
+  --color-brand-950: #2E0A06;
+
+  /* ── Ink = warm stone ramp (low = surfaces, high = text) ────────────────── */
+  --color-ink-50:  #EDE7DC; /* subtle elevated surface / row hover */
+  --color-ink-100: #E6DFD2; /* hover bg / skeleton base */
+  --color-ink-200: #DED5C6; /* hairline borders (the workhorse) */
+  --color-ink-300: #CCC1AE; /* stronger dividers */
+  --color-ink-400: #A89E8B; /* placeholders */
+  --color-ink-500: #6B6358; /* muted text — ~5:1 on canvas */
+  --color-ink-600: #524B40; /* secondary text */
+  --color-ink-700: #38322A; /* body text */
+  --color-ink-800: #262019; /* labels / strong text */
+  --color-ink-900: #14110D; /* primary text */
+  --color-ink-950: #0C0A06; /* headings */
+
+  /* ── Semantic states — tuned for the warm paper canvas ──────────────────── */
+  --color-success-50:  #E4EFE7;
+  --color-success-500: #2F7D52;
+  --color-success-600: #1F6440;
+  --color-warning-50:  #F7EAD2;
+  --color-warning-500: #B5701A;
+  --color-warning-600: #8F5510;
+  /* danger is a clean scarlet — kept visibly REDDER than the brown-red brand
+     oxblood so "destructive" never reads as "brand". */
+  --color-danger-50:   #F8E2DD;
+  --color-danger-500:  #C8372A;
+  --color-danger-600:  #A52A1F;
+  --color-danger-solid: #C8372A;
+  --color-danger-solid-hover: #A52A1F;
+  --color-info-50:  #E2ECF3;
+  --color-info-500: #2F5D86;
+  --color-info-600: #234A6E;
+
+  /* ── Surfaces ───────────────────────────────────────────────────────────── */
+  --color-canvas:   #F3EEE6; /* warm bone paper — never pure white */
+  --color-surface:  #FBF8F2; /* raised card */
+  --color-on-brand: #FBF8F2; /* paper-white text on oxblood fill */
+
+  /* ── Obsidian + mint literals (current AppShell sidebar) — espresso rail ──
+     A warm dark sidebar against the paper canvas. Replaced for real in the
+     rebuilt shell, but these keep un-rebuilt chrome looking intentional. */
+  --color-obsidian:        #1A1A1F; /* sidebar panel — neutral charcoal (NOT brown) */
+  --color-obsidian-light:  #262630; /* active / hover nav bg */
+  --color-obsidian-dim:    #141418; /* the icon rail (a touch deeper) */
+  --color-obsidian-border: #2F2F39;
+  --color-mint:            #C0392B; /* sidebar accent — clean brick red (brand-aligned) */
+  --color-mint-dim:        #A52F22;
+  --color-mint-light:      #2A1512;
+  --color-pearl:           #FBF8F2;
+  --color-on-obsidian:     #ECEAE4; /* cool porcelain text on charcoal */
+  --color-on-mint:         #FBF8F2;
+
+  /* ── Domain accent (GH₵ amounts) — bronze, distinct from oxblood ─────────── */
+  --color-money:    #92611F;
+  --color-money-bg: rgba(146, 97, 31, 0.12);
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-display: 'Fraunces', 'Times New Roman', Georgia, serif;
+  --font-sans:    'Hanken Grotesque', system-ui, -apple-system, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+
+  /* ── Radii — editorial likes tighter corners ────────────────────────────── */
+  --radius-xl:  0.75rem;   /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+
+  /* ── Elevation — soft, warm-tinted; hierarchy leans on hairlines ────────── *
+   * inset specular top edge keeps cards feeling printed on paper.             */
+  --shadow-sm:
+    0 1px 2px rgb(20 17 13 / 0.05),
+    0 1px 3px rgb(20 17 13 / 0.05);
+  --shadow-md:
+    0 2px 6px -1px rgb(20 17 13 / 0.06),
+    0 16px 32px -12px rgb(20 17 13 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+  --shadow-lg:
+    0 36px 70px -28px rgb(20 17 13 / 0.22),
+    0 8px 20px -8px rgb(20 17 13 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.7);
+
+  /* ── Signature oxblood lift (hover) ─────────────────────────────────────── */
+  --glow-gold:
+    0 0 0 1px rgb(158 48 36 / 0.20),
+    0 22px 44px -22px rgb(158 48 36 / 0.30),
+    0 6px 16px -8px rgb(20 17 13 / 0.10);
+
+  /* ── Glass — for chrome that sits OVER hero photography (dark scrim) ─────── */
+  --glass-bg:     rgba(20, 17, 13, 0.42);
+  --glass-strong: rgba(20, 17, 13, 0.66);
+  --glass-border: rgba(251, 248, 242, 0.18);
+
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   CRAFT UTILITIES (scoped to the editorial skin)
+   ========================================================================== */
+
+/* Mono, tracked, uppercase eyebrow with a leading rule — the section motif. */
+[data-skin='editorial'] .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-brand-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  line-height: 1;
+}
+[data-skin='editorial'] .eyebrow::before {
+  content: '';
+  width: 1.6rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* Editorial section heading: a hairline rule with an inline label, the way a
+   magazine breaks sections. Use on a flex row. */
+[data-skin='editorial'] .rule-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-ink-200);
+}
+
+/* Elevated paper card. */
+[data-skin='editorial'] .u-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-ink-200);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Hover-lift with oxblood ring. Snappy lift, calm color. */
+[data-skin='editorial'] .u-card-hover {
+  transition:
+    transform 0.25s var(--ease-out-soft),
+    border-color 0.25s var(--ease-out-soft),
+    box-shadow 0.25s var(--ease-out-soft);
+  will-change: transform;
+}
+[data-skin='editorial'] .u-card-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgb(158 48 36 / 0.45);
+  box-shadow: var(--glow-gold);
+}
+
+/* Specular top rim — a faint white line catching the top edge of a surface. */
+[data-skin='editorial'] .u-specular::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  right: 1.25rem;
+  height: 1px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.8) 50%, transparent);
+  pointer-events: none;
+}
+
+/* Glass panel for chrome over photographs (hero buttons, captions). */
+[data-skin='editorial'] .u-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid var(--glass-border);
+}
+
+/* Image zoom-on-hover. Wrap the <img> in `.u-zoom` with overflow hidden. */
+[data-skin='editorial'] .u-zoom { overflow: hidden; }
+[data-skin='editorial'] .u-zoom img {
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+[data-skin='editorial'] .u-zoom:hover img { transform: scale(1.06); }
+
+/* Reveal-on-scroll (paired with useReveal / IntersectionObserver). */
+[data-skin='editorial'] [data-reveal] {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.7s var(--ease-out-soft),
+    transform 0.7s var(--ease-out-soft);
+}
+[data-skin='editorial'] [data-reveal].in { opacity: 1; transform: none; }
+
+/* Old-style figures + tighter tracking for big serif numerals/headlines. */
+[data-skin='editorial'] .num-old {
+  font-family: var(--font-display);
+  font-feature-settings: 'onum' 1, 'pnum' 1;
+  letter-spacing: -0.01em;
+}
+
+/* Refined warm scrollbar inside the editorial app. */
+[data-skin='editorial'] ::-webkit-scrollbar-thumb { background: var(--color-ink-300); }
+[data-skin='editorial'] ::-webkit-scrollbar-thumb:hover { background: var(--color-brand-400); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='editorial'] .u-card-hover,
+  [data-skin='editorial'] .u-zoom img,
+  [data-skin='editorial'] [data-reveal] {
+    transition: none !important;
+    transform: none !important;
+  }
+  [data-skin='editorial'] [data-reveal] { opacity: 1 !important; }
+}

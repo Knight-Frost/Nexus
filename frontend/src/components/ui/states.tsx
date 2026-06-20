@@ -1,18 +1,30 @@
+import { forwardRef } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from './Button';
 import { Spinner } from './Spinner';
 
-/** Full-block loading indicator. */
-export function LoadingState({ label = 'Loading…', className }: { label?: string; className?: string }) {
+/** Full-block loading indicator with optional label. */
+export function LoadingState({
+  label = 'Loading…',
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3 py-16 text-ink-500', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-3 py-16 text-ink-500',
+        className,
+      )}
+    >
       <Spinner size={28} className="text-brand-600" />
-      <p className="text-sm">{label}</p>
+      {label && <p className="text-sm">{label}</p>}
     </div>
   );
 }
 
-/** Empty-data state with optional call to action. */
+/** Empty-data state with icon ring, title, description, and optional action. */
 export function EmptyState({
   icon,
   title,
@@ -29,23 +41,29 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-ink-200 bg-ink-50/40 px-6 py-14 text-center',
+        'flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed ' +
+        'border-ink-200 bg-ink-50/40 px-6 py-14 text-center',
         className,
       )}
     >
       {icon && (
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+        <div
+          className="flex items-center justify-center rounded-full bg-brand-50 text-brand-700"
+          style={{ width: 56, height: 56 }}
+        >
           {icon}
         </div>
       )}
-      <h3 className="text-base font-semibold text-ink-900">{title}</h3>
-      {description && <p className="max-w-sm text-sm text-ink-500">{description}</p>}
+      <h3 className="font-display text-xl font-semibold text-ink-900">{title}</h3>
+      {description && (
+        <p className="max-w-xs text-sm text-ink-500">{description}</p>
+      )}
       {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }
 
-/** Error state with retry. */
+/** Error state with danger icon ring, title, message, and optional retry. */
 export function ErrorState({
   title = 'Something went wrong',
   message,
@@ -60,19 +78,33 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-2xl border border-danger-500/20 bg-danger-50/60 px-6 py-12 text-center',
+        'flex flex-col items-center justify-center gap-3 rounded-2xl border border-danger-500/20 ' +
+        'bg-danger-50/60 px-6 py-12 text-center',
         className,
       )}
       role="alert"
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-danger-50 text-danger-600">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+      <div
+        className="flex items-center justify-center rounded-full bg-danger-50 text-danger-600"
+        style={{ width: 56, height: 56 }}
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       </div>
-      <h3 className="text-base font-semibold text-ink-900">{title}</h3>
-      {message && <p className="max-w-sm text-sm text-ink-600">{message}</p>}
+      <h3 className="font-display text-xl font-semibold text-ink-900">{title}</h3>
+      {message && <p className="max-w-xs text-sm text-ink-500">{message}</p>}
       {onRetry && (
         <Button variant="secondary" size="sm" onClick={onRetry} className="mt-1">
           Try again
@@ -82,7 +114,30 @@ export function ErrorState({
   );
 }
 
-/** Skeleton line / block for content placeholders. */
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('skeleton rounded-lg', className)} />;
+/** Skeleton placeholder block. Pass className with h-X w-X to size it. */
+export const Skeleton = forwardRef<HTMLDivElement, { className?: string }>(
+  function Skeleton({ className }, ref) {
+    return <div ref={ref} className={cn('skeleton', className)} />;
+  },
+);
+
+/** Short text-line skeleton (narrow width, label height). */
+export function SkeletonText({ className }: { className?: string }) {
+  return <Skeleton className={cn('h-4 w-32 rounded-md', className)} />;
+}
+
+/** Card-shaped skeleton placeholder. */
+export function SkeletonCard({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        'bg-surface rounded-2xl border border-ink-200 p-5 flex flex-col gap-3',
+        className,
+      )}
+    >
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-8 w-36" />
+      <Skeleton className="h-3.5 w-20" />
+    </div>
+  );
 }

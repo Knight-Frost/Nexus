@@ -1,40 +1,95 @@
 /**
- * Token storage. Kept in one place so the strategy is easy to change.
+ * Portal-scoped auth storage.
  *
- * "Remember me" controls persistence: when remembered, the token lives in
- * localStorage (survives browser restarts); otherwise it lives in sessionStorage
- * (cleared when the tab/browser closes). Server-side authorization is always the
- * real gate — the token only identifies the caller.
+ * The active portal for each browser tab is stored in sessionStorage (tab-scoped,
+ * survives F5 refresh, cleared when the tab closes). Per-portal tokens live in
+ * localStorage (persistent) or sessionStorage (when "remember me" is off).
+ *
+ * Key scheme:
+ *   sessionStorage  nexus.portal              — which portal is active in this tab
+ *   localStorage    nexus.auth.{p}.token      — persistent token for portal p
+ *   sessionStorage  nexus.auth.{p}.token      — ephemeral token for portal p
+ *
+ * Three tabs can each be logged in as tenant, landlord, and admin simultaneously
+ * because each tab's portal key points to a different namespaced token slot.
  */
-const TOKEN_KEY = 'nexus.token';
 
-export function getToken(): string | null {
+export type Portal = 'tenant' | 'landlord' | 'admin';
+
+const PORTAL_KEY = 'nexus.portal';
+const tokenKey = (p: Portal) => `nexus.auth.${p}.token`;
+
+// ---- Active portal (tab-scoped via sessionStorage) -----------------------
+
+export function getActivePortal(): Portal | null {
   try {
-    return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
+    const v = sessionStorage.getItem(PORTAL_KEY);
+    return v === 'tenant' || v === 'landlord' || v === 'admin' ? v : null;
   } catch {
     return null;
   }
 }
 
-export function setToken(token: string, remember = true): void {
+export function setActivePortal(portal: Portal): void {
   try {
-    if (remember) {
-      localStorage.setItem(TOKEN_KEY, token);
-      sessionStorage.removeItem(TOKEN_KEY);
-    } else {
-      sessionStorage.setItem(TOKEN_KEY, token);
-      localStorage.removeItem(TOKEN_KEY);
-    }
+    sessionStorage.setItem(PORTAL_KEY, portal);
   } catch {
-    /* storage unavailable (private mode) — session stays in-memory only */
+    // storage unavailable (private mode) — in-memory only
   }
 }
 
-export function clearToken(): void {
+export function clearActivePortal(): void {
   try {
-    localStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(PORTAL_KEY);
   } catch {
-    /* no-op */
+    // no-op
+  }
+}
+
+// ---- Portal tokens -------------------------------------------------------
+
+export function getPortalToken(portal: Portal): string | null {
+  try {
+    return (
+      localStorage.getItem(tokenKey(portal)) ??
+      sessionStorage.getItem(tokenKey(portal))
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function setPortalToken(portal: Portal, token: string, remember = true): void {
+  try {
+    if (remember) {
+      localStorage.setItem(tokenKey(portal), token);
+      sessionStorage.removeItem(tokenKey(portal));
+    } else {
+      sessionStorage.setItem(tokenKey(portal), token);
+      localStorage.removeItem(tokenKey(portal));
+    }
+  } catch {
+    // storage unavailable (private mode) — session stays in-memory only
+  }
+}
+
+export function clearPortalToken(portal: Portal): void {
+  try {
+    localStorage.removeItem(tokenKey(portal));
+    sessionStorage.removeItem(tokenKey(portal));
+  } catch {
+    // no-op
+  }
+}
+
+// ---- Legacy cleanup ------------------------------------------------------
+
+/** Remove the old single-token key written by pre-portal-isolation builds. */
+export function clearLegacyToken(): void {
+  try {
+    localStorage.removeItem('nexus.token');
+    sessionStorage.removeItem('nexus.token');
+  } catch {
+    // no-op
   }
 }

@@ -241,6 +241,21 @@ export interface Feature {
   enabled?: boolean;
 }
 
+/* ---- Weather (tenant dashboard chip) ------------------------------------- */
+export type WeatherData =
+  | { available: false; message: string }
+  | {
+      available: true;
+      location: string;
+      country: string;
+      temperature: number;
+      feels_like?: number;
+      unit: 'C';
+      condition: string;
+      humidity?: number;
+      updated_at: string;
+    };
+
 /* ---- Pagination (Laravel paginator) -------------------------------------- */
 export interface Paginated<T> {
   data: T[];

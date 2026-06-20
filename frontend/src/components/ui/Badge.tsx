@@ -1,32 +1,71 @@
 import { cn } from '@/lib/cn';
-import type { Tone } from '@/lib/format';
 
-const tones: Record<Tone, string> = {
-  neutral: 'bg-ink-100 text-ink-700 ring-ink-200',
-  brand: 'bg-brand-50 text-brand-800 ring-brand-200',
-  success: 'bg-success-50 text-success-600 ring-success-500/20',
-  warning: 'bg-warning-50 text-warning-600 ring-warning-500/20',
-  danger: 'bg-danger-50 text-danger-600 ring-danger-500/20',
-  info: 'bg-info-50 text-info-600 ring-info-500/20',
+export type Tone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'money';
+
+interface BadgeProps {
+  tone?: Tone;
+  size?: 'sm' | 'md';
+  dot?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}
+
+const toneClasses: Record<Tone, { badge: string; dot: string }> = {
+  neutral: {
+    badge: 'bg-ink-100 text-ink-700',
+    dot:   'bg-ink-500',
+  },
+  brand: {
+    badge: 'bg-brand-50 text-brand-700',
+    dot:   'bg-brand-600',
+  },
+  success: {
+    badge: 'bg-success-50 text-success-600',
+    dot:   'bg-success-500',
+  },
+  warning: {
+    badge: 'bg-warning-50 text-warning-600',
+    dot:   'bg-warning-500',
+  },
+  danger: {
+    badge: 'bg-danger-50 text-danger-600',
+    dot:   'bg-danger-500',
+  },
+  info: {
+    badge: 'bg-info-50 text-info-600',
+    dot:   'bg-info-500',
+  },
+  money: {
+    badge: 'bg-[var(--color-money-bg)] text-[var(--color-money)]',
+    dot:   'bg-[var(--color-money)]',
+  },
 };
 
 export function Badge({
   tone = 'neutral',
+  size = 'sm',
+  dot = true,
   className,
   children,
-}: {
-  tone?: Tone;
-  className?: string;
-  children: React.ReactNode;
-}) {
+}: BadgeProps) {
+  const { badge, dot: dotColor } = toneClasses[tone];
+
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset',
-        tones[tone],
+        'inline-flex items-center gap-1.5 rounded-full font-medium',
+        size === 'sm' ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm',
+        badge,
         className,
       )}
     >
+      {dot && (
+        <span
+          className={cn('inline-block rounded-full shrink-0', dotColor)}
+          style={{ width: 6, height: 6 }}
+          aria-hidden="true"
+        />
+      )}
       {children}
     </span>
   );

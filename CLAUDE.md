@@ -5,6 +5,63 @@
 
 ---
 
+## 0. Extended Project Knowledge System
+
+**Before doing any Nexus work, read `Claude_Project_Knowledge/README.md` first.**
+
+A dedicated knowledge system lives in `Claude_Project_Knowledge/`. It was built by
+studying six learning archives and contains:
+
+- `DESIGN.md` — Nexus visual identity in design token format (colors, typography, components)
+- `nexus_design_memory.md` — Design direction, visual rules, role-specific UX
+- `ui_ux_quality_bar.md` — What "good UI" means for Nexus specifically
+- `frontend_implementation_rules.md` — TypeScript/React rules
+- `backend_implementation_rules.md` — Laravel/PHP rules
+- `claude_behavior_rules.md` — How Claude must behave in this project
+- `reporting_style.md` — Required format for every completion report
+- `lessons_to_apply.md` — Lessons extracted from study materials
+- `lessons_to_ignore.md` — What was studied but does not apply to Nexus
+- `study_index.md` — Proof of what was inspected and when
+- `agent_workflow.md` — When and how to use multi-agent patterns
+- `memory_workflow.md` — How to use and update this knowledge system
+
+**The `Claude_Study_Guide/` folder contains the original zip archives.**
+It is read-only. Never modify, rename, or delete files inside it.
+
+### Mandatory Behavior for All Claude Sessions
+
+- Read `Claude_Project_Knowledge/README.md` before doing Nexus work
+- Read design files before making any UI or frontend changes
+- Format all money as GH₵ using the format utility — always, no exceptions
+- Avoid cramped layouts — minimum 24px card padding, 40px section spacing
+- Use a display font with personality for headings — not Inter alone
+- Prefer spacious, personalized, role-specific interfaces
+- Never produce a generic SaaS dashboard look
+- Report completions using the format in `reporting_style.md`
+- Keep `Claude_Project_Knowledge/` updated when new lessons are learned
+- Project memory lives in the repository, not just in this chat
+
+### Approved Visual Direction — Warm Paper & Oxblood (Confirmed June 2026)
+
+> **SUPERSEDES "Obsidian Pearl."** The user reviewed Obsidian Pearl (mint/obsidian) live and **rejected it**, then iterated through and rejected a gold variant, and **approved "Warm Paper & Oxblood"** — a warm, light, editorial-magazine identity. The full token set lives in `Claude_Project_Knowledge/DESIGN.md` and `nexus_design_memory.md` (both updated). Mint/obsidian and gold are now **dead directions**.
+
+| Decision | Status |
+|----------|--------|
+| Page background: warm bone paper `#F3EEE6` (intentionally warm, never pure white) | **APPROVED** |
+| Cards / surfaces: `#FBF8F2` (elevated `#FFFDF8`) | **APPROVED** |
+| Sidebar: **LIGHT paper** (`#FBF8F2`) with `#DED5C6` hairline — NOT a dark sidebar | **APPROVED** |
+| Accent: oxblood `#9E3024` (links/active `#872117`) — rationed, used as punctuation | **APPROVED** |
+| Display font: **Fraunces** (serif, characterful) — headings, hero, numerals | **APPROVED** |
+| Body font: Hanken Grotesque | **APPROVED** |
+| Mono (eyebrows/labels/badges): **IBM Plex Mono** | **APPROVED** |
+| Mint / jade / teal / obsidian-dark sidebar (old Obsidian Pearl) | **REJECTED (was prior direction)** |
+| Gold / bronze / brown / mustard / "dusty warm" | **HARD REJECTED** (oxblood is a brick RED, NOT gold/brown) |
+| Purple / violet / orchid / lavender · generic SaaS blue · AI gradient blobs | **HARD REJECTED** |
+
+**The look is print-editorial, not SaaS:** warm paper, hairline dividers over heavy shadows, oversized serif headlines, one rationed oxblood accent. Implement the tokens in DESIGN.md. Do not reintroduce mint/obsidian or gold without explicit user approval.
+
+---
+
 ## 1. Project Name & Purpose
 
 **Nexus** is a full-stack **property rental management platform**. It manages the

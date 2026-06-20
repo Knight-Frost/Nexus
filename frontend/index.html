@@ -13,6 +13,28 @@
     <link rel="manifest" href="/site.webmanifest" />
 
     <meta name="theme-color" content="#0e1113" />
+
+    <!-- Set the theme BEFORE first paint to avoid a flash of the wrong theme.
+         Mirrors the resolver in src/context/theme.ts (kept tiny + dependency-free
+         so it can run inline). The React ThemeProvider then takes over. -->
+    <script>
+      (function () {
+        try {
+          var c = localStorage.getItem('nexus.theme');
+          var resolved =
+            c === 'light' || c === 'dark'
+              ? c
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.setAttribute('data-theme', resolved);
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', resolved === 'light' ? '#faf8f3' : '#0e1113');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
     <meta
       name="description"
       content="Nexus is a secure property-rental platform for tenants, landlords, and administrators."
@@ -25,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
   </head>

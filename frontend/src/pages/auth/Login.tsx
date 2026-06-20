@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/context/auth';
 import { fieldErrors } from '@/lib/api';
-import { useToast } from '@/components/ui/toast';
 import type { ApiError } from '@/lib/types';
 import {
   AuthInput,
@@ -46,7 +45,6 @@ function LeftPanel() {
 
 export function Login() {
   const { login } = useAuth();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/app';
@@ -57,12 +55,15 @@ export function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  /* Inline notice for unavailable SSO options — no toast dependency */
+  const [ssoNotice, setSsoNotice] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setErrors({});
     setFormError(null);
+    setSsoNotice(null);
     try {
       await login(email, password, remember);
       navigate(from, { replace: true });
@@ -76,15 +77,19 @@ export function Login() {
     }
   }
 
-  const notAvailable = (what: string) => () =>
-    toast(`${what} isn’t available yet. Use email and password for now.`, 'info');
+  function notAvailable(what: string) {
+    return () => {
+      setSsoNotice(`${what} isn't available yet. Use email and password for now.`);
+      setTimeout(() => setSsoNotice(null), 4000);
+    };
+  }
 
   return (
     <AuthScene left={<LeftPanel />} footer={FOOTER} form={
       <FormCard label="Welcome back">
-        <h1 className="text-center font-display text-4xl font-medium text-ink-950">Welcome back</h1>
+        <h1 className="text-center font-display text-4xl font-medium text-ink-950">Sign in to Nexus</h1>
         <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-relaxed text-ink-500">
-          Sign in to access your properties, contracts, and payments.
+          Welcome back
         </p>
 
         <div className="my-7 flex items-center gap-4">
@@ -94,9 +99,17 @@ export function Login() {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-5" noValidate>
+          {/* General API error (e.g. wrong email or wrong password) */}
           {formError && (
             <div className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-500" role="alert">
               {formError}
+            </div>
+          )}
+
+          {/* SSO unavailability notice — state-driven, no toast */}
+          {ssoNotice && (
+            <div className="rounded-xl border border-info-500/30 bg-info-50 px-4 py-3 text-sm text-info-600" role="status">
+              {ssoNotice}
             </div>
           )}
 
@@ -112,7 +125,9 @@ export function Login() {
               leftIcon={<Icons.mail width={18} height={18} />}
               required
             />
-            {errors.email && <span className="mt-1 block text-xs text-danger-500">{errors.email}</span>}
+            {errors.email && (
+              <span className="mt-1 block text-xs text-danger-500">{errors.email}</span>
+            )}
           </label>
 
           <label className="block">
@@ -125,7 +140,9 @@ export function Login() {
               autoComplete="current-password"
               withIcon
             />
-            {errors.password && <span className="mt-1 block text-xs text-danger-500">{errors.password}</span>}
+            {errors.password && (
+              <span className="mt-1 block text-xs text-danger-500">{errors.password}</span>
+            )}
           </label>
 
           <div className="flex items-center justify-between">
@@ -150,7 +167,7 @@ export function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-400 to-brand-600 py-4 text-sm font-semibold text-canvas shadow-[0_12px_30px_-12px_rgba(201,164,91,0.8)] transition hover:brightness-105 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-400 to-brand-600 py-4 text-sm font-semibold text-on-brand shadow-[0_12px_30px_-12px_rgba(201,164,91,0.8)] transition hover:brightness-105 disabled:opacity-60"
           >
             {submitting ? 'Signing in…' : 'Sign in'}
             {!submitting && <Icons.arrow width={18} height={18} />}
@@ -164,21 +181,36 @@ export function Login() {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <button type="button" onClick={notAvailable('Google sign-in')} aria-label="Continue with Google" className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 transition hover:border-ink-300 hover:bg-ink-100">
+          <button
+            type="button"
+            onClick={notAvailable('Google sign-in')}
+            aria-label="Continue with Google"
+            className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 transition hover:border-ink-300 hover:bg-ink-100"
+          >
             <GoogleIcon />
           </button>
-          <button type="button" onClick={notAvailable('Apple sign-in')} aria-label="Continue with Apple" className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 text-ink-900 transition hover:border-ink-300 hover:bg-ink-100">
+          <button
+            type="button"
+            onClick={notAvailable('Apple sign-in')}
+            aria-label="Continue with Apple"
+            className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 text-ink-900 transition hover:border-ink-300 hover:bg-ink-100"
+          >
             <Icons.apple width={20} height={20} />
           </button>
-          <button type="button" onClick={notAvailable('Passkey sign-in')} aria-label="Continue with a passkey" className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 text-ink-700 transition hover:border-ink-300 hover:bg-ink-100">
+          <button
+            type="button"
+            onClick={notAvailable('Passkey sign-in')}
+            aria-label="Continue with a passkey"
+            className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 text-ink-700 transition hover:border-ink-300 hover:bg-ink-100"
+          >
             <Icons.passkey width={20} height={20} />
           </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-ink-500">
-          New to Nexus?{' '}
+          Don&rsquo;t have an account?{' '}
           <Link to="/register" className="font-semibold text-brand-400 hover:text-brand-800">
-            Create an account
+            Register
           </Link>
         </p>
       </FormCard>

@@ -1,8 +1,13 @@
 import { createContext, useContext } from 'react';
 import type { Admin, AuthUser, User, UserType } from '@/lib/types';
+import type { Portal } from '@/lib/storage';
+
+export type { Portal };
 
 export interface AuthContextValue {
   user: AuthUser | null;
+  /** Which portal this tab is authenticated as — null until login completes. */
+  portal: Portal | null;
   /** True only during the initial "do we have a valid session?" check. */
   initializing: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<AuthUser>;

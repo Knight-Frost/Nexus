@@ -29,6 +29,62 @@
 .nx-brand{font-family:var(--serif);font-size:23px;letter-spacing:.05em;font-weight:600;display:inline-flex;align-items:center;gap:12px;text-shadow:0 1px 10px rgba(10,12,14,.6)}
 .nx-logo{width:25px;height:25px;flex:0 0 25px}
 
+/* ── Named landing-specific utility classes (used by Landing.tsx) ────────── */
+
+/* Dark gradient overlay for hero images; covers content behind the slide */
+.hero-scrim{
+  position:absolute;inset:0;z-index:1;
+  background:
+    linear-gradient(95deg,rgba(10,12,14,.92) 0%,rgba(10,12,14,.6) 36%,rgba(10,12,14,.15) 66%,rgba(10,12,14,.45) 100%),
+    linear-gradient(0deg,rgba(10,12,14,.85),transparent 32%)
+}
+
+/* Subtle noise texture overlay — SVG base64 data URI on a pseudo-element */
+.landing-grain{
+  position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:72px 72px;
+  mask-image:radial-gradient(130% 90% at 18% 70%,#000 25%,transparent 72%)
+}
+
+/* Horizontal scroll animation for trust bar / marquee rows */
+@keyframes marquee-scroll{
+  0%{transform:translateX(0)}
+  100%{transform:translateX(-50%)}
+}
+.marquee{
+  overflow:hidden;white-space:nowrap
+}
+.marquee-inner{
+  display:inline-flex;gap:38px;
+  animation:marquee-scroll 28s linear infinite
+}
+.marquee-inner:hover{animation-play-state:paused}
+
+/* Fade transition for hero image carousel slides */
+.hero-slide{
+  position:absolute;inset:0;
+  background-size:cover;background-position:center;
+  opacity:0;transform:scale(1.08);
+  transition:opacity 1.7s ease,transform 7.5s ease
+}
+.hero-slide.on{opacity:1;transform:scale(1.16)}
+
+/* Backdrop-blur + translucent bg for sticky landing nav (scrolled state) */
+.nav-blur{background:rgba(14,17,19,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+
+/* Gold glow on hover for role cards — applied via :hover via CSS class on parent */
+.role-card-glow{
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);
+  transition:transform .3s,border-color .3s,box-shadow .3s
+}
+/* Gold glow appears on hover only, never persistently */
+.role-card-glow:hover{
+  transform:translateY(-5px);
+  border-color:var(--gold);
+  box-shadow:0 0 0 1px rgba(201,164,91,.22),0 30px 60px -34px rgba(201,164,91,.3)
+}
+
 /* nav */
 /* Default (top of page): a soft top-down scrim keeps the nav legible over a
    light hero photo. Once scrolled, it swaps to the solid blurred bar. */
@@ -40,13 +96,19 @@
 .nx-navlinks a:hover{color:var(--gold-soft)}
 .nx-req{padding:10px 18px;border:1px solid var(--gold);color:var(--gold-soft);border-radius:8px;font-size:13px;font-weight:500;transition:background .2s,color .2s}
 .nx-req:hover{background:var(--gold);color:var(--ink)}
-@media(max-width:920px){.nx-navlinks a:not(.nx-req){display:none}}
+/* Quiet "Sign in" link in the ribbon (sits left of the Register button). Inherits
+   the nav's light-on-photo color; only the hover gets the gold treatment. */
+.nx-signin{font-size:14px;font-weight:500;color:inherit;transition:color .2s}
+.nx-signin:hover{color:#E3CB8C}
+/* Collapse the marketing anchors on small screens, but keep Sign in + Register. */
+@media(max-width:920px){.nx-navlinks a:not(.nx-req):not(.nx-signin){display:none}}
 
 /* hero */
 .nx-hero{position:relative;height:100svh;min-height:660px;overflow:hidden}
 .nx-hero-bg{position:absolute;inset:0;z-index:0;background:var(--ink)}
 .nx-slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transform:scale(1.08);transition:opacity 1.7s ease,transform 7.5s ease}
 .nx-slide.on{opacity:1;transform:scale(1.16)}
+/* .hero-scrim and .landing-grain are aliased to: */
 .nx-hero-scrim{position:absolute;inset:0;z-index:1;background:
   linear-gradient(95deg,rgba(10,12,14,.92) 0%,rgba(10,12,14,.6) 36%,rgba(10,12,14,.15) 66%,rgba(10,12,14,.45) 100%),
   linear-gradient(0deg,rgba(10,12,14,.85),transparent 32%)}
@@ -68,17 +130,36 @@
 .nx-dots button{width:34px;height:3px;border-radius:2px;background:rgba(244,241,234,.25);border:none;padding:0;cursor:pointer;transition:background .3s}
 .nx-dots button.on{background:var(--gold)}
 
-/* trust marquee */
+/* Scroll indicator animation */
+@keyframes scroll-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+.nx-scroll-ind{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted);cursor:pointer}
+.nx-scroll-ind span{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.nx-scroll-arrow{animation:scroll-bounce 2s ease-in-out infinite}
+
+/* trust bar */
 .nx-bar{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--ink-2)}
-.nx-bar-in{max-width:1280px;margin:0 auto;padding:20px 32px;display:flex;gap:38px;flex-wrap:wrap;justify-content:center;align-items:center}
-.nx-bar span{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:inline-flex;align-items:center;gap:9px}
-.nx-bar span svg{color:var(--gold)}
+.nx-bar-in{max-width:1280px;margin:0 auto;padding:0 32px;display:flex;gap:0;flex-wrap:wrap}
+.nx-stat-item{flex:1 1 25%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;border-right:1px solid var(--line)}
+.nx-stat-item:last-child{border-right:none}
+.nx-stat-value{font-family:var(--serif);font-size:clamp(24px,3vw,36px);font-weight:500;color:var(--gold-soft);line-height:1.1}
+.nx-stat-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:6px;text-align:center}
+@media(max-width:700px){.nx-stat-item{flex:1 1 50%;border-bottom:1px solid var(--line)}.nx-stat-item:nth-child(2){border-right:none}.nx-stat-item:last-child{border-bottom:none}}
 
 /* sections */
 .nx-section{padding:clamp(72px,9vw,118px) 0}
 .nx-section.alt{background:var(--ink-2)}
 .nx-sechead{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
 .nx-sechead .nx-lead{margin-top:0;max-width:38ch}
+
+/* feature cards (3 column) */
+.nx-feat3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px}
+@media(max-width:880px){.nx-feat3{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.nx-feat3{grid-template-columns:1fr}}
+.nx-feat3-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:32px 28px;transition:transform .25s,border-color .25s,box-shadow .25s}
+.nx-feat3-card:hover{transform:translateY(-4px);border-color:var(--line-strong);box-shadow:0 20px 40px -20px rgba(0,0,0,.6)}
+.nx-feat3-icon{width:44px;height:44px;border-radius:10px;background:rgba(201,164,91,.1);border:1px solid rgba(201,164,91,.18);display:grid;place-items:center;color:var(--gold);margin-bottom:18px}
+.nx-feat3-card h3{font-size:17px;font-weight:600;margin:0 0 9px}
+.nx-feat3-card p{color:var(--muted);font-size:14px;margin:0;line-height:1.65}
 
 /* listings */
 .nx-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px}
@@ -99,7 +180,7 @@
 .nx-listing-nm{font-family:var(--serif);font-size:21px;font-weight:500}
 .nx-listing-meta{color:var(--muted);font-size:13px;margin-top:2px}
 .nx-listing-foot{display:flex;align-items:baseline;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
-.nx-listing-price{font-family:var(--serif);font-size:22px}
+.nx-listing-price{font-family:var(--serif);font-size:22px;color:var(--gold-soft)}
 .nx-listing-price small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400}
 .nx-listing-view{font-size:13px;color:var(--gold-soft);display:inline-flex;align-items:center;gap:6px;transition:gap .2s}
 .nx-listing:hover .nx-listing-view{gap:10px}
@@ -137,30 +218,35 @@
 .nx-band h2{font-family:var(--serif);font-weight:500;font-style:italic;font-size:clamp(30px,4.6vw,56px);line-height:1.08;max-width:18ch;letter-spacing:-.01em}
 .nx-band p{color:var(--ivory-dim);max-width:46ch;margin-top:18px;font-size:16px}
 
-/* roles */
-/* Editorial split: section intro on the left, the two role cards on the right,
-   so two cards fill the row intentionally instead of leaving a void. */
-.nx-roles-split{display:grid;grid-template-columns:0.82fr 1.18fr;gap:clamp(36px,5vw,72px);align-items:center}
-@media(max-width:980px){.nx-roles-split{grid-template-columns:1fr;gap:38px;align-items:start}}
-.nx-roles-intro .nx-h2{max-width:14ch}
-.nx-roles-intro .nx-lead{max-width:42ch}
-.nx-roles-note{display:flex;align-items:center;gap:10px;margin-top:26px;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.nx-roles-note span{color:var(--gold);display:inline-flex}
-.nx-roles{display:grid;grid-template-columns:1fr 1fr;gap:22px}
-@media(max-width:620px){.nx-roles{grid-template-columns:1fr}}
-.nx-role{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);transition:transform .3s,border-color .3s,box-shadow .3s}
-/* Gold glow appears on hover only (for any card), never persistently. */
-.nx-role:hover{transform:translateY(-5px);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,164,91,.22),0 30px 60px -34px rgba(201,164,91,.3)}
-.nx-role-img{aspect-ratio:16/9;overflow:hidden;position:relative}
+/* roles — dark section with 3-col grid */
+.nx-roles-dark{background:#080B0D;padding:clamp(72px,9vw,118px) 0}
+.nx-roles-head{text-align:center;margin-bottom:52px}
+.nx-roles-head .nx-eyebrow{justify-content:center}
+.nx-roles-head .nx-h2{margin:0 auto;text-align:center;max-width:none}
+.nx-roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+@media(max-width:900px){.nx-roles-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:580px){.nx-roles-grid{grid-template-columns:1fr}}
+/* role-card-glow: named class per spec, provides the jade/gold glow on hover */
+.role-card-glow{
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  background:var(--surface);
+  transition:transform .3s,border-color .3s,box-shadow .3s
+}
+.role-card-glow:hover{
+  transform:translateY(-6px);
+  border-color:var(--gold);
+  box-shadow:0 0 0 1px rgba(201,164,91,.22),0 0 48px -10px rgba(201,164,91,.28),0 30px 60px -30px rgba(201,164,91,.35)
+}
+.nx-role-img{aspect-ratio:4/3;overflow:hidden;position:relative}
 .nx-role-img img{width:100%;height:100%;object-fit:cover;transition:transform .6s}
-.nx-role:hover .nx-role-img img{transform:scale(1.06)}
+.role-card-glow:hover .nx-role-img img{transform:scale(1.06)}
 .nx-role-img::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--surface),transparent 55%)}
-.nx-role-body{padding:22px 24px 24px}
-.nx-role .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
-.nx-role h3{font-family:var(--serif);font-size:25px;font-weight:500;margin:6px 0 7px}
-.nx-role p{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+.nx-role-body{padding:22px 24px 26px}
+.nx-role .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:8px}
+.nx-role h3{font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 8px}
+.nx-role p{color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.6}
 .nx-role .go{font-size:13px;color:var(--ivory-dim);display:inline-flex;gap:8px;align-items:center;transition:gap .2s,color .2s}
-.nx-role:hover .go{gap:12px;color:var(--gold-soft)}
+.role-card-glow:hover .nx-role .go{gap:12px;color:var(--gold-soft)}
 
 /* features */
 .nx-feat{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:48px}
@@ -185,23 +271,118 @@
 .nx-cta .acts{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
 
 /* footer */
-.nx-foot{border-top:1px solid var(--line);padding:54px 0 40px;background:var(--ink-2)}
-.nx-foot-top{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;padding-bottom:34px;border-bottom:1px solid var(--line)}
-.nx-foot-links{display:flex;gap:48px;flex-wrap:wrap}
-.nx-foot-col h5{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);margin:0 0 14px}
-.nx-foot-col a{display:block;color:var(--ivory-dim);font-size:14px;margin-bottom:9px;transition:color .2s}
-.nx-foot-col a:hover{color:var(--ivory)}
-.nx-foot-bot{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;padding-top:26px}
-.nx-foot-stats{display:flex;gap:36px;flex-wrap:wrap}
-.nx-foot-stats .v{font-family:var(--serif);font-size:16px}
-.nx-foot-stats .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2);margin-top:2px}
+.nx-foot{border-top:1px solid var(--line);padding:48px 0 36px;background:var(--ink-2)}
+.nx-foot-simple{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding-bottom:28px;border-bottom:1px solid var(--line);margin-bottom:28px}
+.nx-foot-tagline{color:var(--muted);font-size:13.5px;margin-top:8px}
+.nx-foot-links-row{display:flex;gap:20px;flex-wrap:wrap}
+.nx-foot-links-row a{color:var(--ivory-dim);font-size:13.5px;transition:color .2s}
+.nx-foot-links-row a:hover{color:var(--ivory)}
+.nx-foot-bot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
 .nx-foot-copy{color:var(--muted-2);font-size:12.5px}
+@media(max-width:640px){.nx-foot-simple{flex-direction:column;align-items:flex-start}}
 
 [data-reveal]{opacity:0;transform:translateY(24px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
 [data-reveal].in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){
   [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}
-  .nx-slide{transition:opacity 1.2s ease!important;transform:none!important}
-  .nx-slide.on{transform:none!important}
-  .nx-btn,.nx-listing,.nx-role,.nx-card{transition:none!important}
+  .nx-slide,.hero-slide{transition:opacity 1.2s ease!important;transform:none!important}
+  .nx-slide.on,.hero-slide.on{transform:none!important}
+  .nx-btn,.nx-listing,.role-card-glow,.nx-card,.nx-feat3-card{transition:none!important}
+  .nx-scroll-arrow{animation:none!important}
+  .marquee-inner{animation:none!important}
 }
+
+/* ==========================================================================
+   LIGHT THEME (landing)
+   The landing keeps its OWN variable system (--ink/--ivory/--gold...). In light
+   mode we flip the FLAT-section variables to a warm ivory canvas, but the
+   cinematic photo sections (hero / band / cta / nav / listing & media badges)
+   keep their hardcoded dark scrims, so their TEXT must stay light. We therefore
+   flip the core vars AND re-pin every over-photo element back to light values.
+   Readability rule: dark text only ever lands on light surfaces; light text
+   only ever lands on the dark photo scrims.
+   ========================================================================== */
+:root[data-theme='light'] .nx{
+  /* Flat surfaces + page text — cool porcelain, no beige */
+  --ink:#F7F9FC; --ink-2:#EEF3F8; --surface:#FFFFFF; --surface-2:#F2F5F9;
+  --line:rgba(15,23,42,0.08); --line-strong:rgba(15,23,42,0.16);
+  /* Sharp near-black text scale, no warmth */
+  --ivory:#0B1220; --ivory-dim:#334155; --muted:#64748B; --muted-2:#475569;
+  /* Gold stays for hero/cta photo areas (kept via per-element hardcodes below).
+     gold-soft now maps to navy for all flat-section text accents (eyebrows,
+     step numbers, role labels) — eliminates the dark-amber/brown look. */
+  --gold:#D4AF37; --gold-soft:#102A43;
+}
+
+/* --- Re-pin everything that rides on a dark photo/scrim back to LIGHT ----- */
+:root[data-theme='light'] .nx-hero-bg{background:#0E1113}
+:root[data-theme='light'] .nx-roles-dark{background:#0A0D10}
+
+/* Nav floats over the hero photo (and turns into dark glass when scrolled),
+   so it stays light-on-dark in both themes. */
+:root[data-theme='light'] .nx-nav .nx-brand{color:#F4F1EA}
+/* container color also covers the (non-anchor) theme toggle button */
+:root[data-theme='light'] .nx-navlinks{color:#F4F1EA}
+:root[data-theme='light'] .nx-navlinks a{color:#F4F1EA}
+:root[data-theme='light'] .nx-navlinks a:hover{color:#E3CB8C}
+:root[data-theme='light'] .nx-req{color:#E3CB8C;border-color:#C9A45B}
+:root[data-theme='light'] .nx-req:hover{background:#C9A45B;color:#0E1113}
+
+/* Hero copy over the dark scrim */
+:root[data-theme='light'] .nx-hero .nx-eyebrow,
+:root[data-theme='light'] .nx-band .nx-eyebrow{color:#E3CB8C}
+:root[data-theme='light'] .nx-hero .nx-eyebrow::before,
+:root[data-theme='light'] .nx-band .nx-eyebrow::before{background:#E3CB8C}
+:root[data-theme='light'] .nx-hero h1{color:#F4F1EA}
+:root[data-theme='light'] .nx-hero h1 .it{color:#E3CB8C}
+:root[data-theme='light'] .nx-hero-sub{color:#CDC8BC}
+:root[data-theme='light'] .nx-caption .lab{color:#909896}
+:root[data-theme='light'] .nx-caption .nm{color:#F4F1EA}
+:root[data-theme='light'] .nx-caption .lo{color:#CDC8BC}
+
+/* Ghost button appears only over photos (hero + cta), on dark glass */
+:root[data-theme='light'] .nx-btn-ghost{color:#F4F1EA;background:rgba(14,17,19,.35);border-color:rgba(244,241,234,.16)}
+:root[data-theme='light'] .nx-btn-ghost:hover{border-color:#C9A45B;color:#E3CB8C}
+
+/* Listing card photo badge sits on a dark glass chip */
+:root[data-theme='light'] .nx-listing-badge.muted{color:#909896}
+:root[data-theme='light'] .nx-listing-badge.muted i{background:#909896}
+
+/* Editorial split media caption over a photo */
+:root[data-theme='light'] .nx-split-media .tagstrip{color:#F4F1EA}
+
+/* Full-bleed band over a dark-scrimmed photo */
+:root[data-theme='light'] .nx-band h2{color:#F4F1EA}
+:root[data-theme='light'] .nx-band p{color:#CDC8BC}
+
+/* CTA over a photo with a soft vignette — keep eyebrow + heading light */
+:root[data-theme='light'] .nx-cta .nx-eyebrow{color:#E3CB8C}
+:root[data-theme='light'] .nx-cta .nx-eyebrow::before{background:#E3CB8C}
+:root[data-theme='light'] .nx-cta h2{color:#F4F1EA}
+
+/* Roles dark section stays dark in both themes (photo bg) */
+:root[data-theme='light'] .nx-roles-dark .nx-h2{color:#F4F1EA}
+:root[data-theme='light'] .nx-roles-dark .nx-eyebrow{color:#E3CB8C}
+:root[data-theme='light'] .nx-roles-dark .nx-eyebrow::before{background:#E3CB8C}
+
+/* Footer — cool-tinted slate surface, crisp top edge. */
+:root[data-theme='light'] .nx-foot{background:#EEF3F8;border-top:1px solid rgba(15,23,42,0.10)}
+:root[data-theme='light'] .nx-foot-simple{border-bottom-color:rgba(15,23,42,0.10)}
+:root[data-theme='light'] .nx-foot .nx-brand{text-shadow:none}
+
+/* ── Text elements that pull --gold need the readable dark amber in flat sections.
+   Bright #D4AF37 on the porcelain canvas is ~1.9:1 — far below AA for small type.
+   --gold-soft (#7B5800) gives 6.1:1; used for every text-coloured gold element. */
+:root[data-theme='light'] .nx-eyebrow{color:var(--gold-soft)}
+:root[data-theme='light'] .nx-eyebrow::before{background:var(--gold-soft)}
+:root[data-theme='light'] .nx-step .num{color:var(--gold-soft)}
+:root[data-theme='light'] .nx-feat3-icon{color:var(--gold-soft);background:rgba(183,140,0,.08);border-color:rgba(183,140,0,.16)}
+:root[data-theme='light'] .nx-listing-price{color:var(--gold-soft)}
+
+/* ── Signin hover: the nav sits on a dark hero photo (dark glass), so .nx-signin
+   needs explicit ivory on hover even in light mode — navy would be invisible. */
+:root[data-theme='light'] .nx-signin:hover{color:#E3CB8C}
+
+/* ── Primary button on landing: all landing CTAs appear over dark photo sections
+   (hero + cta), so the gold-on-dark treatment stays. No override needed — the
+   dark photo context keeps white/ivory legible on gold (#D4AF37). */

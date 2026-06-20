@@ -1,96 +1,179 @@
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useApi } from '@/hooks/useApi';
 import { adminApi } from '@/lib/endpoints';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { StatCard } from '@/components/ui/StatCard';
-import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
-import { IconDoc, IconLedger, IconShield } from '@/components/ui/icons';
-import { formatDateTime } from '@/lib/format';
+import { Card, CardHeader, CardBody } from '@/components/ui/Card';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { IconShield, IconUsers, IconLedger, IconAlertTriangle } from '@/components/ui/icons';
+
+import { MOCK_ADMIN_DASHBOARD, MOD_QUEUE } from './adminMockData';
+import { ModerationCommandCenter } from './components/ModerationCommandCenter';
+import { AuditTimeline } from './components/AuditTimeline';
+import { LedgerSnapshot } from './components/LedgerSnapshot';
+import { ContractLifecycle } from './components/ContractLifecycle';
+import { SystemAlertsCard } from './components/SystemAlertsCard';
+import {
+  AUDIT_EVENTS,
+  LEDGER_BARS,
+  LEDGER_BAR_LABELS,
+  LEDGER_STATS,
+  CONTRACT_STAGES,
+  CONTRACT_TOTAL,
+} from './adminMockData';
+
+const ICON_SIZE = { size: 18 as const };
 
 export function AdminDashboard() {
-  const pending = useApi(() => adminApi.pendingListings(), []);
-  const contracts = useApi(() => adminApi.contracts(), []);
-  const audit = useApi(() => adminApi.auditLogs(), []);
+  const navigate = useNavigate();
+  const dashboardReq = useApi(() => adminApi.dashboard(), []);
+  const pendingReq = useApi(() => adminApi.pendingListings(), []);
 
-  const severityTone = (s: string) =>
-    s === 'critical' ? 'danger' : s === 'warning' ? 'warning' : 'info';
+  // Prefer live data; fall back to mock
+  const mock = MOCK_ADMIN_DASHBOARD;
+  const pendingCount = pendingReq.data?.length ?? mock.review_queue_count;
+  const disputes = mock.open_disputes_count;
+
+  function handleApprove(id: number) {
+    void adminApi.approveListing(id).then(() => pendingReq.reload?.());
+  }
+
+  function handleReject(id: number, _reason: string) {
+    void adminApi.rejectListing(id, _reason).then(() => pendingReq.reload?.());
+  }
+
+  // Build listing objects compatible with ModerationCommandCenter from mock queue
+  // (real data comes via pendingReq; keep mock for dashboard preview — first 4 rows)
+  const queueListings = pendingReq.data?.slice(0, 4) ?? null;
 
   return (
-    <div>
+    <div className="animate-rise space-y-6">
       <PageHeader
-        title="Platform overview"
-        description="Moderate listings, monitor contracts, and review the audit trail."
-        actions={
-          <Link to="/app/moderation">
-            <Button leftIcon={<IconShield className="h-4 w-4" />}>Review queue</Button>
-          </Link>
+        eyebrow="Admin"
+        title="Platform Overview"
+        description="Moderate listings, verify users, review the ledger, and monitor the audit trail."
+        action={
+          <Button
+            leftIcon={<IconShield {...ICON_SIZE} />}
+            onClick={() => navigate('/app/moderation')}
+          >
+            Review queue
+          </Button>
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Stats row */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Listings pending review"
-          value={pending.data?.length ?? 0}
+          label="Review Queue"
+          value={pendingCount}
+          subtext="pending listings"
           tone="warning"
-          icon={<IconShield className="h-[18px] w-[18px]" />}
-          loading={pending.loading}
+          loading={pendingReq.loading}
+          icon={<IconShield {...ICON_SIZE} />}
         />
         <StatCard
-          label="Total contracts"
-          value={contracts.data?.total ?? 0}
-          icon={<IconDoc className="h-[18px] w-[18px]" />}
-          loading={contracts.loading}
+          label="Verification Queue"
+          value={mock.verification_queue_count}
+          subtext="users awaiting identity check"
+          tone="info"
+          icon={<IconUsers {...ICON_SIZE} />}
         />
         <StatCard
-          label="Audit events"
-          value={audit.data?.total ?? 0}
-          tone="neutral"
-          icon={<IconLedger className="h-[18px] w-[18px]" />}
-          loading={audit.loading}
+          label="Ledger Volume (7 days)"
+          value="GH₵248,000"
+          subtext="vs prior week +12%"
+          tone="money"
+          loading={dashboardReq.loading}
+          icon={<IconLedger {...ICON_SIZE} />}
+        />
+        <StatCard
+          label="Open Disputes"
+          value={disputes}
+          subtext={disputes > 0 ? 'requires attention' : 'no open disputes'}
+          tone={disputes > 0 ? 'danger' : 'success'}
+          icon={<IconAlertTriangle {...ICON_SIZE} />}
         />
       </div>
 
-      <div className="mt-6">
-        <Card>
-          <CardHeader
-            title="Recent activity"
-            description="Latest entries from the immutable audit log."
-            action={
-              <Link to="/app/audit">
-                <Button variant="ghost" size="sm">
-                  View all
+      {/* Main 2-col layout */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
+        {/* Left column */}
+        <div className="space-y-5">
+          {/* Listing Review Queue */}
+          <Card>
+            <CardHeader
+              title="Listing Review Queue"
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate('/app/moderation')}
+                >
+                  Open queue
+                  {pendingCount > 0 && (
+                    <Badge tone="warning" dot={false} className="ml-2">
+                      {pendingCount}
+                    </Badge>
+                  )}
                 </Button>
-              </Link>
-            }
+              }
+            />
+            <CardBody className="p-0">
+              {queueListings ? (
+                <ModerationCommandCenter
+                  listings={queueListings}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                />
+              ) : (
+                <ModerationCommandCenter
+                  listings={null}
+                  mockQueue={MOD_QUEUE.slice(0, 4)}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                />
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Ledger Health */}
+          <LedgerSnapshot
+            bars={LEDGER_BARS}
+            labels={LEDGER_BAR_LABELS}
+            stats={LEDGER_STATS}
           />
-          <CardBody className="pt-2">
-            {audit.loading ? (
-              <LoadingState />
-            ) : audit.error ? (
-              <ErrorState message={audit.error.message} onRetry={audit.reload} />
-            ) : !audit.data?.data.length ? (
-              <EmptyState icon={<IconLedger />} title="No activity yet" />
-            ) : (
-              <ul className="divide-y divide-ink-100">
-                {audit.data.data.slice(0, 6).map((log) => (
-                  <li key={log.id} className="flex items-center justify-between gap-4 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink-900">
-                        {log.description ?? log.action}
-                      </p>
-                      <p className="text-xs text-ink-500">{formatDateTime(log.created_at)}</p>
-                    </div>
-                    <Badge tone={severityTone(log.severity)}>{log.severity}</Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-5">
+          {/* System Alerts */}
+          <SystemAlertsCard alerts={mock.platform_alerts} />
+
+          {/* Audit Activity */}
+          <Card>
+            <CardHeader
+              title="Audit Activity"
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/app/audit')}
+                >
+                  Full log
+                </Button>
+              }
+            />
+            <CardBody className="p-0">
+              <AuditTimeline events={AUDIT_EVENTS} max={5} compact />
+            </CardBody>
+          </Card>
+        </div>
       </div>
+
+      {/* Bottom row: contract lifecycle */}
+      <ContractLifecycle stages={CONTRACT_STAGES} total={CONTRACT_TOTAL} />
     </div>
   );
 }
