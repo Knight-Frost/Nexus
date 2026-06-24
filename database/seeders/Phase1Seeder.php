@@ -49,7 +49,7 @@ class Phase1Seeder extends Seeder
             'password' => Hash::make('password'),
             'first_name' => 'John',
             'last_name' => 'Property',
-            'phone' => '555-0101',
+            'phone' => '0244000101',
             'identity_verified' => true,
             'identity_verified_at' => now(),
             'identity_verified_by' => 'admin@nexus.com',
@@ -62,7 +62,7 @@ class Phase1Seeder extends Seeder
             'password' => Hash::make('password'),
             'first_name' => 'Jane',
             'last_name' => 'Rental',
-            'phone' => '555-0102',
+            'phone' => '0244000102',
             'identity_verified' => false,
             'email_verified_at' => now(),
         ]);
@@ -99,41 +99,41 @@ class Phase1Seeder extends Seeder
 
         echo "✓ Created 3 Tenants\n";
 
-        // Create Properties
+        // Create Properties — all in Ghana
         $property1 = Property::create([
             'landlord_id' => $landlordVerified->id,
-            'name' => 'Sunset Apartments',
+            'name' => 'Cantonments Gardens',
             'property_type' => PropertyType::APARTMENT,
-            'street_address' => '123 Main Street',
-            'city' => 'San Francisco',
-            'state' => 'CA',
-            'zip_code' => '94102',
+            'street_address' => '14 Independence Avenue',
+            'city' => 'Cantonments',
+            'state' => 'Accra',
+            'zip_code' => 'GA-100',
             'year_built' => 2015,
-            'description' => 'Modern apartment building in downtown SF',
+            'description' => 'Modern apartment complex in the prestigious Cantonments neighbourhood of Accra.',
         ]);
 
         $property2 = Property::create([
             'landlord_id' => $landlordVerified->id,
-            'name' => 'Oak Street Townhomes',
+            'name' => 'East Legon Court',
             'property_type' => PropertyType::TOWNHOUSE,
-            'street_address' => '456 Oak Street',
-            'city' => 'Oakland',
-            'state' => 'CA',
-            'zip_code' => '94601',
+            'street_address' => '7 Boundary Road',
+            'city' => 'East Legon',
+            'state' => 'Accra',
+            'zip_code' => 'GA-200',
             'year_built' => 2018,
-            'description' => 'Family-friendly townhomes near parks',
+            'description' => 'Premium townhouses in East Legon, close to the American Embassy and shopping.',
         ]);
 
         $property3 = Property::create([
             'landlord_id' => $landlordUnverified->id,
-            'name' => 'Riverside Condos',
+            'name' => 'Airport Residences',
             'property_type' => PropertyType::CONDO,
-            'street_address' => '789 River Road',
-            'city' => 'Berkeley',
-            'state' => 'CA',
-            'zip_code' => '94704',
+            'street_address' => '3 Aviation Road',
+            'city' => 'Airport Residential',
+            'state' => 'Accra',
+            'zip_code' => 'GA-300',
             'year_built' => 2020,
-            'description' => 'Luxury condos with river views',
+            'description' => 'Luxury condos in the Airport Residential Area with panoramic views of Accra.',
         ]);
 
         echo "✓ Created 3 Properties\n";
@@ -144,12 +144,12 @@ class Phase1Seeder extends Seeder
             'unit_number' => '101',
             'bedrooms' => 2,
             'bathrooms' => 2,
-            'square_feet' => 950,
+            'square_feet' => 1100,
             'rent_amount' => 3500,
             'security_deposit' => 3500,
             'availability_status' => UnitAvailabilityStatus::AVAILABLE,
             'available_from' => now()->addDays(15),
-            'amenities' => ['parking', 'balcony', 'dishwasher'],
+            'amenities' => ['parking', 'balcony', 'dishwasher', 'air_conditioning'],
         ]);
 
         $unit2 = Unit::create([
@@ -157,7 +157,7 @@ class Phase1Seeder extends Seeder
             'unit_number' => '205',
             'bedrooms' => 1,
             'bathrooms' => 1,
-            'square_feet' => 650,
+            'square_feet' => 700,
             'rent_amount' => 2800,
             'security_deposit' => 2800,
             'availability_status' => UnitAvailabilityStatus::AVAILABLE,
@@ -169,13 +169,13 @@ class Phase1Seeder extends Seeder
             'property_id' => $property2->id,
             'unit_number' => 'A',
             'bedrooms' => 3,
-            'bathrooms' => 2.5,
+            'bathrooms' => 2,
             'square_feet' => 1800,
             'rent_amount' => 4200,
             'security_deposit' => 4200,
             'availability_status' => UnitAvailabilityStatus::AVAILABLE,
             'available_from' => now()->addDays(30),
-            'amenities' => ['garage', 'backyard', 'washer_dryer', 'dishwasher'],
+            'amenities' => ['garage', 'backyard', 'washer_dryer', 'dishwasher', 'security'],
         ]);
 
         $unit4 = Unit::create([
@@ -183,12 +183,12 @@ class Phase1Seeder extends Seeder
             'unit_number' => '1202',
             'bedrooms' => 2,
             'bathrooms' => 2,
-            'square_feet' => 1100,
-            'rent_amount' => 3800,
-            'security_deposit' => 3800,
+            'square_feet' => 1200,
+            'rent_amount' => 5800,
+            'security_deposit' => 5800,
             'availability_status' => UnitAvailabilityStatus::AVAILABLE,
             'available_from' => now()->addDays(7),
-            'amenities' => ['parking', 'balcony', 'gym_access', 'pool_access'],
+            'amenities' => ['parking', 'balcony', 'gym_access', 'pool_access', 'concierge'],
         ]);
 
         echo "✓ Created 4 Units\n";
@@ -197,10 +197,11 @@ class Phase1Seeder extends Seeder
         $listing1 = Listing::create([
             'unit_id' => $unit1->id,
             'landlord_id' => $landlordVerified->id,
-            'title' => 'Beautiful 2BR/2BA in Downtown SF',
-            'description' => 'Spacious 2-bedroom apartment with modern finishes, balcony, and parking. Walking distance to BART and all amenities.',
+            'title' => 'Elegant 2BR/2BA in Cantonments, Accra',
+            'description' => 'Spacious 2-bedroom apartment with modern finishes, balcony, and covered parking. Walking distance to the UN compound, embassies, and Cantonments dining.',
             'status' => ListingStatus::ACTIVE,
             'published_at' => now()->subDays(5),
+            'featured' => true,
             'pets_allowed' => false,
             'lease_duration_months' => 12,
             'move_in_date' => now()->addDays(15)->toDateString(),
@@ -209,13 +210,13 @@ class Phase1Seeder extends Seeder
         $listing2 = Listing::create([
             'unit_id' => $unit2->id,
             'landlord_id' => $landlordVerified->id,
-            'title' => 'Cozy 1BR in Sunset District',
-            'description' => 'Perfect starter apartment with parking and dishwasher. Quiet neighborhood, great for professionals.',
+            'title' => 'Cozy 1BR Apartment in Cantonments',
+            'description' => 'Ideal starter apartment with parking and dishwasher. Quiet and secure neighbourhood, perfect for young professionals in Accra.',
             'status' => ListingStatus::ACTIVE,
             'published_at' => now()->subDays(10),
             'featured' => true,
             'pets_allowed' => true,
-            'pet_policy' => 'Small pets allowed with additional deposit',
+            'pet_policy' => 'Small pets welcome with additional deposit',
             'lease_duration_months' => 12,
             'move_in_date' => now()->toDateString(),
         ]);
@@ -223,10 +224,11 @@ class Phase1Seeder extends Seeder
         $listing3 = Listing::create([
             'unit_id' => $unit3->id,
             'landlord_id' => $landlordVerified->id,
-            'title' => 'Family-Sized Townhome with Backyard',
-            'description' => '3-bedroom townhome perfect for families. Large backyard, garage parking, and in-unit washer/dryer.',
+            'title' => 'Spacious 3BR Townhouse — East Legon',
+            'description' => 'Premium 3-bedroom townhouse in sought-after East Legon. Large private garden, garage, in-unit washer/dryer, and 24-hour security.',
             'status' => ListingStatus::ACTIVE,
             'published_at' => now()->subDays(3),
+            'featured' => true,
             'pets_allowed' => true,
             'pet_policy' => 'Pets welcome, no additional deposit required',
             'lease_duration_months' => 12,
@@ -236,8 +238,8 @@ class Phase1Seeder extends Seeder
         $listing4 = Listing::create([
             'unit_id' => $unit4->id,
             'landlord_id' => $landlordUnverified->id,
-            'title' => 'Luxury Riverside Condo',
-            'description' => 'High-end 2BR condo with stunning river views. Building amenities include gym, pool, and concierge.',
+            'title' => 'Luxury Condo — Airport Residential Area',
+            'description' => 'High-end 2BR condo with stunning views of Accra. Building amenities include gym, pool, and concierge service.',
             'status' => ListingStatus::DRAFT,
             'pets_allowed' => false,
             'lease_duration_months' => 12,
@@ -326,7 +328,7 @@ class Phase1Seeder extends Seeder
         echo "  • 1 Super Admin\n";
         echo "  • 2 Landlords\n";
         echo "  • 3 Tenants\n";
-        echo "  • 3 Properties\n";
+        echo "  • 3 Properties (all in Accra, Ghana)\n";
         echo "  • 4 Units\n";
         echo "  • 4 Listings (3 published)\n";
         echo "  • 5 Features\n";

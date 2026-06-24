@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Enums\ContractStatus;
+use App\Enums\NotificationType;
 use App\Enums\TerminatedBy;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TerminateContractRequest;
 use App\Models\Contract;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +21,8 @@ use Illuminate\Http\Request;
 class TenantContractController extends Controller
 {
     public function __construct(
-        protected AuditService $auditService
+        protected AuditService $auditService,
+        protected NotificationService $notificationService
     ) {}
 
     /**
@@ -67,6 +70,23 @@ class TenantContractController extends Controller
             severity: 'info'
         );
 
+        // Notify the landlord that the contract has been signed
+        $tenant = $request->user();
+        $eventId = "contract-signed:{$contract->id}";
+        if (! $this->notificationService->exists($contract->landlord, $eventId)) {
+            $this->notificationService->create(
+                user: $contract->landlord,
+                type: NotificationType::CONTRACT_SIGNED,
+                title: 'Contract Signed',
+                message: "{$tenant->full_name} has accepted the contract for \"{$contract->listing->title}\".",
+                data: [
+                    'event_id' => $eventId,
+                    'contract_id' => $contract->id,
+                    'tenant_id' => $tenant->id,
+                ]
+            );
+        }
+
         return response()->json([
             'message' => 'Contract accepted and activated',
             'contract' => $contract->fresh(),
@@ -78,6 +98,10 @@ class TenantContractController extends Controller
      */
     public function terminate(TerminateContractRequest $request, Contract $contract): JsonResponse
     {
+        // TerminateContractRequest@authorize() already delegates to ContractPolicy@terminate,
+        // but we repeat it here for defense-in-depth visibility.
+        $this->authorize('terminate', $contract);
+
         $contract->update([
             'status' => ContractStatus::TERMINATED,
             'terminated_by' => TerminatedBy::TENANT,
@@ -92,6 +116,24 @@ class TenantContractController extends Controller
             description: 'Tenant terminated contract',
             severity: 'warning'
         );
+
+        // Notify the landlord that the tenant terminated
+        $tenant = $request->user();
+        $eventId = "contract-terminated:{$contract->id}:landlord";
+        if (! $this->notificationService->exists($contract->landlord, $eventId)) {
+            $this->notificationService->create(
+                user: $contract->landlord,
+                type: NotificationType::CONTRACT_TERMINATED,
+                title: 'Contract Terminated',
+                message: "{$tenant->full_name} has terminated the contract for \"{$contract->listing->title}\". Reason: {$request->reason}",
+                data: [
+                    'event_id' => $eventId,
+                    'contract_id' => $contract->id,
+                    'terminated_by' => 'tenant',
+                    'reason' => $request->reason,
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Contract terminated',

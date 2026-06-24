@@ -78,7 +78,7 @@
     </div>
     
     <div class="footer">
-        <p>This is an automated notification from Nexus.</p>
+        <p>This is an automated notification from {{ config('brand.display_name') }}.</p>
         <p>Please do not reply to this email.</p>
     </div>
 </body>

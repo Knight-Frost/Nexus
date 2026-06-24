@@ -19,6 +19,12 @@ export type Portal = 'tenant' | 'landlord' | 'admin';
 const PORTAL_KEY = 'nexus.portal';
 const tokenKey = (p: Portal) => `nexus.auth.${p}.token`;
 
+/** The localStorage/sessionStorage key for a portal's token. Exposed so the
+ *  auth layer can detect a cross-tab logout via the `storage` event. */
+export function portalTokenKey(p: Portal): string {
+  return tokenKey(p);
+}
+
 // ---- Active portal (tab-scoped via sessionStorage) -----------------------
 
 export function getActivePortal(): Portal | null {

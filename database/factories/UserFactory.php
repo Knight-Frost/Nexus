@@ -68,12 +68,40 @@ class UserFactory extends Factory
     }
 
     /**
-     * Indicate that the landlord has verified identity.
+     * Indicate that the user has a verified identity.
+     * Sets both the legacy identity_verified flag and the Phase 4 verification_status.
      */
     public function identityVerified(): static
     {
         return $this->state(fn (array $attributes) => [
             'identity_verified' => true,
+            'identity_verified_at' => now(),
+            'verification_status' => 'verified',
+        ]);
+    }
+
+    /**
+     * Indicate that the user's account is active (explicit default).
+     */
+    public function active(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => true,
+            'suspended_at' => null,
+            'account_status' => 'active',
+        ]);
+    }
+
+    /**
+     * Indicate that the user's account is suspended.
+     */
+    public function suspended(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
+            'suspended_at' => now(),
+            'suspension_reason' => 'Suspended for testing.',
+            'account_status' => 'suspended',
         ]);
     }
 }

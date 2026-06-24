@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Notification Digest</title>
+    <title>{{ config('brand.display_name') }} Notification Digest</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -61,7 +61,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>📬 Your Nexus Notifications</h1>
+        <h1>📬 Your {{ config('brand.display_name') }} Notifications</h1>
     </div>
     <div class="content">
         <p>You have <strong>{{ $notifications->count() }}</strong> new notification{{ $notifications->count() === 1 ? '' : 's' }}:</p>
@@ -75,7 +75,7 @@
         @endforeach
     </div>
     <div class="footer">
-        <p>This is an automated digest from Nexus. To change your notification preferences, log in to your account.</p>
+        <p>This is an automated digest from {{ config('brand.display_name') }}. To change your notification preferences, log in to your account.</p>
         <p>Sent {{ now()->format('F j, Y \a\t g:i A') }}</p>
     </div>
 </body>

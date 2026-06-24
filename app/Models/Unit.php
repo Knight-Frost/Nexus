@@ -129,4 +129,15 @@ class Unit extends Model
     {
         return $this->hasOne(Listing::class)->where('status', 'active');
     }
+
+    /**
+     * Gallery images for this unit via the media_assets system.
+     */
+    public function mediaAssets()
+    {
+        return $this->morphMany(MediaAsset::class, 'attachable')
+            ->where('collection', \App\Enums\MediaCollection::UnitGallery->value)
+            ->where('status', 'active')
+            ->ordered();
+    }
 }

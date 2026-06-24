@@ -20,7 +20,7 @@ class SendWelcomeEmail implements ShouldQueue
             'recipient_type' => get_class($event->user),
             'recipient_id' => $event->user->id,
             'recipient_email' => $event->user->email,
-            'subject' => 'Welcome to Nexus',
+            'subject' => 'Welcome to '.config('brand.display_name'),
             'mailable_class' => 'WelcomeEmail',
             'email_type' => 'account',
             'related_type' => get_class($event->user),

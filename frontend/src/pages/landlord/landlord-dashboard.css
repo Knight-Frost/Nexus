@@ -1,0 +1,436 @@
+/* ==========================================================================
+   LANDLORD DASHBOARD — Warm Paper & Oxblood (editorial)
+   Card-system metrics (StatusCard / CommandCard / DataCardGrid) are styled
+   entirely by the shared card primitives. This file owns: hero, utility bar,
+   button/link tokens, account-setup list, activity feed, listing gallery.
+   Every color is a CSS token — no raw hex.
+   ========================================================================== */
+
+.ld-root {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(36px, 4vw, 52px);
+  color: var(--color-ink-700);
+}
+
+/* ── shared buttons / links ─────────────────────────────────────────────── */
+.ld-btn-primary,
+.ld-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 12px 20px;
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    transform 0.2s var(--ease-out-soft),
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    color 0.2s;
+}
+.ld-btn-primary {
+  background: var(--color-brand-600);
+  color: var(--color-on-brand);
+}
+.ld-btn-primary:hover {
+  background: var(--color-brand-700);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px -12px rgba(10, 112, 104, 0.5);
+}
+.ld-btn-primary:active {
+  transform: translateY(0);
+}
+.ld-btn-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px);
+}
+.ld-btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.85);
+}
+.ld-btn-block {
+  width: 100%;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+/* Mono eyebrow link (View all, View details, etc.) */
+.ld-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  transition: color 0.2s, gap 0.2s;
+  white-space: nowrap;
+}
+.ld-link:hover {
+  color: var(--color-brand-700);
+  gap: 7px;
+}
+
+.ld-muted {
+  font-size: 14px;
+  color: var(--color-ink-500);
+  margin: 0;
+}
+
+/* ════ UTILITY BAR ══════════════════════════════════════════════════════ */
+.ld-util {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ld-util-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+.ld-util-acts {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ════ HERO ══════════════════════════════════════════════════════════════ */
+.ld-hero {
+  position: relative;
+  min-height: clamp(300px, 38vh, 380px);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: clamp(28px, 4vw, 48px);
+  isolation: isolate;
+  box-shadow: var(--shadow-lg);
+}
+.ld-hero-stage {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-ink-900);
+}
+.ld-hero-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.04);
+}
+/* scrim: dark left (text), photo readable right ~40% */
+.ld-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      95deg,
+      rgb(12 10 7 / 0.92) 0%,
+      rgb(12 10 7 / 0.72) 38%,
+      rgb(12 10 7 / 0.2) 64%,
+      rgb(12 10 7 / 0.05) 100%
+    ),
+    linear-gradient(0deg, rgb(12 10 7 / 0.42), transparent 50%);
+}
+/* teal radial wash */
+.ld-hero-wash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 18% 30%, rgba(13, 130, 120, 0.22), transparent 55%);
+  mix-blend-mode: screen;
+}
+.ld-hero-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.45;
+}
+.ld-hero-body {
+  position: relative;
+  max-width: min(620px, 62%);
+}
+.ld-hero-eyebrow {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-brand-300);
+  margin-bottom: 16px;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.4);
+}
+.ld-hero-greet {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(32px, 4.4vw, 56px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.97);
+  margin: 0;
+  text-shadow: 0 2px 24px rgb(0 0 0 / 0.35);
+  text-wrap: balance;
+}
+.ld-hero-name {
+  color: var(--color-brand-300);
+  font-style: italic;
+  font-weight: 500;
+}
+.ld-hero-sub {
+  margin: 16px 0 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(15px, 1.5vw, 18px);
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.4);
+}
+.ld-hero-acts {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+  flex-wrap: wrap;
+}
+
+/* ════ AT A GLANCE (setup + activity side-by-side) ══════════════════════ */
+.ld-glance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+/* ════ ACCOUNT SETUP — checklist inside NexusCard ═══════════════════════ */
+.ld-setup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ld-setup-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-ink-500);
+}
+.ld-setup-list li.is-done {
+  color: var(--color-ink-800);
+}
+.ld-setup-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--color-ink-300);
+  color: var(--color-on-brand);
+  flex-shrink: 0;
+}
+.ld-setup-list li.is-done .ld-setup-mark {
+  background: var(--color-success-600);
+  border-color: var(--color-success-600);
+}
+.ld-setup-txt {
+  /* truncate long step labels gracefully */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ════ ACTIVITY FEED ════════════════════════════════════════════════════ */
+.ld-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ld-feed-row {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-ink-200);
+}
+.ld-feed-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.ld-feed-av {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--color-ink-100);
+  color: var(--color-ink-700);
+}
+.ld-feed-av.is-maint {
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+.ld-feed-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ld-feed-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ld-feed-title {
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--color-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ld-feed-time {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-400);
+}
+.ld-feed-ctx {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--color-brand-700);
+}
+.ld-feed-prev {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-ink-500);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ════ YOUR LISTINGS ════════════════════════════════════════════════════ */
+.ld-listings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.ld-lcard {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-ink-200);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.ld-lcard-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--color-ink-100);
+}
+.ld-lcard-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s var(--ease-out-soft);
+}
+.ld-lcard:hover .ld-lcard-thumb img {
+  transform: scale(1.05);
+}
+.ld-lcard-ph {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--color-ink-400);
+  background: linear-gradient(135deg, var(--color-ink-100), var(--color-brand-50));
+}
+.ld-lcard-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+.ld-lcard-body {
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ld-lcard-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--color-ink-950);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ld-lcard-loc {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+.ld-lcard-rent {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 19px;
+  color: var(--color-ink-950);
+  margin-top: 6px;
+}
+.ld-lcard-rent small {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--color-ink-500);
+  font-weight: 400;
+}
+
+/* ════ RESPONSIVE ═══════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .ld-glance {
+    grid-template-columns: 1fr;
+  }
+  .ld-listings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 680px) {
+  .ld-listings {
+    grid-template-columns: 1fr;
+  }
+  .ld-hero-body {
+    max-width: 100%;
+  }
+  .ld-hero-scrim {
+    background: linear-gradient(
+      0deg,
+      rgb(12 10 7 / 0.92) 0%,
+      rgb(12 10 7 / 0.6) 55%,
+      rgb(12 10 7 / 0.35) 100%
+    );
+  }
+}

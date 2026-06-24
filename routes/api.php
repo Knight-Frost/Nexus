@@ -5,41 +5,60 @@ use App\Http\Controllers\Admin\AdminAuditController;
 // AUTHENTICATION CONTROLLER
 // ============================================================================
 use App\Http\Controllers\Admin\AdminContractController;
+use App\Http\Controllers\Admin\AdminDashboardController;
 // ============================================================================
 // PUBLIC CONTROLLERS
 // ============================================================================
-use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminFeatureController;
 // ============================================================================
 // TENANT CONTROLLERS
 // ============================================================================
-use App\Http\Controllers\Admin\AdminFeatureController;
 use App\Http\Controllers\Admin\AdminLedgerController;
 use App\Http\Controllers\Admin\AdminListingModerationController;
+use App\Http\Controllers\Admin\AdminReviewController;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminVerificationController;
 use App\Http\Controllers\Analytics\ContractAnalyticsController;
 use App\Http\Controllers\Analytics\FinancialAnalyticsController;
+use App\Http\Controllers\Analytics\NotificationAnalyticsController;
+use App\Http\Controllers\Analytics\PlatformAnalyticsController;
+use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\SocialAuthController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Landlord\LandlordApplicationController;
+use App\Http\Controllers\Landlord\LandlordContractController;
+use App\Http\Controllers\Landlord\LandlordDashboardController;
 // ============================================================================
 // LANDLORD CONTROLLERS
 // ============================================================================
-use App\Http\Controllers\Analytics\NotificationAnalyticsController;
-use App\Http\Controllers\Analytics\PlatformAnalyticsController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\Landlord\LandlordContractController;
+use App\Http\Controllers\Landlord\LandlordExportController;
 use App\Http\Controllers\Landlord\LandlordLedgerController;
 use App\Http\Controllers\Landlord\LandlordListingController;
+use App\Http\Controllers\Landlord\LandlordMaintenanceController;
+use App\Http\Controllers\Landlord\LandlordOnboardingController;
+use App\Http\Controllers\Landlord\LandlordReviewController;
+use App\Http\Controllers\Landlord\PropertyController;
+use App\Http\Controllers\Landlord\UnitController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\MetricsController;
 // ============================================================================
 // ADMIN CONTROLLERS
 // ============================================================================
-use App\Http\Controllers\Landlord\LandlordOnboardingController;
-use App\Http\Controllers\Landlord\PropertyController;
-use App\Http\Controllers\Landlord\UnitController;
-use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\Public\PublicListingController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\Tenant\ApplicationController;
+use App\Http\Controllers\Tenant\ConversationController;
+use App\Http\Controllers\Tenant\DocumentController;
+use App\Http\Controllers\Tenant\MaintenanceRequestController;
+use App\Http\Controllers\Tenant\MessageableRecipientController;
+use App\Http\Controllers\Tenant\MessageAttachmentController;
 // ============================================================================
 // WEBHOOK CONTROLLERS
 // ============================================================================
-use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\Tenant\ReviewController;
 // ============================================================================
 // NOTIFICATION CONTROLLER - Phase 3.5
 // ============================================================================
@@ -54,6 +73,14 @@ use App\Http\Controllers\Tenant\TenantContractController;
 use App\Http\Controllers\Tenant\TenantDashboardController;
 use App\Http\Controllers\Tenant\TenantLedgerController;
 use App\Http\Controllers\Tenant\TenantPaymentController;
+use App\Http\Controllers\Tenant\TenantProfileController;
+// ============================================================================
+// MEDIA CONTROLLER - Phase 3 (media storage)
+// ============================================================================
+use App\Http\Controllers\VerificationController;
+// ============================================================================
+// VERIFICATION CONTROLLER - Phase 4 (verification lifecycle)
+// ============================================================================
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -85,6 +112,39 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 });
 
+// ============================================================================
+// SOCIAL AUTH — Google OAuth (Socialite, stateless)
+// ============================================================================
+Route::middleware(['rate.limit.role'])->group(function () {
+    // Which providers are configured (SPA uses this to show/hide buttons).
+    Route::get('/auth/providers', [SocialAuthController::class, 'providers']);
+    // Returns a JSON {url} for the SPA to navigate to.
+    Route::get('/auth/google/redirect', [SocialAuthController::class, 'googleRedirect']);
+    // Google redirects the browser here after consent.
+    Route::get('/auth/google/callback', [SocialAuthController::class, 'googleCallback']);
+});
+
+// ============================================================================
+// PASSWORD RESET (NO AUTH REQUIRED)
+// ============================================================================
+Route::middleware(['throttle:6,1'])->group(function () {
+    Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+});
+
+// ============================================================================
+// EMAIL VERIFICATION
+// ============================================================================
+// Resend link — requires auth (user must be logged in to request verification).
+Route::middleware(['auth:sanctum', 'throttle:6,1'])->group(function () {
+    Route::post('/email/verification-notification', [EmailVerificationController::class, 'sendVerification']);
+});
+// Consume verification link — no auth (the signed token is the credential).
+Route::middleware(['throttle:6,1'])->group(function () {
+    Route::post('/email/verify', [EmailVerificationController::class, 'verify'])
+        ->name('email.verify');
+});
+
 // Apply metrics middleware to all API routes
 Route::middleware(['metrics'])->group(function () {
 
@@ -104,6 +164,13 @@ Route::middleware(['metrics'])->group(function () {
         // Dashboard
         Route::get('/dashboard', [TenantDashboardController::class, 'index']);
 
+        // Profile
+        Route::get('/profile', [TenantProfileController::class, 'show']);
+        Route::patch('/profile', [TenantProfileController::class, 'update']);
+
+        // Avatar upload
+        Route::post('/avatar', [MediaController::class, 'storeAvatar']);
+
         // Saved Listings
         Route::get('/saved-listings', [SavedListingController::class, 'index']);
         Route::post('/listings/{listing}/save', [SavedListingController::class, 'store']);
@@ -122,6 +189,42 @@ Route::middleware(['metrics'])->group(function () {
         // Payments (Phase 3.3)
         Route::post('/payments/initiate/{ledgerEntry}', [TenantPaymentController::class, 'initiate']);
         Route::get('/payments/balance', [TenantPaymentController::class, 'balance']);
+
+        // Applications
+        Route::get('/applications', [ApplicationController::class, 'index']);
+        Route::post('/applications', [ApplicationController::class, 'store']);
+        Route::get('/applications/{application}', [ApplicationController::class, 'show']);
+        Route::post('/applications/{application}/withdraw', [ApplicationController::class, 'withdraw']);
+
+        // Documents
+        Route::get('/documents', [DocumentController::class, 'index']);
+        Route::post('/documents', [DocumentController::class, 'store']);
+        Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
+        Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
+
+        // Maintenance Requests
+        Route::get('/maintenance', [MaintenanceRequestController::class, 'index']);
+        Route::post('/maintenance', [MaintenanceRequestController::class, 'store']);
+        Route::get('/maintenance/{maintenanceRequest}', [MaintenanceRequestController::class, 'show']);
+        Route::post('/maintenance/{maintenanceRequest}/cancel', [MaintenanceRequestController::class, 'cancel']);
+
+        // Messaging
+        Route::get('/messageable-recipients', [MessageableRecipientController::class, 'index']);
+        Route::get('/conversations', [ConversationController::class, 'index']);
+        Route::post('/conversations', [ConversationController::class, 'store']);
+        Route::get('/conversations/{conversation}', [ConversationController::class, 'show']);
+        Route::post('/conversations/{conversation}/messages', [ConversationController::class, 'sendMessage']);
+        Route::get('/messages/attachments/{attachment}', [MessageAttachmentController::class, 'show']);
+
+        // Verification (Phase 4)
+        Route::get('/verification', [VerificationController::class, 'show']);
+        Route::post('/verification/submit', [VerificationController::class, 'submit']);
+
+        // Reviews (Phase 8)
+        Route::get('/reviews', [ReviewController::class, 'index']);
+        Route::get('/listings/{listing}/review-eligibility', [ReviewController::class, 'eligibility']);
+        Route::post('/reviews', [ReviewController::class, 'store']);
+        Route::patch('/reviews/{review}', [ReviewController::class, 'update']);
     });
 
     // ============================================================================
@@ -130,6 +233,9 @@ Route::middleware(['metrics'])->group(function () {
     Route::middleware(['auth:sanctum', 'landlord', 'rate.limit.role'])->prefix('landlord')->group(function () {
         // Onboarding
         Route::get('/onboarding', [LandlordOnboardingController::class, 'index']);
+
+        // Dashboard
+        Route::get('/dashboard', [LandlordDashboardController::class, 'index']);
 
         // Properties
         Route::get('/properties', [PropertyController::class, 'index']);
@@ -145,7 +251,8 @@ Route::middleware(['metrics'])->group(function () {
         Route::put('/units/{unit}', [UnitController::class, 'update']);
         Route::delete('/units/{unit}', [UnitController::class, 'destroy']);
 
-        // Listings
+        // Listings — static paths MUST come before the {listing} wildcard
+        Route::get('/listings/export', [LandlordExportController::class, 'listings']);
         Route::get('/listings', [LandlordListingController::class, 'index']);
         Route::post('/units/{unit}/listings', [LandlordListingController::class, 'store']);
         Route::get('/listings/{listing}', [LandlordListingController::class, 'show']);
@@ -160,13 +267,47 @@ Route::middleware(['metrics'])->group(function () {
         Route::post('/contracts/{contract}/send', [LandlordContractController::class, 'send']);
         Route::post('/contracts/{contract}/terminate', [LandlordContractController::class, 'terminate']);
 
-        // Ledger (Phase 3.2)
+        // Ledger (Phase 3.2) — static export path MUST come before the {ledgerEntry} wildcard
+        Route::get('/ledger/export', [LandlordExportController::class, 'ledger']);
         Route::get('/ledger', [LandlordLedgerController::class, 'index']);
         Route::get('/ledger/{ledgerEntry}', [LandlordLedgerController::class, 'show']);
+
+        // Applications — static export path MUST come before the {application} wildcard
+        Route::get('/applications/export', [LandlordExportController::class, 'applications']);
+        Route::get('/applications', [LandlordApplicationController::class, 'index']);
+        Route::get('/applications/{application}', [LandlordApplicationController::class, 'show']);
+        Route::post('/applications/{application}/decide', [LandlordApplicationController::class, 'decide']);
+
+        // Maintenance Requests
+        Route::get('/maintenance', [LandlordMaintenanceController::class, 'index']);
+        Route::patch('/maintenance/{maintenanceRequest}/status', [LandlordMaintenanceController::class, 'updateStatus']);
+
+        // Media (property/unit/listing galleries)
+        Route::post('/properties/{property}/media', [MediaController::class, 'storeForProperty']);
+        Route::post('/units/{unit}/media', [MediaController::class, 'storeForUnit']);
+        Route::post('/listings/{listing}/media', [MediaController::class, 'storeForListing']);
+        Route::get('/media/{mediaAsset}', [MediaController::class, 'show']);
+        Route::patch('/media/reorder', [MediaController::class, 'reorder']);
+        Route::delete('/media/{mediaAsset}', [MediaController::class, 'destroy']);
+
+        // Verification (Phase 4)
+        Route::get('/verification', [VerificationController::class, 'show']);
+        Route::post('/verification/submit', [VerificationController::class, 'submit']);
+
+        // Documents (verification/ownership uploads — DocumentController is scoped to the
+        // authenticated user, so it serves landlords as well as tenants).
+        Route::get('/documents', [DocumentController::class, 'index']);
+        Route::post('/documents', [DocumentController::class, 'store']);
+        Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
+        Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
 
         // Analytics (scoped to landlord's properties)
         Route::get('/analytics/financial', [FinancialAnalyticsController::class, 'index']);
         Route::get('/analytics/contracts', [ContractAnalyticsController::class, 'index']);
+
+        // Reviews (Phase 8)
+        Route::get('/reviews', [LandlordReviewController::class, 'index']);
+        Route::post('/reviews/{review}/respond', [LandlordReviewController::class, 'respond']);
     });
 
     // ============================================================================
@@ -175,6 +316,23 @@ Route::middleware(['metrics'])->group(function () {
     Route::middleware(['auth:sanctum', 'admin', 'rate.limit.role'])->prefix('admin')->group(function () {
         // Dashboard
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+
+        // User Management
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{user}', [AdminUserController::class, 'show']);
+        Route::post('/users/{user}/suspend', [AdminUserController::class, 'suspend']);
+        Route::post('/users/{user}/activate', [AdminUserController::class, 'activate']);
+        Route::post('/users/{user}/block', [AdminUserController::class, 'block']);
+        Route::post('/users/{user}/archive', [AdminUserController::class, 'archive']);
+
+        // Verification Management (Phase 4)
+        Route::get('/verifications', [AdminVerificationController::class, 'index']);
+        Route::get('/verifications/{verificationRequest}', [AdminVerificationController::class, 'show']);
+        Route::post('/verifications/{verificationRequest}/approve', [AdminVerificationController::class, 'approve']);
+        Route::post('/verifications/{verificationRequest}/reject', [AdminVerificationController::class, 'reject']);
+        Route::post('/verifications/{verificationRequest}/request-info', [AdminVerificationController::class, 'requestInfo']);
+        // Stream applicant documents during moderation (admin-gated + audited).
+        Route::get('/documents/{document}/download', [AdminVerificationController::class, 'downloadDocument']);
 
         // Listing Moderation
         Route::get('/listings/pending', [AdminListingModerationController::class, 'pending']);
@@ -186,8 +344,10 @@ Route::middleware(['metrics'])->group(function () {
         Route::post('/landlords/{landlord}/features/{feature}/enable', [AdminFeatureController::class, 'enable']);
         Route::post('/landlords/{landlord}/features/{feature}/disable', [AdminFeatureController::class, 'disable']);
 
-        // Audit Logs
+        // Audit Logs — static paths MUST come before the {auditLog} wildcard
         Route::get('/audit-logs', [AdminAuditController::class, 'index']);
+        Route::get('/audit-logs/summary', [AdminAuditController::class, 'summary']);
+        Route::get('/audit-logs/export', [AdminAuditController::class, 'export']);
         Route::get('/audit-logs/{auditLog}', [AdminAuditController::class, 'show']);
 
         // Contracts (Phase 3.1)
@@ -199,6 +359,10 @@ Route::middleware(['metrics'])->group(function () {
         Route::get('/ledger', [AdminLedgerController::class, 'index']);
         Route::get('/ledger/{ledgerEntry}', [AdminLedgerController::class, 'show']);
         Route::post('/ledger/{ledgerEntry}/late-fee', [AdminLedgerController::class, 'generateLateFee']);
+
+        // Reviews moderation (Phase 8)
+        Route::get('/reviews', [AdminReviewController::class, 'index']);
+        Route::post('/reviews/{review}/moderate', [AdminReviewController::class, 'moderate']);
 
         // Admin Analytics (full platform view)
         Route::prefix('analytics')->group(function () {
@@ -227,6 +391,15 @@ Route::middleware(['metrics'])->group(function () {
     // ============================================================================
     Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle'])
         ->withoutMiddleware(['metrics']); // Don't track webhook metrics
+
+    // ============================================================================
+    // MEDIA STREAMING ROUTE - Phase 3 (accessible to any authenticated user)
+    // Named "media.show" so MediaAsset::url accessor can generate the URL.
+    // Authorization is enforced by MediaAssetPolicy inside the controller.
+    // ============================================================================
+    Route::middleware(['auth:sanctum', 'rate.limit.role'])
+        ->get('/media/{mediaAsset}', [MediaController::class, 'show'])
+        ->name('media.show');
 
     // ============================================================================
     // NOTIFICATION ROUTES - Phase 3.5

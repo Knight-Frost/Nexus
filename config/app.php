@@ -123,4 +123,15 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend (SPA) URL
+    |--------------------------------------------------------------------------
+    |
+    | Used when the backend needs to compose a deep-link into the SPA, such as
+    | password-reset and email-verification links that point at React routes.
+    |
+    */
+    'frontend_url' => env('APP_FRONTEND_URL', 'http://localhost:5173'),
+
 ];

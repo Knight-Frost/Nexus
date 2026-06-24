@@ -79,6 +79,22 @@ class Contract extends Model
     }
 
     /**
+     * Maintenance requests raised against this lease.
+     */
+    public function maintenanceRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(MaintenanceRequest::class, 'contract_id');
+    }
+
+    /**
+     * The review written against this contract (at most one, unique constraint).
+     */
+    public function review(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Review::class, 'contract_id');
+    }
+
+    /**
      * Scope for active contracts
      */
     public function scopeActive($query)

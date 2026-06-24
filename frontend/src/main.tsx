@@ -7,6 +7,7 @@ import './assets/styles/editorial.css';
 import App from './App';
 import { AuthProvider } from '@/context/AuthProvider';
 import { ThemeProvider } from '@/context/ThemeProvider';
+import { AccentProvider } from '@/context/AccentProvider';
 import { ToastProvider } from '@/components/ui/ToastProvider';
 
 const rootEl = document.getElementById('root');
@@ -16,6 +17,7 @@ createRoot(rootEl).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
+        <AccentProvider>
         <ToastProvider>
           <AuthProvider>
             {/* `reducedMotion="user"` makes every Framer animation collapse to
@@ -25,6 +27,7 @@ createRoot(rootEl).render(
             </MotionConfig>
           </AuthProvider>
         </ToastProvider>
+        </AccentProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,

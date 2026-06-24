@@ -1,10 +1,10 @@
 import type { Role } from '@/lib/types';
 import {
   IconActivity,
-  IconAlertTriangle,
   IconBarChart,
   IconBell,
   IconBuilding,
+  IconCircleCheck,
   IconCompare,
   IconDashboard,
   IconDoc,
@@ -16,7 +16,10 @@ import {
   IconMessage,
   IconScale,
   IconSearch,
+  IconSettings,
   IconShield,
+  IconStar,
+  IconUser,
   IconUsers,
   IconWallet,
   IconWrench,
@@ -68,8 +71,11 @@ const TENANT_GROUPS: NavGroup[] = [
   {
     title: 'Account',
     items: [
+      { to: '/app/verification', label: 'Verification', icon: <IconCircleCheck {...ICON} /> },
+      { to: '/app/reviews', label: 'My Reviews', icon: <IconStar {...ICON} /> },
       { to: '/app/notifications', label: 'Notifications', icon: <IconBell {...ICON} /> },
-      { to: '/app/profile', label: 'Profile', icon: <IconGrid {...ICON} /> },
+      { to: '/app/profile', label: 'Profile', icon: <IconUser {...ICON} /> },
+      { to: '/app/settings', label: 'Settings', icon: <IconSettings {...ICON} /> },
     ],
   },
 ];
@@ -101,8 +107,11 @@ const LANDLORD_GROUPS: NavGroup[] = [
   {
     title: 'Account',
     items: [
+      { to: '/app/landlord-verification', label: 'Verification', icon: <IconCircleCheck {...ICON} /> },
+      { to: '/app/landlord-reviews', label: 'Reviews', icon: <IconStar {...ICON} /> },
       { to: '/app/notifications', label: 'Notifications', icon: <IconBell {...ICON} /> },
-      { to: '/app/profile', label: 'Profile', icon: <IconGrid {...ICON} /> },
+      { to: '/app/profile', label: 'Profile', icon: <IconUser {...ICON} /> },
+      { to: '/app/settings', label: 'Settings', icon: <IconSettings {...ICON} /> },
     ],
   },
 ];
@@ -112,29 +121,25 @@ const ADMIN_GROUPS: NavGroup[] = [
     title: 'Platform',
     items: [
       { to: '/app', label: 'Overview', icon: <IconDashboard {...ICON} />, end: true },
+      { to: '/app/verifications', label: 'Verifications', icon: <IconCircleCheck {...ICON} /> },
       { to: '/app/moderation', label: 'Listing Review', icon: <IconShield {...ICON} /> },
       { to: '/app/users', label: 'Users', icon: <IconUsers {...ICON} /> },
+      { to: '/app/review-moderation', label: 'Reviews', icon: <IconStar {...ICON} /> },
     ],
   },
   {
-    title: 'Governance',
+    title: 'Oversight',
     items: [
-      { to: '/app/disputes', label: 'Disputes', icon: <IconAlertTriangle {...ICON} /> },
+      { to: '/app/contracts', label: 'Contracts', icon: <IconScale {...ICON} /> },
       { to: '/app/ledger', label: 'Ledger', icon: <IconLedger {...ICON} /> },
-      { to: '/app/risk', label: 'Risk Alerts', icon: <IconAlertTriangle {...ICON} /> },
-    ],
-  },
-  {
-    title: 'Insight',
-    items: [
       { to: '/app/audit', label: 'Audit Logs', icon: <IconActivity {...ICON} /> },
-      { to: '/app/analytics', label: 'Analytics', icon: <IconBarChart {...ICON} /> },
     ],
   },
   {
     title: 'Account',
     items: [
       { to: '/app/notifications', label: 'Notifications', icon: <IconBell {...ICON} /> },
+      { to: '/app/settings', label: 'Settings', icon: <IconSettings {...ICON} /> },
     ],
   },
 ];

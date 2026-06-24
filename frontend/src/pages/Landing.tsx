@@ -3,6 +3,8 @@ import type { ReactElement, SVGProps } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '@/context/auth';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { LogoMark } from '@/components/brand/Logo';
+import { brand } from '@/config/brand';
 import './landing.css';
 
 import villa from '@/assets/landing/villa.jpg';
@@ -57,11 +59,6 @@ const Ic: Record<string, ReactElement> = {
   chevDown: <svg {...S({ width: 16, height: 16 })}><path d="m6 9 6 6 6-6" /></svg>,
 };
 
-const Logo = () => (
-  <svg className="nx-logo" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-    <path d="M5 27V5h4l14 17V5h4" stroke="#D6B45A" strokeWidth="3" strokeLinecap="square" />
-  </svg>
-);
 
 interface Slide {
   img: string;
@@ -200,7 +197,7 @@ export function Landing() {
     },
   ];
 
-  /* Role cards — 3 roles */
+  /* Role cards — 2 roles (admin is internal staff, not shown to customers) */
   const roles = [
     {
       img: IMG.indigo,
@@ -215,13 +212,6 @@ export function Landing() {
       title: 'Manage your portfolio',
       desc: 'List properties, review applicants, and collect rent from a single console.',
       cta: 'List a property',
-    },
-    {
-      img: IMG.cabin,
-      k: 'I am an admin',
-      title: 'Keep it trustworthy',
-      desc: 'Review listings, verify users, and monitor the platform from a trusted dashboard.',
-      cta: 'Access admin panel',
     },
   ];
 
@@ -257,8 +247,8 @@ export function Landing() {
       <nav className={'nx-nav' + (scrolled ? ' scrolled nav-blur' : '')}>
         <div className="nx-nav-inner">
           <Link className="nx-brand" to="/">
-            <Logo />
-            NEXUS
+            <LogoMark size={28} />
+            {brand.appName.toUpperCase()}
           </Link>
           <div className="nx-navlinks">
             <a href="#listings">Browse</a>
@@ -295,7 +285,7 @@ export function Landing() {
         <div className="nx-wrap">
           <div className="nx-sechead">
             <div data-reveal>
-              <span className="nx-eyebrow">Why Nexus</span>
+              <span className="nx-eyebrow">Why {brand.appName}</span>
               <h2 className="nx-h2">
                 The complete platform for
                 <br />
@@ -383,7 +373,7 @@ export function Landing() {
             <span className="nx-eyebrow">Trust and security</span>
             <h2 className="nx-h2">No one should have to take the other side&rsquo;s word for it.</h2>
             <p className="nx-lead">
-              Every meaningful action on Nexus leaves a clear, reviewable record. That is what turns
+              Every meaningful action on {brand.appName} leaves a clear, reviewable record. That is what turns
               a rental from a leap of faith into a documented agreement.
             </p>
             <div className="nx-points">
@@ -408,10 +398,10 @@ export function Landing() {
         </div>
         <div className="nx-band-scrim" aria-hidden="true" />
         <div className="nx-band-in">
-          <span className="nx-eyebrow" data-reveal>The Nexus standard</span>
+          <span className="nx-eyebrow" data-reveal>The {brand.appName} standard</span>
           <h2 data-reveal>Renting, refined. Every detail handled, every signature secured.</h2>
           <p data-reveal>
-            From the first listing to the final payment, Nexus keeps the whole relationship clear,
+            From the first listing to the final payment, {brand.appName} keeps the whole relationship clear,
             calm, and on the record.
           </p>
         </div>
@@ -421,10 +411,10 @@ export function Landing() {
       <section className="nx-roles-dark" id="roles">
         <div className="nx-wrap">
           <div className="nx-roles-head" data-reveal>
-            <span className="nx-eyebrow">Built for everyone</span>
-            <h2 className="nx-h2" style={{ margin: '16px auto 0' }}>One platform, three roles.</h2>
+            <span className="nx-eyebrow">Built for both sides</span>
+            <h2 className="nx-h2" style={{ margin: '16px auto 0' }}>One platform, two perspectives.</h2>
           </div>
-          <div className="nx-roles-grid">
+          <div className="nx-roles-grid two">
             {roles.map((r) => (
               <Link
                 className="role-card-glow nx-role"
@@ -455,7 +445,7 @@ export function Landing() {
         <div className="nx-cta-scrim" aria-hidden="true" />
         <div className="nx-cta-in nx-wrap">
           <span className="nx-eyebrow" style={{ display: 'inline-flex' }} data-reveal>Get started</span>
-          <h2 data-reveal>Your next home is on Nexus.</h2>
+          <h2 data-reveal>Your next home is on {brand.appName}.</h2>
           <div className="acts" data-reveal>
             <Link className="nx-btn nx-btn-primary" to={ctaTo}>
               {ctaLabel} {Ic.arrow}
@@ -473,8 +463,8 @@ export function Landing() {
           <div className="nx-foot-simple">
             <div>
               <div className="nx-brand" style={{ fontSize: 20 }}>
-                <Logo />
-                NEXUS
+                <LogoMark size={24} />
+                {brand.appName.toUpperCase()}
               </div>
               <p className="nx-foot-tagline">
                 The complete platform for Ghana&rsquo;s rental market.
@@ -487,7 +477,7 @@ export function Landing() {
             </nav>
           </div>
           <div className="nx-foot-bot">
-            <div className="nx-foot-copy">&copy; {new Date().getFullYear()} Nexus. Secure rental infrastructure.</div>
+            <div className="nx-foot-copy">&copy; {new Date().getFullYear()} {brand.appName}. Secure rental infrastructure.</div>
             <div className="nx-foot-copy">Accra, Ghana</div>
           </div>
         </div>

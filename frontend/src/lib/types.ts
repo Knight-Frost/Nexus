@@ -72,6 +72,8 @@ export interface User {
   user_type: UserType;
   is_active: boolean;
   identity_verified: boolean;
+  verification_status?: string;
+  account_status?: string;
   created_at: string;
 }
 
@@ -112,6 +114,13 @@ export interface Property {
   is_active: boolean;
   units_count?: number;
   units?: Unit[];
+  /** Real per-property aggregates (present on GET /landlord/properties). */
+  occupied_units?: number;
+  vacant_units?: number;
+  occupancy_rate?: number;
+  collected_this_month_cents?: number;
+  /** Gallery media (present on GET /landlord/properties/{id}), ordered by sort_order. */
+  media_assets?: MediaAsset[];
   created_at: string;
   updated_at: string;
 }
@@ -131,6 +140,8 @@ export interface Unit {
   amenities: string[] | null;
   is_active: boolean;
   property?: Property;
+  /** Gallery media (present on GET /landlord/units/{id}), ordered by sort_order. */
+  media_assets?: MediaAsset[];
   created_at: string;
   updated_at: string;
 }
@@ -161,8 +172,11 @@ export interface Listing {
   lease_duration_months: number | null;
   move_in_date: string | null;
   unit?: Unit;
+  landlord?: User;
   photos?: ListingPhoto[];
   primary_photo?: ListingPhoto | null;
+  /** Gallery media (present on GET /landlord/listings/{id}), ordered by sort_order. */
+  media_assets?: MediaAsset[];
   created_at: string;
   updated_at: string;
 }
@@ -203,6 +217,12 @@ export interface LedgerEntry {
   related_rent_entry_id: string | null;
   stripe_payment_intent_id: string | null;
   contract?: Contract;
+  /** Present on landlord/tenant-scoped responses (eager-loaded). */
+  tenant?: User;
+  /** Derived display reference (e.g. INV-20250528-A1B2C3); not stored. */
+  reference?: string;
+  /** Running outstanding balance for the contract after this entry (cents). */
+  balance_after_cents?: number;
   created_at: string;
 }
 
@@ -218,18 +238,75 @@ export interface AppNotification {
   created_at: string;
 }
 
+/* ---- Audit logs ----------------------------------------------------------- */
+export interface AuditActor {
+  id: number | null;
+  role: 'admin' | 'landlord' | 'tenant' | 'user' | 'system';
+  name: string;
+  email: string | null;
+}
+
+export interface AuditStatus {
+  key: string;
+  label: string;
+}
+
+export interface AuditTrend {
+  direction: 'up' | 'down' | 'flat';
+  pct: number | null;
+  label: string;
+}
+
+/** Shape returned by GET /admin/audit-logs (list row). */
 export interface AuditLog {
   id: number;
-  actor_type: string | null;
-  actor_id: number | null;
-  subject_type: string | null;
-  subject_id: number | null;
-  action: string;
-  description: string | null;
-  ip_address: string | null;
-  severity: 'info' | 'warning' | 'critical';
-  metadata: Record<string, unknown> | null;
   created_at: string;
+  area: string;
+  action: string;
+  action_label: string;
+  severity: 'info' | 'warning' | 'critical';
+  status: AuditStatus;
+  actor: AuditActor;
+  summary: string;
+  subject_label: string | null;
+  ip_address: string | null;
+}
+
+/** Additional fields returned by GET /admin/audit-logs/{id}. */
+export interface AuditLogDetail extends AuditLog {
+  user_agent: string | null;
+  device: string | null;
+  actor_type: string | null;
+  subject: { type: string; id: number; label: string } | null;
+  metadata: Record<string, unknown> | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  why_it_matters: string;
+  recommended_steps: { label: string; to: string | null }[];
+}
+
+export interface AuditInsight {
+  tone: 'danger' | 'warning' | 'success' | 'info';
+  title: string;
+  detail: string;
+  action: { label: string; to: string | null } | null;
+}
+
+export interface AuditSummaryMetric {
+  value: number;
+  label: string;
+  trend?: AuditTrend;
+}
+
+export interface AuditSummary {
+  metrics: {
+    critical_today: AuditSummaryMetric;
+    failed_signins: AuditSummaryMetric;
+    policy_changes: AuditSummaryMetric;
+    user_activity: AuditSummaryMetric;
+    needs_review: Omit<AuditSummaryMetric, 'trend'>;
+  };
+  insights: AuditInsight[];
 }
 
 export interface Feature {
@@ -263,6 +340,477 @@ export interface Paginated<T> {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+/* ---- Applications -------------------------------------------------------- */
+export type ApplicationStatus =
+  | 'submitted'
+  | 'in_review'
+  | 'landlord_review'
+  | 'approved'
+  | 'rejected'
+  | 'withdrawn';
+
+export interface Application {
+  id: number;
+  tenant_id: number;
+  listing_id: number;
+  landlord_id: number;
+  status: ApplicationStatus;
+  cover_note: string | null;
+  /** Visible only on the landlord-scoped endpoints. */
+  landlord_notes?: string | null;
+  decision_reason: string | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  decided_at: string | null;
+  withdrawn_at: string | null;
+  listing?: Listing;
+  /** Present on landlord/admin-scoped responses. */
+  tenant?: User;
+  /** Real readiness (computed from tenant profile/docs) on landlord endpoints. */
+  readiness?: Readiness;
+  created_at: string;
+}
+
+/* ---- Maintenance --------------------------------------------------------- */
+export type MaintenanceStatus =
+  | 'open'
+  | 'acknowledged'
+  | 'in_progress'
+  | 'resolved'
+  | 'closed'
+  | 'cancelled';
+export type MaintenancePriority = 'low' | 'medium' | 'high' | 'urgent';
+export type MaintenanceCategory =
+  | 'plumbing'
+  | 'electrical'
+  | 'appliance'
+  | 'hvac'
+  | 'structural'
+  | 'general';
+
+export interface MaintenanceRequest {
+  id: number;
+  tenant_id: number;
+  contract_id: string;
+  property_id: number;
+  unit_id: number;
+  landlord_id: number;
+  title: string;
+  description: string;
+  category: MaintenanceCategory;
+  priority: MaintenancePriority;
+  status: MaintenanceStatus;
+  resolution_notes: string | null;
+  submitted_at: string | null;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  property?: Property;
+  unit?: Unit;
+  contract?: Contract;
+  created_at: string;
+}
+
+/* ---- Documents ----------------------------------------------------------- */
+export type DocumentType =
+  | 'identity_document'
+  | 'proof_of_income'
+  | 'lease_document'
+  | 'application_attachment'
+  | 'maintenance_attachment'
+  | 'other';
+
+export interface TenantDocument {
+  id: number;
+  owner_user_id: number;
+  uploaded_by_id: number;
+  document_type: DocumentType;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  is_verified: boolean;
+  verified_at: string | null;
+  created_at: string;
+}
+
+/* ---- Messaging ----------------------------------------------------------- */
+export interface MessageableRecipient {
+  listing_id: number;
+  listing_title: string;
+  landlord: { id: number; name: string };
+  location: string;
+  thumbnail_url: string | null;
+  existing_conversation_id: number | null;
+}
+
+export interface ConversationSummary {
+  id: number;
+  title: string | null;
+  status: string;
+  last_message_at: string | null;
+  unread_count: number;
+  other_participant: { id: number; name: string; initials?: string; role?: string | null } | null;
+  /** index endpoint key */
+  last_message_preview?: string | null;
+  /** dashboard endpoint key */
+  preview?: string | null;
+  thumbnail_url?: string | null;
+}
+
+export interface MessageAttachment {
+  id: number;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  attachment_type: 'image' | 'file';
+}
+
+export interface ConversationMessage {
+  id: number;
+  body: string;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+  has_attachments?: boolean;
+  attachments?: MessageAttachment[];
+  sender: { id: number; name: string | null; is_me: boolean };
+}
+
+export interface ConversationDetail {
+  conversation: {
+    id: number;
+    title: string | null;
+    status: string;
+    last_message_at: string | null;
+    thumbnail_url?: string | null;
+    other_participant: { id: number; name: string; role?: string | null } | null;
+  };
+  messages: ConversationMessage[];
+}
+
+/* ---- Tenant profile + readiness ------------------------------------------ */
+export interface ReadinessItem {
+  key: string;
+  label: string;
+  complete: boolean;
+}
+export interface Readiness {
+  percentage: number;
+  completed: number;
+  total: number;
+  items: ReadinessItem[];
+}
+export interface TenantProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  initials: string;
+  email: string;
+  phone: string | null;
+  city: string | null;
+  date_of_birth: string | null;
+  next_of_kin_name: string | null;
+  next_of_kin_phone: string | null;
+  next_of_kin_relationship: string | null;
+  user_type: UserType;
+  identity_verified: boolean;
+  created_at: string | null;
+}
+export interface TenantProfileResponse {
+  user: TenantProfile;
+  readiness: Readiness;
+}
+
+/* ---- Tenant dashboard (single source of dashboard truth) ----------------- */
+export interface TenantDashboard {
+  user: {
+    id: number;
+    name: string;
+    first_name: string;
+    email: string;
+    initials: string;
+    city: string | null;
+    user_type: UserType;
+    identity_verified: boolean;
+  };
+  readiness: Readiness;
+  stats: {
+    applications_count: number;
+    saved_listings_count: number;
+    verified_listings_count: number;
+    unread_notifications_count: number;
+  };
+  active_contract: Contract | null;
+  rent_summary: {
+    balance_cents: number;
+    currency: string;
+    next_due: {
+      id: string;
+      amount_cents: number;
+      due_date: string | null;
+      status: LedgerStatus;
+      type: LedgerType;
+    } | null;
+  } | null;
+  applications: Application[];
+  curated_listings: Listing[];
+  saved_listings: Listing[];
+  recent_conversations: ConversationSummary[];
+  notifications: AppNotification[];
+  feature_availability: {
+    applications: boolean;
+    maintenance: boolean;
+    documents: boolean;
+    messages: boolean;
+    compare: boolean;
+  };
+}
+
+/* ---- Landlord dashboard (single source of dashboard truth) --------------- */
+export interface LandlordDashboard {
+  portfolio: {
+    total_properties: number;
+    total_units: number;
+    occupied_units: number;
+    vacant_units: number;
+    active_listings: number;
+    draft_listings: number;
+    pending_review_listings: number;
+  };
+  contracts: {
+    active: number;
+    pending_tenant: number;
+    draft: number;
+    expiring_soon: number;
+  };
+  applications: {
+    awaiting_review: number;
+  };
+  maintenance: {
+    open: number;
+    in_progress: number;
+  };
+  ledger: {
+    outstanding_cents: number;
+    overdue_cents: number;
+    collected_this_month_cents: number;
+    next_due_date: string | null;
+  };
+  /** Last 6 calendar months, oldest → newest. Drives the stat-card sparklines. */
+  rent_trend: { month: string; collected_cents: number; outstanding_cents: number }[];
+  recent_applications: Application[];
+  recent_maintenance: MaintenanceRequest[];
+  /** The landlord's own listings (newest first) — the real portfolio gallery. */
+  recent_listings: Listing[];
+}
+
+/** Landlord onboarding/setup readiness (from GET /landlord/onboarding). */
+export interface LandlordOnboarding {
+  completion_percentage: number;
+  steps: {
+    key: string;
+    title: string;
+    description: string;
+    completed: boolean;
+    action: string | null;
+    disabled?: boolean;
+    help_text?: string | null;
+  }[];
+}
+
+/* ---- Admin: user management --------------------------------------------- */
+/** A row in the admin users list (User + withCount aggregates). */
+export interface AdminUserSummary extends User {
+  suspended_at: string | null;
+  properties_count: number;
+  listings_count: number;
+  applications_count: number;
+}
+
+export interface AdminUserDetail {
+  user: User & {
+    initials: string;
+    suspended_at: string | null;
+    city?: string | null;
+    phone: string | null;
+  };
+  stats: {
+    properties: number;
+    listings: number;
+    active_contracts: number;
+    applications: number;
+  };
+  recent_contracts: Contract[];
+  recent_applications: Application[];
+}
+
+/* ---- Admin dashboard (platform command center, all real aggregates) ------ */
+export interface AdminDashboard {
+  statistics: {
+    landlords: number;
+    tenants: number;
+    properties: number;
+    units: number;
+    pending_listings: number;
+    active_listings: number;
+    total_listings: number;
+    active_contracts: number;
+  };
+  contracts: {
+    draft: number;
+    pending_tenant: number;
+    active: number;
+    terminated: number;
+    expired: number;
+  };
+  ledger: {
+    outstanding_cents: number;
+    overdue_cents: number;
+    collected_this_month_cents: number;
+  };
+  listings_by_status: {
+    draft: number;
+    pending_review: number;
+    active: number;
+    rejected: number;
+    inactive: number;
+    archived: number;
+  };
+  recent_listings: Listing[];
+}
+
+/* ---- Verification -------------------------------------------------------- */
+export type VerificationStatus =
+  | 'unverified'
+  | 'pending'
+  | 'under_review'
+  | 'verified'
+  | 'rejected'
+  | 'needs_more_information';
+
+export interface VerificationRequest {
+  id: string; // UUID
+  user_id: number;
+  status: VerificationStatus;
+  note: string | null;
+  decision_reason: string | null;
+  reviewed_by_admin_id: number | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VerificationStatusResponse {
+  verification_status: VerificationStatus | null;
+  identity_verified: boolean;
+  latest_request: VerificationRequest | null;
+}
+
+export interface VerificationSubmitResponse {
+  message: string;
+  verification_request: VerificationRequest;
+}
+
+/* ---- Reviews ------------------------------------------------------------- */
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'hidden' | 'flagged';
+
+export interface Review {
+  id: number;
+  reviewer_user_id: number;
+  property_id: number;
+  unit_id: number;
+  landlord_id: number;
+  contract_id: string;
+  rating: number; // 1-5
+  title: string | null;
+  body: string;
+  status: ReviewStatus;
+  moderation_reason: string | null;
+  landlord_response: string | null;
+  responded_at: string | null;
+  property?: Property;
+  contract?: Contract;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewEligibility {
+  eligible: boolean;
+  contract_id: string | null;
+}
+
+/* ---- Media asset --------------------------------------------------------- */
+export interface MediaAsset {
+  /** UUID primary key (HasUuids on MediaAsset model). */
+  id: string;
+  owner_user_id: number;
+  collection: string;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  alt_text: string | null;
+  caption: string | null;
+  sort_order: number;
+  status: string;
+  url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/* ---- Landlord reviews ---------------------------------------------------- */
+export interface ReviewSummary {
+  property_id: number;
+  average_rating: number;
+  review_count: number;
+}
+
+export interface LandlordReviewsResponse {
+  reviews: Review[];
+  summary: ReviewSummary[];
+}
+
+/** Reviewer info attached to a review when returned from the landlord endpoint. */
+export interface ReviewWithReviewer extends Review {
+  reviewer?: Pick<User, 'id' | 'first_name' | 'last_name' | 'full_name'>;
+}
+
+/* ---- Admin verification types -------------------------------------------- */
+
+/** Admin-facing verification request with populated relations */
+export interface AdminVerificationRequest extends VerificationRequest {
+  user?: User;
+  reviewer?: Admin | null;
+}
+
+/** Verification document attached to a request */
+export interface VerificationDocument {
+  id: number;
+  owner_user_id: number;
+  uploaded_by_id: number;
+  document_type: DocumentType;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  is_verified: boolean;
+  verified_at: string | null;
+  related_type: string;
+  related_id: string;
+  created_at: string;
+}
+
+/** Admin verification request detail with documents */
+export interface AdminVerificationDetail extends AdminVerificationRequest {
+  documents?: VerificationDocument[];
+}
+
+/** Admin-facing review with populated relations */
+export interface AdminReview extends Review {
+  reviewer?: User;
+  moderator?: Admin | null;
 }
 
 /* ---- Standardized client error ------------------------------------------- */

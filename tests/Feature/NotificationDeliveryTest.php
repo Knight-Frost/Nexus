@@ -183,7 +183,7 @@ class NotificationDeliveryTest extends TestCase
 
         // Run command
         $this->artisan('notifications:deliver')
-            ->expectsOutput('📬 Nexus - Notification Delivery')
+            ->expectsOutput('📬 '.config('brand.display_name').' - Notification Delivery')
             ->assertSuccessful();
 
         // Verify all delivered

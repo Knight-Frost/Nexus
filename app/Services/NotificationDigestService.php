@@ -232,6 +232,6 @@ class NotificationDigestService
     {
         $count = $notifications->count();
 
-        return "Nexus Digest: {$count} new notification".($count === 1 ? '' : 's').'. Log in to view details.';
+        return config('brand.short_name')." Digest: {$count} new notification".($count === 1 ? '' : 's').'. Log in to view details.';
     }
 }

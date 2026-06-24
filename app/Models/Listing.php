@@ -102,6 +102,20 @@ class Listing extends Model
     }
 
     /**
+     * Scope: Listings whose landlord has a verified identity.
+     *
+     * why: there is no separate listing "verified" column. A verified landlord
+     * is a real, meaningful trust signal (anti-scam) we already store on the
+     * user, so the tenant-facing "verified" badge maps to it truthfully.
+     */
+    public function scopeVerified($query)
+    {
+        return $query->whereHas('landlord', function ($q) {
+            $q->where('identity_verified', true);
+        });
+    }
+
+    /**
      * Scope: Search by keyword (case-insensitive, portable SQL).
      */
     public function scopeSearch($query, ?string $keyword)
@@ -207,5 +221,41 @@ class Listing extends Model
         return $this->belongsToMany(User::class, 'saved_listings')
             ->withPivot('notes')
             ->withTimestamps();
+    }
+
+    public function applications()
+    {
+        return $this->hasMany(Application::class);
+    }
+
+    /**
+     * Gallery images for this listing via the media_assets system.
+     *
+     * Coexists with the legacy photos() / primaryPhoto() ListingPhoto relationships.
+     * TODO (future): consolidate ListingPhoto into media_assets; migrate existing rows.
+     */
+    public function mediaAssets()
+    {
+        return $this->morphMany(MediaAsset::class, 'attachable')
+            ->where('collection', \App\Enums\MediaCollection::ListingGallery->value)
+            ->where('status', 'active')
+            ->ordered();
+    }
+
+    /**
+     * Average rating derived from the unit's property's approved reviews.
+     * Returns null if no approved reviews exist.
+     */
+    public function getAverageRatingAttribute(): ?float
+    {
+        return $this->unit?->property?->average_rating;
+    }
+
+    /**
+     * Review count derived from the unit's property's approved reviews.
+     */
+    public function getReviewCountAttribute(): int
+    {
+        return $this->unit?->property?->review_count ?? 0;
     }
 }

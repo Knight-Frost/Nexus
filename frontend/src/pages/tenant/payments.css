@@ -1,0 +1,363 @@
+/* ==========================================================================
+   PAYMENTS — Warm Paper & Oxblood, editorial semantic card system.
+   All color via CSS tokens — no raw hex. Layout via Tailwind utility classes
+   on the card components; these rules handle page-level structure and
+   bespoke elements that the card primitives don't cover.
+   ========================================================================== */
+
+/* ── Page shell ─────────────────────────────────────────────────────────── */
+.pm2-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  color: var(--color-ink-700);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.pm2-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pm2-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 2.6vw, 36px);
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+  color: var(--color-ink-950);
+  margin: 8px 0 0;
+}
+
+.pm2-sub {
+  font-size: 15px;
+  color: var(--color-ink-500);
+  margin: 10px 0 0;
+  max-width: 60ch;
+}
+
+.pm2-head-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Next-due band ───────────────────────────────────────────────────────── */
+.pm2-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+}
+
+.pm2-next-left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pm2-next-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--color-ink-950);
+  margin: 0;
+}
+
+.pm2-next-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-ink-500);
+  margin: 0;
+}
+
+.pm2-next-meta-icon {
+  color: var(--color-ink-400);
+  flex-shrink: 0;
+}
+
+.pm2-next-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.pm2-next-amount {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--color-ink-950);
+  white-space: nowrap;
+}
+
+.pm2-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 28px;
+  border-radius: var(--radius-xl);
+  border: none;
+  background: var(--color-action-600);
+  color: var(--color-on-action);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  outline-color: var(--color-action-700);
+}
+
+.pm2-btn-primary:hover:not(:disabled) {
+  background: var(--color-action-400);
+}
+
+.pm2-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pm2-next-initiated {
+  font-size: 13px;
+  color: var(--color-ink-500);
+  line-height: 1.55;
+  max-width: 360px;
+  margin: 0;
+}
+
+/* ── Stripe notice ───────────────────────────────────────────────────────── */
+.pm2-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.pm2-notice-icon {
+  color: var(--color-info-600);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.pm2-notice-text {
+  font-size: 13.5px;
+  color: var(--color-ink-700);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.pm2-notice-text strong {
+  color: var(--color-ink-900);
+}
+
+/* ── Ledger card ─────────────────────────────────────────────────────────── */
+.pm2-ledger-card {
+  overflow: hidden;
+}
+
+/* ── Filter select ───────────────────────────────────────────────────────── */
+.pm2-select {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pm2-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-ink-200);
+  border-radius: var(--radius-xl);
+  padding: 9px 34px 9px 14px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-800);
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
+.pm2-select select:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+}
+
+.pm2-select-chev {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-ink-400);
+  pointer-events: none;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.pm2-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pm2-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  min-width: 560px;
+}
+
+.pm2-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-400);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-ink-200);
+  white-space: nowrap;
+}
+
+.pm2-table th.r,
+.pm2-table td.r {
+  text-align: right;
+}
+
+.pm2-table td {
+  padding: 13px 14px;
+  font-size: 13.5px;
+  color: var(--color-ink-700);
+  border-bottom: 1px solid var(--color-ink-100);
+  vertical-align: middle;
+}
+
+.pm2-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pm2-table tr:hover td {
+  background: var(--color-ink-50);
+}
+
+.pm2-date {
+  color: var(--color-ink-500);
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.pm2-desc {
+  font-weight: 600;
+  color: var(--color-ink-900);
+}
+
+.pm2-period {
+  color: var(--color-ink-500);
+  font-size: 13px;
+}
+
+.pm2-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--color-ink-600);
+}
+
+.pm2-card-chip {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Money amounts */
+.pm2-amount {
+  font-weight: 600;
+  color: var(--color-ink-900);
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+
+.pm2-amount.credit {
+  color: var(--color-success-600);
+}
+
+.pm2-action-col {
+  width: 110px;
+  text-align: right;
+}
+
+/* ── Pay inline controls ────────────────────────────────────────────────── */
+.pm2-btn-pay {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: var(--radius-xl);
+  border: 1.5px solid var(--color-brand-300);
+  background: transparent;
+  color: var(--color-brand-700);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.pm2-btn-pay:hover:not(:disabled) {
+  background: var(--color-brand-50);
+  border-color: var(--color-brand-400);
+}
+
+.pm2-btn-pay:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pm2-pay-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-success-600);
+}
+
+.pm2-pay-error {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-danger-600);
+  max-width: 160px;
+  display: block;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .pm2-hide-md {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .pm2-page {
+    gap: 28px;
+  }
+  .pm2-hide-sm {
+    display: none;
+  }
+  .pm2-next {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
+  }
+  .pm2-next-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

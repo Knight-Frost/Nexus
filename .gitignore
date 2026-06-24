@@ -67,6 +67,17 @@ Thumbs.db
 /storage/framework/views/*
 !storage/framework/cache/.gitignore
 !storage/framework/sessions/.gitignore
+
+# Claude local state, agent worktrees, and study/learning material
+# (NOT project code — the learning workspace vendors third-party repos
+#  that include private keys and embedded git repositories).
+/.claude/
+/Claude_Learning_Workspace/
+/Claude_Study_Guide/
+
+# Stray reference media / local scripts (not part of the app)
+/Homes_Photos/
+/Login_Image.png
 !storage/framework/views/.gitignore
 
 # Stale backup snapshots - never commit

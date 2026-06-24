@@ -42,7 +42,7 @@
 .nx-side::before {
   content: '';
   position: absolute; top: 0; bottom: 0; left: 0; width: var(--rail-w);
-  background: #FFFDF8;
+  background: var(--color-ink-50);
   border-right: 1px solid var(--color-ink-200);
   pointer-events: none;
 }
@@ -91,7 +91,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--color-brand-600); color: var(--color-on-brand);
 }
-.nx-badge-dot { position: absolute; top: 12px; left: 44px; width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-600); border: 2px solid #FFFDF8; }
+.nx-badge-dot { position: absolute; top: 12px; left: 44px; width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-600); border: 2px solid var(--color-surface); }
 
 /* footer (collapse control anchored here, near the bottom) */
 .nx-foot { flex-shrink: 0; border-top: 1px solid var(--color-ink-200); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -129,7 +129,7 @@
 .nx-mtop {
   display: none; position: sticky; top: 0; z-index: 10;
   height: 58px; align-items: center; gap: 12px; padding: 0 16px;
-  background: rgb(243 238 230 / .9); backdrop-filter: blur(12px);
+  background: rgba(246, 248, 251, 0.92); backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-ink-200);
 }
 .nx-mbot {

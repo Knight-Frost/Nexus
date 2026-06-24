@@ -1,156 +1,209 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useApi } from '@/hooks/useApi';
 import { landlordApi } from '@/lib/endpoints';
-import { fieldErrors } from '@/lib/api';
-import type { ApiError, Property, PropertyType } from '@/lib/types';
-import { humanize } from '@/lib/format';
+import type { ApiError, Listing, Property, PropertyType } from '@/lib/types';
+import { formatCents, formatDateTime, humanize, storageUrl } from '@/lib/format';
+import { paginate, pluralize, rangeLabel } from '@/lib/paginate';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardBody } from '@/components/ui/Card';
-import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { Field, Input, Select, Textarea } from '@/components/ui/Field';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
-import { IconBuilding, IconHome, IconPlus, IconX } from '@/components/ui/icons';
+import { PropertyFormDrawer } from './PropertyFormDrawer';
+import { PROPERTY_TYPES } from './property-constants';
+import {
+  CommandBar,
+  SearchInput,
+  SortSelect,
+  Pagination,
+  ActionMenu,
+  Thumbnail,
+  type SelectOption,
+} from '@/components/landlord/primitives';
+import {
+  IconBuilding,
+  IconHome,
+  IconPlus,
+  IconEye,
+  IconEdit,
+  IconTrash,
+  IconUsers,
+} from '@/components/ui/icons';
 import { useToast } from '@/components/ui/toast';
+import {
+  StatusCard,
+  SemanticBadge,
+  DashboardSection,
+  DataCardGrid,
+  getOccupancyVariant,
+} from '@/components/cards';
 
-const PROPERTY_TYPES: PropertyType[] = [
-  'single_family',
-  'multi_family',
-  'apartment',
-  'condo',
-  'townhouse',
-  'commercial',
-  'other',
+/* ──────────────────────────────────────────────────────────────────────────
+   CONSTANTS & HELPERS
+────────────────────────────────────────────────────────────────────────── */
+
+const PER_PAGE = 8;
+
+type OccupancyFilter = 'all' | 'has_vacancy' | 'fully_occupied';
+type SortKey = 'newest' | 'name_asc' | 'most_units' | 'highest_occupancy';
+type TypeFilter = 'all' | PropertyType;
+
+const SORT_OPTIONS: SelectOption<SortKey>[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'name_asc', label: 'Name A–Z' },
+  { value: 'most_units', label: 'Most units' },
+  { value: 'highest_occupancy', label: 'Highest occupancy' },
 ];
 
-interface PropertyForm {
-  name: string;
-  property_type: PropertyType;
-  street_address: string;
-  street_address_2: string;
-  city: string;
-  state: string;
-  zip_code: string;
-  country: string;
-  year_built: string;
-  description: string;
+const TYPE_OPTIONS: SelectOption<TypeFilter>[] = [
+  { value: 'all', label: 'All types' },
+  ...PROPERTY_TYPES.map((t) => ({ value: t as TypeFilter, label: humanize(t) })),
+];
+
+const OCCUPANCY_OPTIONS: SelectOption<OccupancyFilter>[] = [
+  { value: 'all', label: 'All occupancy' },
+  { value: 'has_vacancy', label: 'Has vacancy' },
+  { value: 'fully_occupied', label: 'Fully occupied' },
+];
+
+/** Relative-ish time, falls back to absolute datetime. */
+function whenLabel(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDateTime(iso);
 }
 
-function emptyForm(): PropertyForm {
-  return {
-    name: '',
-    property_type: 'apartment',
-    street_address: '',
-    street_address_2: '',
-    city: 'Accra',
-    state: 'Greater Accra',
-    zip_code: '',
-    country: 'Ghana',
-    year_built: '',
-    description: '',
-  };
-}
+/* ──────────────────────────────────────────────────────────────────────────
+   PHOTO MAP — property_id → first listing image URL
+────────────────────────────────────────────────────────────────────────── */
 
-function formFromProperty(p: Property): PropertyForm {
-  return {
-    name: p.name,
-    property_type: p.property_type,
-    street_address: p.street_address,
-    street_address_2: p.street_address_2 ?? '',
-    city: p.city,
-    state: p.state,
-    zip_code: p.zip_code,
-    country: p.country,
-    year_built: p.year_built != null ? String(p.year_built) : '',
-    description: p.description ?? '',
-  };
-}
-
-function propertyTypeTone(type: PropertyType) {
-  switch (type) {
-    case 'apartment':     return 'brand' as const;
-    case 'single_family': return 'success' as const;
-    case 'multi_family':  return 'info' as const;
-    case 'commercial':    return 'warning' as const;
-    default:              return 'neutral' as const;
+function buildPhotoMap(listings: Listing[]): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const l of listings) {
+    if (!l.primary_photo?.path) continue;
+    const propId = l.unit?.property_id;
+    if (propId === undefined || map.has(propId)) continue;
+    const url = storageUrl(l.primary_photo.path);
+    if (url) map.set(propId, url);
   }
+  return map;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   MAIN COMPONENT
+────────────────────────────────────────────────────────────────────────── */
 
 export function Properties() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { data, loading, error, reload } = useApi(() => landlordApi.properties(), []);
 
+  /* ── Data fetching ── */
+  const { data, loading, error, reload } = useApi(() => landlordApi.properties(), []);
+  const listingsApi = useApi(() => landlordApi.listings(), []);
+
+  /* ── Create / edit drawer state ── */
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
-  const [form, setForm] = useState<PropertyForm>(emptyForm);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
 
   const [toDelete, setToDelete] = useState<Property | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const totalUnits = data?.reduce((s, p) => s + (p.units_count ?? 0), 0) ?? 0;
-  // Placeholder: occupied/vacant counts depend on embedded unit data not yet aggregated.
-  // Using units_count as proxy for total; tenant-side will provide occupancy.
-  const occupied = Math.round(totalUnits * 0.76);
-  const vacant = totalUnits - occupied;
+  /* ── Controls state ── */
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [occupancyFilter, setOccupancyFilter] = useState<OccupancyFilter>('all');
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [page, setPage] = useState(1);
+
+  /* ── Derived data ── */
+  const properties = useMemo(() => data ?? [], [data]);
+
+  const photoMap = useMemo(
+    () => buildPhotoMap(listingsApi.data ?? []),
+    [listingsApi.data],
+  );
+
+  /* ── KPI aggregates from real per-property data ── */
+  const kpi = useMemo(() => {
+    let totalUnits = 0;
+    let occupiedUnits = 0;
+    let vacantUnits = 0;
+    for (const p of properties) {
+      totalUnits += p.units_count ?? 0;
+      occupiedUnits += p.occupied_units ?? 0;
+      vacantUnits += p.vacant_units ?? 0;
+    }
+    const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+    return { totalUnits, occupiedUnits, vacantUnits, occupancyRate };
+  }, [properties]);
+
+  /* ── Filtered + sorted list ── */
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    let result = properties.filter((p) => {
+      if (q) {
+        const hay = [p.name, p.city, p.state, p.street_address].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (typeFilter !== 'all' && p.property_type !== typeFilter) return false;
+      if (occupancyFilter === 'has_vacancy') {
+        const vacant = p.vacant_units ?? 0;
+        if (vacant === 0) return false;
+      }
+      if (occupancyFilter === 'fully_occupied') {
+        const totalU = p.units_count ?? 0;
+        const occupiedU = p.occupied_units ?? 0;
+        if (totalU === 0 || occupiedU < totalU) return false;
+      }
+      return true;
+    });
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case 'name_asc':
+          return a.name.localeCompare(b.name);
+        case 'most_units':
+          return (b.units_count ?? 0) - (a.units_count ?? 0);
+        case 'highest_occupancy':
+          return (b.occupancy_rate ?? 0) - (a.occupancy_rate ?? 0);
+        case 'newest':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return result;
+  }, [properties, search, typeFilter, occupancyFilter, sort]);
+
+  const slice = paginate(filtered, page, PER_PAGE);
+
+  function resetPage() {
+    setPage(1);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     HANDLERS (preserved exactly)
+  ────────────────────────────────────────────────────────────────────────── */
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm());
-    setErrors({});
     setFormOpen(true);
   }
 
   function openEdit(p: Property) {
     setEditing(p);
-    setForm(formFromProperty(p));
-    setErrors({});
     setFormOpen(true);
-  }
-
-  function update<K extends keyof PropertyForm>(key: K, value: PropertyForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setErrors({});
-    const payload: Partial<Property> = {
-      name: form.name,
-      property_type: form.property_type,
-      street_address: form.street_address,
-      street_address_2: form.street_address_2 || null,
-      city: form.city,
-      state: form.state,
-      zip_code: form.zip_code,
-      country: form.country,
-      year_built: form.year_built ? Number(form.year_built) : null,
-      description: form.description || null,
-    };
-    try {
-      if (editing) {
-        await landlordApi.updateProperty(editing.id, payload);
-        toast('Property updated', 'success');
-      } else {
-        await landlordApi.createProperty(payload);
-        toast('Property created', 'success');
-      }
-      setFormOpen(false);
-      reload();
-    } catch (err) {
-      const e2 = err as ApiError;
-      const fe = fieldErrors(e2);
-      setErrors(fe);
-      if (Object.keys(fe).length === 0) toast(e2.message, 'error');
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function handleDelete() {
@@ -168,270 +221,293 @@ export function Properties() {
     }
   }
 
+  const hasAny = properties.length > 0;
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     RENDER
+  ────────────────────────────────────────────────────────────────────────── */
+
   return (
-    <div className="animate-rise space-y-6">
+    <div className="animate-rise space-y-10">
+      {/* Page header */}
       <PageHeader
         eyebrow="Portfolio"
         title="Properties"
         description="Manage the buildings and homes in your rental portfolio."
         action={
-          <Button leftIcon={<IconPlus className="h-4 w-4" />} onClick={openCreate}>
-            Add Property
+          <Button leftIcon={<IconPlus size={16} />} onClick={openCreate}>
+            Add property
           </Button>
         }
       />
 
-      {/* Stats */}
-      {!loading && data && data.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard
-            label="Total Properties"
-            value={data.length}
-            icon={<IconBuilding size={17} />}
+      {/* KPI row — always shown (loading-aware) */}
+      <DashboardSection eyebrow="PORTFOLIO SUMMARY">
+        <DataCardGrid cols={4}>
+          <StatusCard
+            label="Total properties"
+            value={properties.length}
+            sub="Across your portfolio"
+            icon={<IconBuilding size={18} />}
+            role="neutral"
+            loading={loading}
           />
-          <StatCard
-            label="Total Units"
-            value={totalUnits}
-            icon={<IconHome size={17} />}
+          <StatusCard
+            label="Total units"
+            value={kpi.totalUnits}
+            sub={pluralize(kpi.totalUnits, 'unit')}
+            icon={<IconHome size={18} />}
+            role="neutral"
+            loading={loading}
           />
-          <StatCard
-            label="Occupied"
-            value={occupied}
-            tone="success"
-            icon={<IconHome size={17} />}
+          <StatusCard
+            label="Occupied units"
+            value={kpi.occupiedUnits}
+            sub="Currently tenanted"
+            role="success"
+            icon={<IconUsers size={18} />}
+            loading={loading}
           />
-          <StatCard
-            label="Vacant"
-            value={vacant}
-            tone={vacant > 0 ? 'warning' : 'success'}
-            icon={<IconHome size={17} />}
+          <StatusCard
+            label="Vacant units"
+            value={kpi.vacantUnits}
+            sub={kpi.totalUnits > 0 ? `${kpi.occupancyRate}% occupancy rate` : 'No units yet'}
+            role={getOccupancyVariant(kpi.occupancyRate)}
+            icon={<IconHome size={18} />}
+            loading={loading}
           />
-        </div>
-      )}
+        </DataCardGrid>
+      </DashboardSection>
 
-      {/* Properties grid */}
+      {/* Main content */}
       {loading ? (
-        <LoadingState label="Loading properties..." />
+        <LoadingState label="Loading properties…" />
       ) : error ? (
         <ErrorState message={error.message} onRetry={reload} />
-      ) : !data?.length ? (
+      ) : !hasAny ? (
         <EmptyState
           icon={<IconBuilding />}
           title="No properties yet"
-          description="Add your first property to start creating units and listings."
+          description="Add your first property to start managing units, listings, tenants, rent, and maintenance."
           action={
-            <Button leftIcon={<IconPlus className="h-4 w-4" />} onClick={openCreate}>
-              Add Property
+            <Button leftIcon={<IconPlus size={16} />} onClick={openCreate}>
+              Add property
             </Button>
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {data.map((p) => (
-            <Card key={p.id} className="transition hover:shadow-md">
-              <CardBody>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-display text-base font-semibold text-ink-900 truncate">
-                        {p.name}
-                      </h3>
-                      <Badge tone={propertyTypeTone(p.property_type)}>
-                        {humanize(p.property_type)}
-                      </Badge>
-                      {!p.is_active && <Badge tone="neutral">Inactive</Badge>}
-                    </div>
-                    <p className="mt-1 text-sm text-ink-500 truncate">
-                      {p.street_address_2 ? `${p.street_address_2}, ` : ''}
-                      {p.city}, {p.state}
-                    </p>
-                    <p className="mt-2 text-xs text-ink-500">
-                      {p.units_count ?? 0} unit{p.units_count !== 1 ? 's' : ''} ·{' '}
-                      <span className="text-success-600 font-medium">
-                        {Math.round((p.units_count ?? 0) * 0.76)} occupied
-                      </span>
-                    </p>
-                  </div>
-                </div>
+        <DashboardSection eyebrow="YOUR PROPERTIES">
+          {/* Command bar */}
+          <CommandBar>
+            <SearchInput
+              value={search}
+              onChange={(v) => { setSearch(v); resetPage(); }}
+              placeholder="Search by name, city, or address…"
+              label="Search properties"
+            />
+            <SortSelect
+              value={typeFilter}
+              onChange={(v) => { setTypeFilter(v); resetPage(); }}
+              options={TYPE_OPTIONS}
+              label="Filter by type"
+              prefix=""
+            />
+            <SortSelect
+              value={occupancyFilter}
+              onChange={(v) => { setOccupancyFilter(v); resetPage(); }}
+              options={OCCUPANCY_OPTIONS}
+              label="Filter by occupancy"
+              prefix=""
+            />
+            <SortSelect
+              value={sort}
+              onChange={(v) => { setSort(v); resetPage(); }}
+              options={SORT_OPTIONS}
+              label="Sort"
+              prefix="Sort: "
+            />
+          </CommandBar>
 
-                <div className="mt-4 flex gap-2 border-t border-ink-100 pt-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => navigate(`/app/properties/${p.id}`)}
-                  >
-                    View
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => openEdit(p)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Delete ${p.name}`}
-                    onClick={() => setToDelete(p)}
-                  >
-                    <IconX className="h-4 w-4 text-danger-600" />
-                  </Button>
+          {/* No-match state */}
+          {slice.total === 0 ? (
+            <EmptyState
+              icon={<IconBuilding />}
+              title="No properties match"
+              description="Try a different search term or adjust the filters."
+            />
+          ) : (
+            <Card>
+              <CardBody className="p-0">
+                <ul className="divide-y divide-ink-200">
+                  {slice.items.map((p) => {
+                    const photoUrl = photoMap.get(p.id);
+                    const totalU = p.units_count ?? 0;
+                    const occupiedU = p.occupied_units ?? 0;
+                    const vacantU = p.vacant_units ?? 0;
+                    const occRate = p.occupancy_rate ?? 0;
+                    const collectedCents = p.collected_this_month_cents ?? 0;
+                    const occRole = getOccupancyVariant(occRate);
+
+                    const menuItems = [
+                      {
+                        label: 'Manage units',
+                        icon: <IconUsers size={15} />,
+                        onClick: () => navigate(`/app/properties/${p.id}`),
+                      },
+                      {
+                        label: 'Edit property',
+                        icon: <IconEdit size={15} />,
+                        onClick: () => openEdit(p),
+                      },
+                      {
+                        label: 'Delete',
+                        icon: <IconTrash size={15} />,
+                        danger: true,
+                        onClick: () => setToDelete(p),
+                      },
+                    ];
+
+                    return (
+                      <li
+                        key={p.id}
+                        className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60"
+                      >
+                        {/* Thumbnail */}
+                        <Thumbnail
+                          src={photoUrl}
+                          alt={p.name}
+                          seed={p.name}
+                          size={64}
+                        />
+
+                        {/* Identity */}
+                        <div className="min-w-[14rem] flex-1">
+                          <p className="font-display text-base font-semibold leading-snug text-ink-900">
+                            {p.name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-ink-500">
+                            {p.city}, {p.state}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <SemanticBadge role="neutral" status={p.property_type}>
+                              {humanize(p.property_type)}
+                            </SemanticBadge>
+                            {!p.is_active && (
+                              <SemanticBadge role="neutral">Inactive</SemanticBadge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Units */}
+                        <div className="hidden min-w-[4rem] text-center sm:block">
+                          <p className="font-display text-lg font-semibold tabular-nums text-ink-900">
+                            {totalU}
+                          </p>
+                          <p className="text-[11px] text-ink-400">
+                            {totalU === 1 ? 'unit' : 'units'}
+                          </p>
+                        </div>
+
+                        {/* Occupied / Vacant */}
+                        <div className="hidden gap-4 sm:flex">
+                          <div className="text-center">
+                            <p className="font-display text-lg font-semibold tabular-nums text-success-600">
+                              {occupiedU}
+                            </p>
+                            <p className="text-[11px] text-ink-400">Occupied</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-display text-lg font-semibold tabular-nums text-warning-600">
+                              {vacantU}
+                            </p>
+                            <p className="text-[11px] text-ink-400">Vacant</p>
+                          </div>
+                        </div>
+
+                        {/* Occupancy rate */}
+                        <div className="hidden min-w-[5rem] sm:block">
+                          <p className={`font-display text-lg font-semibold tabular-nums ${
+                            occRole === 'success' ? 'text-success-600'
+                            : occRole === 'warning' ? 'text-warning-600'
+                            : 'text-danger-600'
+                          }`}>
+                            {occRate}%
+                          </p>
+                          <p className="text-[11px] text-ink-400">Occupancy</p>
+                          {totalU > 0 && (
+                            <div className="mt-1 h-1.5 w-16 overflow-hidden rounded-full bg-ink-100">
+                              <div
+                                className={`h-full rounded-full ${
+                                  occRole === 'success' ? 'bg-success-500'
+                                  : occRole === 'warning' ? 'bg-warning-500'
+                                  : 'bg-danger-500'
+                                }`}
+                                style={{ width: `${occRate}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Collected this month */}
+                        <div className="hidden min-w-[7rem] sm:block">
+                          <p
+                            className="font-display text-sm font-semibold"
+                            style={{ color: 'var(--color-money)' }}
+                          >
+                            {collectedCents > 0 ? formatCents(collectedCents) : '—'}
+                          </p>
+                          <p className="text-[11px] text-ink-400">
+                            Collected this month
+                          </p>
+                        </div>
+
+                        {/* Updated */}
+                        <div className="hidden min-w-[5rem] text-right lg:block">
+                          <p className="text-xs text-ink-500">Updated</p>
+                          <p className="text-xs font-medium text-ink-700">
+                            {whenLabel(p.updated_at)}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<IconEye size={14} />}
+                            onClick={() => navigate(`/app/properties/${p.id}`)}
+                          >
+                            View details
+                          </Button>
+                          <ActionMenu items={menuItems} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Footer: range label + pagination */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
+                  <p className="text-xs text-ink-500">
+                    {rangeLabel(slice, 'property', 'properties')}
+                  </p>
+                  <Pagination slice={slice} onPage={setPage} />
                 </div>
               </CardBody>
             </Card>
-          ))}
-        </div>
+          )}
+        </DashboardSection>
       )}
 
-      {/* Add / Edit modal */}
-      <Modal
+      {/* ── Add / Edit drawer — right-side multi-step creation panel ────────── */}
+      <PropertyFormDrawer
         open={formOpen}
+        editing={editing}
         onClose={() => setFormOpen(false)}
-        title={editing ? 'Edit property' : 'Add property'}
-        description="Provide the property details and full address."
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setFormOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" form="property-form" loading={saving}>
-              {editing ? 'Save changes' : 'Create property'}
-            </Button>
-          </>
-        }
-      >
-        <form id="property-form" onSubmit={handleSubmit} className="space-y-4">
-          <Field label="Property name" error={errors.name} required>
-            {(id, invalid) => (
-              <Input
-                id={id}
-                invalid={invalid}
-                placeholder="e.g. East Legon Heights"
-                value={form.name}
-                onChange={(e) => update('name', e.target.value)}
-              />
-            )}
-          </Field>
+        onSaved={reload}
+      />
 
-          <Field label="Property type" error={errors.property_type} required>
-            {(id, invalid) => (
-              <Select
-                id={id}
-                invalid={invalid}
-                value={form.property_type}
-                onChange={(e) => update('property_type', e.target.value as PropertyType)}
-              >
-                {PROPERTY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {humanize(t)}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-
-          <Field label="Street address" error={errors.street_address} required>
-            {(id, invalid) => (
-              <Input
-                id={id}
-                invalid={invalid}
-                placeholder="e.g. 14 Boundary Road"
-                value={form.street_address}
-                onChange={(e) => update('street_address', e.target.value)}
-              />
-            )}
-          </Field>
-
-          <Field label="Street address 2 / Estate / Area" error={errors.street_address_2}>
-            {(id, invalid) => (
-              <Input
-                id={id}
-                invalid={invalid}
-                placeholder="e.g. East Legon"
-                value={form.street_address_2}
-                onChange={(e) => update('street_address_2', e.target.value)}
-              />
-            )}
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="City" error={errors.city} required>
-              {(id, invalid) => (
-                <Input
-                  id={id}
-                  invalid={invalid}
-                  value={form.city}
-                  onChange={(e) => update('city', e.target.value)}
-                />
-              )}
-            </Field>
-            <Field label="Region / State" error={errors.state} required>
-              {(id, invalid) => (
-                <Input
-                  id={id}
-                  invalid={invalid}
-                  value={form.state}
-                  onChange={(e) => update('state', e.target.value)}
-                />
-              )}
-            </Field>
-            <Field label="Digital address / Postcode" error={errors.zip_code} required>
-              {(id, invalid) => (
-                <Input
-                  id={id}
-                  invalid={invalid}
-                  placeholder="GA-123-4567"
-                  value={form.zip_code}
-                  onChange={(e) => update('zip_code', e.target.value)}
-                />
-              )}
-            </Field>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Country" error={errors.country} required>
-              {(id, invalid) => (
-                <Input
-                  id={id}
-                  invalid={invalid}
-                  value={form.country}
-                  onChange={(e) => update('country', e.target.value)}
-                />
-              )}
-            </Field>
-            <Field label="Year built" error={errors.year_built}>
-              {(id, invalid) => (
-                <Input
-                  id={id}
-                  type="number"
-                  invalid={invalid}
-                  placeholder="e.g. 2019"
-                  value={form.year_built}
-                  onChange={(e) => update('year_built', e.target.value)}
-                />
-              )}
-            </Field>
-          </div>
-
-          <Field label="Description" error={errors.description}>
-            {(id, invalid) => (
-              <Textarea
-                id={id}
-                invalid={invalid}
-                rows={3}
-                placeholder="Brief description of the property..."
-                value={form.description}
-                onChange={(e) => update('description', e.target.value)}
-              />
-            )}
-          </Field>
-        </form>
-      </Modal>
-
-      {/* Delete confirmation */}
+      {/* ── Delete confirmation (logic preserved exactly) ─────────────────── */}
       <Modal
         open={toDelete !== null}
         onClose={() => setToDelete(null)}

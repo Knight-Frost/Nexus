@@ -19,6 +19,12 @@ class AuthServiceProvider extends ServiceProvider
         \App\Models\Contract::class => \App\Policies\ContractPolicy::class,
         \App\Models\LedgerEntry::class => \App\Policies\LedgerEntryPolicy::class,
         \App\Models\Notification::class => \App\Policies\NotificationPolicy::class,
+        \App\Models\Application::class => \App\Policies\ApplicationPolicy::class,
+        \App\Models\MaintenanceRequest::class => \App\Policies\MaintenanceRequestPolicy::class,
+        \App\Models\Document::class => \App\Policies\DocumentPolicy::class,
+        \App\Models\Conversation::class => \App\Policies\ConversationPolicy::class,
+        \App\Models\MediaAsset::class => \App\Policies\MediaAssetPolicy::class,
+        \App\Models\Review::class => \App\Policies\ReviewPolicy::class,
     ];
 
     /**

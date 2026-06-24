@@ -72,7 +72,7 @@ class UnitController extends Controller
     {
         $this->authorize('view', $unit);
 
-        return response()->json($unit->load(['property', 'listings']));
+        return response()->json($unit->load(['property', 'listings', 'mediaAssets']));
     }
 
     /**

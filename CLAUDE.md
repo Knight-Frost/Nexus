@@ -41,24 +41,41 @@ It is read-only. Never modify, rename, or delete files inside it.
 - Keep `Claude_Project_Knowledge/` updated when new lessons are learned
 - Project memory lives in the repository, not just in this chat
 
-### Approved Visual Direction — Warm Paper & Oxblood (Confirmed June 2026)
+### Approved Visual Direction — White Liquid Glass (Confirmed June 2026, Homecrest rebrand)
 
-> **SUPERSEDES "Obsidian Pearl."** The user reviewed Obsidian Pearl (mint/obsidian) live and **rejected it**, then iterated through and rejected a gold variant, and **approved "Warm Paper & Oxblood"** — a warm, light, editorial-magazine identity. The full token set lives in `Claude_Project_Knowledge/DESIGN.md` and `nexus_design_memory.md` (both updated). Mint/obsidian and gold are now **dead directions**.
+> **SUPERSEDES "Warm Paper & Oxblood."** During the Nexus→Homecrest rebrand the user reviewed the warm-paper editorial direction and **chose to pivot** to a **white background + liquid-glass** identity: open, airy, premium, enterprise-grade. This reverses the earlier warm-paper approval *intentionally and explicitly* — do NOT "correct" the codebase back to warm paper. Warm paper, gold, and obsidian/mint are all **dead directions** now. The token set is being migrated in `Claude_Project_Knowledge/DESIGN.md`.
 
 | Decision | Status |
 |----------|--------|
-| Page background: warm bone paper `#F3EEE6` (intentionally warm, never pure white) | **APPROVED** |
-| Cards / surfaces: `#FBF8F2` (elevated `#FFFDF8`) | **APPROVED** |
-| Sidebar: **LIGHT paper** (`#FBF8F2`) with `#DED5C6` hairline — NOT a dark sidebar | **APPROVED** |
-| Accent: oxblood `#9E3024` (links/active `#872117`) — rationed, used as punctuation | **APPROVED** |
-| Display font: **Fraunces** (serif, characterful) — headings, hero, numerals | **APPROVED** |
-| Body font: Hanken Grotesque | **APPROVED** |
-| Mono (eyebrows/labels/badges): **IBM Plex Mono** | **APPROVED** |
-| Mint / jade / teal / obsidian-dark sidebar (old Obsidian Pearl) | **REJECTED (was prior direction)** |
-| Gold / bronze / brown / mustard / "dusty warm" | **HARD REJECTED** (oxblood is a brick RED, NOT gold/brown) |
-| Purple / violet / orchid / lavender · generic SaaS blue · AI gradient blobs | **HARD REJECTED** |
+| Page background: **cool white** `#FFFFFF` / `#FBFCFD` (architectural light, never warm paper) | **APPROVED** |
+| Cards / surfaces: **liquid glass** — `rgba(255,255,255,0.6)` + `backdrop-blur`, hairline `rgba(15,23,42,0.08)`, soft shadow `0 8px 32px rgba(15,23,42,0.06)` | **APPROVED** |
+| Accent: **ink-teal** primary, **oxblood** rationed (danger/punctuation only) | **APPROVED** |
+| Display font: **Fraunces** (serif, characterful) — headings, hero, numerals | **KEPT** |
+| Body font: **Hanken Grotesque** · Mono (eyebrows/labels): **IBM Plex Mono** | **KEPT** |
+| Money: **ink-teal** (`#075865`), never gold/brown | **KEPT** |
+| User-selectable **accent color** (curated palette, per-user, accessible) | **PLANNED (Phase 14)** |
+| Warm bone paper `#F3EEE6` / `#FBF8F2` surfaces (old Warm Paper & Oxblood) | **RETIRED (was prior approved direction)** |
+| Gold / bronze / brown / mustard · mint / jade / obsidian-dark sidebar | **HARD REJECTED** |
+| Purple / violet / lavender · generic SaaS blue · AI gradient blobs · low-contrast gray soup | **HARD REJECTED** |
 
-**The look is print-editorial, not SaaS:** warm paper, hairline dividers over heavy shadows, oversized serif headlines, one rationed oxblood accent. Implement the tokens in DESIGN.md. Do not reintroduce mint/obsidian or gold without explicit user approval.
+**The look is glass over white architectural light, not SaaS sludge:** translucent layered surfaces, soft borders, gentle blur where performant, strong text contrast, precise spacing, subtle motion that respects `prefers-reduced-motion`. Tasteful — never an overdone blurry mess. Implement tokens in DESIGN.md.
+
+> **Brand is now CONFIG-DRIVEN — current name: "Wyncrest" (June 2026).** The product
+> was Nexus → Homecrest → **Wyncrest**, and the name may change again. There is a **centralized
+> brand layer** so future renames are a config/env change, NOT a code sweep:
+> - **Frontend:** `frontend/src/config/brand.ts` (`brand.*` + `pageTitle()`), reads `VITE_*` env with
+>   safe defaults. The W-crest logo (`components/brand/Logo.tsx`) takes its initial from `brand.brandInitial`.
+>   `index.html` title/meta use `%BRAND_*%` placeholders injected by a vite plugin in `vite.config.js`.
+> - **Backend:** `config/brand.php` (`config('brand.display_name'|'short_name'|...)`), reads `BRAND_*` env.
+>   All mailables/Blade emails/SMS/console output read brand from config — never hardcode the app name.
+> - To rename: change env (or the defaults in those two files) + optionally the logo asset. See README "Branding".
+> **Do NOT hardcode the app name in pages, emails, or notifications.** Internal technical identifiers
+> (`nexus.*` localStorage/cache keys, `nexus_` Sanctum prefix, `NexusCard`, `nvx-`/`nx-`/`--nexus-*` CSS,
+> `nexus-frontend` package) are deliberately retained to avoid breakage. Remaining "Nexus/Homecrest" in
+> code COMMENTS only — not user-facing.
+>
+> **Other stale facts corrected:** `Conversation`/`Message` messaging is **fully built** (endpoints +
+> `MessagesPage.tsx`), not "schema only". Backend baseline is **596 green** (deterministic).
 
 ---
 
@@ -81,12 +98,12 @@ privileged action is written to an append-only audit log.
 
 | Area | Status |
 |------|--------|
-| Backend (Laravel 12) | **Mature & passing** — 287 tests green, full domain implemented |
+| Backend (Laravel 12) | **Mature & passing** — 598 tests green (deterministic), full domain implemented |
 | RBAC / Auth | Implemented + proven (Sanctum tokens, dual User/Admin model, middleware + policies, IDOR/escalation test suite) |
 | Payments / Webhooks | Implemented (Stripe PaymentIntents + signature-verified webhook, idempotent) |
 | Notifications | Implemented (in-app, email, SMS, digests, preferences) |
 | Analytics / Caching | Implemented (scoped, selectively invalidated, async jobs) |
-| Frontend (`frontend/`) | **Built** — React 18 + TS + Vite + Tailwind v4 SPA, role-aware, integrated with the API (tsc + eslint + build clean) |
+| Frontend (`frontend/`) | **Built & truthful** — React 18 + TS + Vite + Tailwind v4 SPA, role-aware, integrated with the API (tsc + eslint + build clean). **All three portals (tenant/landlord/admin) now run on 100% real backend data — no mock files remain.** |
 | Security | OWASP audit complete (no high/critical); CSP + HSTS added; `docs/SECURITY.md` |
 | Docs | README, `CLAUDE.md`, `docs/{API_REFERENCE,SECURITY,EXECUTION_PLAN,ARCHITECTURE,DEPLOYMENT}.md` |
 
@@ -323,7 +340,8 @@ One-shot dev (server + queue + logs + vite): `composer run dev`.
 
 - All admins are super-admins (granular admin RBAC is a future phase).
 - SQLite is the default — production should use MySQL/Postgres + Redis.
-- `Conversation`/`Message` exist as schema only (no endpoints/UI).
+- ~~`Conversation`/`Message` exist as schema only~~ **Correction:** messaging is fully built
+  (endpoints + `MessagesPage.tsx`) — this old note was stale.
 - Sensitive PII is not field-encrypted at rest.
 
 ## 23. Known Unfinished Work (live punch list)
@@ -331,19 +349,59 @@ One-shot dev (server + queue + logs + vite): `composer run dev`.
 Done in the completion pass: frontend SPA built; payment/webhook/admin/IDOR test
 coverage expanded (287 tests); security audit + hardening; full docs set.
 
+Done in the Landlord/Admin truthfulness pass (June 2026): redesigned + wired the
+Landlord and Admin portals to 100% real data using the shared design system.
+Deleted all frontend mock (`lib/mockData.ts`, `pages/admin/adminMockData.ts`, dead
+admin components). Removed invented Admin "Disputes"/"Risk" stubs. New backend:
+`GET /landlord/dashboard`, `GET /admin/users` (+ show/suspend/activate, audited),
+and extended `GET /admin/dashboard` with real platform aggregates — all tested
+(suite now **400 tests**). Wired previously-dead landlord screens (Applicants→real
+applications/decide; Tenants→derived from contracts+ledger; Maintenance & Analytics
+built on existing endpoints; Properties/Listings dead buttons fixed; fake 76%
+occupancy replaced with real unit statuses).
+
 Remaining / future work:
 - [ ] Standardize the API response envelope across controllers. *Deliberately
   deferred* — the SPA is the only consumer and the typed client already adapts
   per-endpoint; refactoring would churn the green suite for little gain. Revisit
   if a second/external consumer appears.
-- [ ] Wire remaining notification types (late fee added, contract signed/terminated).
-- [ ] Listing photo upload UI + storage (schema/model exist; no upload flow yet).
+- [x] ~~Wire remaining notification types (late fee added, contract signed/terminated).~~ **DONE (Phase 2, Homecrest pass):** contract signed/terminated, account suspended/reactivated, late-fee, and listing approved/rejected now create real in-app notifications; the 4 dispatched-but-orphaned listing/user events are registered; `UserCreated` fires on registration. Notification money is now GH₵ (was `$`).
+- [~] Media storage + upload: **backend DONE (Phase 3)** — new `media_assets` (UUID PK,
+  polymorphic, public/private disks, checksum, sort/alt/caption, soft-delete), `MediaService`,
+  `MediaAssetPolicy`, upload/stream/reorder/delete routes for property/unit/listing galleries +
+  avatars, S3/R2-ready via `config/media.php`. Coexists with legacy `ListingPhoto` (consolidation
+  later). **Frontend upload UI still pending** — wired in the liquid-glass redesign phase.
+- [x] ~~Real account verification~~ **DONE (Phase 4):** `verification_requests` (UUID) +
+  `VerificationStatus` enum + `VerificationService` (submit/approve/reject/needs-info),
+  admin review queue, document-backed, notifications + `IdentityVerified` wired. **Hard gating**
+  (server-side 403): landlords must verify before submitting a listing; tenants before applying.
+- [x] ~~Account governance~~ **DONE (Phase 5):** `AccountStatus` enum (active/suspended/blocked/
+  archived); admin block/archive (+ existing suspend/activate) with reason+audit+notify; middleware
+  + login reject blocked/archived; **frontend self-delete removed** (no self-delete endpoint exists).
+- [x] ~~Google sign-in + auth hardening~~ **DONE (Phase 6):** env-gated Socialite Google OAuth
+  (admin-email refusal, safe email linking), password reset (broker, no-leak), email verification —
+  all SPA-friendly + tested. Frontend: Google button (config-gated), forgot/reset/verify pages.
+- [x] ~~Rating/review system~~ **DONE (Phase 8):** `reviews` table, governed eligibility (tenant must
+  have an active/terminated/expired Contract on the property; 1 review per contract), admin moderation,
+  landlord response, **approved-only aggregates** (pending reviews never affect averages — tested).
+  Backend complete; review UI lands with the portal/redesign phase.
+- [x] ~~Application lifecycle notifications~~ **DONE (Phase 7):** submit→landlord, decide→tenant.
+- Fixed a **pre-existing flaky suite** (Carbon::setTestNow leak from LedgerAutomationTest) via a
+  global `tearDown` reset in `tests/TestCase.php` — suite is now deterministic (596 green, 6/6 runs).
 - [ ] Granular admin RBAC (all admins are super-admins today).
 - [ ] `Conversation`/`Message` messaging feature (schema only).
+- [x] ~~Feature UIs for media/verification/reviews~~ **DONE (Wyncrest rebuild):** tenant
+  verification center + reviews + avatar; landlord photo galleries (GalleryManager) + verification
+  + review responses; admin verification & review moderation + audited doc download; **accent-color
+  picker** (16 curated, localStorage, brand/action ramps only); **audit-log investigation redesign**
+  (filters + detail drawer with real before/after, never fabricated). All wired to real endpoints.
+- [ ] Per-page glass polish — a few existing pages still need cosmetic white-glass refinement
+  (Listing detail, Browse, some landlord sub-pages); they already render real data on tokens.
 - [ ] Frontend automated tests (Vitest/RTL) — currently validated via tsc + lint
   + build + live smoke test.
-- [ ] Known backend nit: `GET /admin/contracts` validates `landlord_id`/`tenant_id`
-  filters as `uuid`, but those FKs are bigint — those filters can't match. Low impact.
+- [x] ~~Known backend nit: `GET /admin/contracts` validates `landlord_id`/`tenant_id`
+  filters as `uuid`, but those FKs are bigint.~~ **FIXED (Phase 2):** admin contract & ledger
+  filters now validate `integer` for bigint user FKs (`uuid` kept for `contract_id`).
 
 ## 24. Coding Standards
 

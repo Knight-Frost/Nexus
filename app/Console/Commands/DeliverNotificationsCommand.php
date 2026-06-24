@@ -34,7 +34,7 @@ class DeliverNotificationsCommand extends Command
      */
     public function handle(NotificationDeliveryService $deliveryService): int
     {
-        $this->info('📬 Nexus - Notification Delivery');
+        $this->info('📬 '.config('brand.display_name').' - Notification Delivery');
         $this->info('================================');
         $this->newLine();
 

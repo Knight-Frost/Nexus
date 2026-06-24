@@ -1,0 +1,485 @@
+/* ==========================================================================
+   APPLICATIONS — Warm Paper & Oxblood, editorial semantic card system.
+   All color via CSS tokens — no raw hex. Status color is always via the
+   semantic card / badge system (SemanticBadge + getApplicationVariant),
+   never hand-coded here.
+   ========================================================================== */
+
+/* ── Page shell ─────────────────────────────────────────────────────────── */
+.ap2-page {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  color: var(--color-ink-700);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.ap2-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.ap2-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 2.6vw, 36px);
+  line-height: 1.08;
+  letter-spacing: -0.022em;
+  color: var(--color-ink-950);
+  margin: 8px 0 0;
+}
+
+.ap2-sub {
+  font-size: 15px;
+  color: var(--color-ink-500);
+  margin: 10px 0 0;
+  max-width: 60ch;
+}
+
+/* ── Search ──────────────────────────────────────────────────────────────── */
+.ap2-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-ink-200);
+  border-radius: var(--radius-xl);
+  padding: 11px 16px;
+  min-width: 280px;
+  box-shadow: var(--shadow-sm);
+  cursor: text;
+  transition: border-color 0.15s;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.ap2-search:focus-within {
+  border-color: var(--color-brand-400);
+  outline: none;
+}
+
+.ap2-search svg {
+  color: var(--color-ink-400);
+  flex-shrink: 0;
+}
+
+.ap2-search input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--color-ink-900);
+  width: 100%;
+}
+
+.ap2-search input::placeholder {
+  color: var(--color-ink-400);
+}
+
+/* ── Filter tabs ─────────────────────────────────────────────────────────── */
+.ap2-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ap2-tab {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--color-ink-200);
+  background: var(--color-surface);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-ink-600);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.ap2-tab:hover {
+  color: var(--color-ink-900);
+  border-color: var(--color-ink-300);
+}
+
+.ap2-tab.on {
+  background: var(--color-brand-600);
+  border-color: var(--color-brand-600);
+  color: var(--color-on-brand);
+}
+
+/* ── Active-applications notice ──────────────────────────────────────────── */
+.ap2-active-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
+  flex-wrap: wrap;
+  padding: 22px 28px;
+}
+
+.ap2-active-notice-body {
+  min-width: 0;
+}
+
+.ap2-active-count {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--color-ink-950);
+  margin: 0;
+}
+
+.ap2-active-sub {
+  font-size: 13.5px;
+  color: var(--color-ink-500);
+  margin: 5px 0 0;
+  line-height: 1.45;
+}
+
+.ap2-stages-legend {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.ap2-legend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.ap2-legend-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: calc(50% + 14px);
+  right: calc(-50% + 14px);
+  height: 1.5px;
+  background: var(--color-ink-200);
+}
+
+.ap2-legend-node {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-info-50);
+  color: var(--color-info-600);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-ink-200);
+}
+
+.ap2-legend-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-ink-600);
+  white-space: nowrap;
+}
+
+/* ── Application cards ───────────────────────────────────────────────────── */
+.ap2-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ap2-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-ink-200);
+  border-radius: var(--radius-2xl);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ap2-card:hover {
+  border-color: var(--color-ink-300);
+  box-shadow: var(--shadow-md, 0 4px 16px rgb(0 0 0 / 0.07));
+}
+
+/* Property info */
+.ap2-card-info {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.ap2-card-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--color-ink-950);
+  margin: 0;
+}
+
+.ap2-card-location {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--color-ink-500);
+  margin: 7px 0 0;
+}
+
+.ap2-card-location svg {
+  color: var(--color-ink-400);
+  flex-shrink: 0;
+}
+
+.ap2-card-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ap2-card-spec {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-ink-600);
+}
+
+.ap2-card-spec svg {
+  color: var(--color-ink-400);
+}
+
+.ap2-card-money {
+  color: var(--color-money);
+  font-weight: 600;
+}
+
+/* Status column */
+.ap2-card-status {
+  flex: 0 1 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ap2-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ap2-meta-lab {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-400);
+}
+
+.ap2-meta-val {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-ink-800);
+}
+
+.ap2-meta-reason {
+  font-size: 12.5px;
+  color: var(--color-ink-600);
+  line-height: 1.45;
+}
+
+/* Progress track */
+.ap2-card-track {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+/* ── Horizontal stepper ──────────────────────────────────────────────────── */
+.ap2-steps {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.ap2-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  position: relative;
+  text-align: center;
+}
+
+.ap2-step-node {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+  border: 2px solid var(--color-ink-200);
+  color: transparent;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.ap2-step.done .ap2-step-node {
+  background: var(--ap2-accent);
+  border-color: var(--ap2-accent);
+  color: var(--color-on-action); /* white on filled step */
+}
+
+.ap2-step.current .ap2-step-node {
+  border-color: var(--ap2-accent);
+}
+
+.ap2-step.current .ap2-step-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ap2-accent);
+}
+
+.ap2-step-label {
+  font-size: 11.5px;
+  color: var(--color-ink-400);
+  white-space: nowrap;
+}
+
+.ap2-step.done .ap2-step-label,
+.ap2-step.current .ap2-step-label {
+  color: var(--color-ink-800);
+  font-weight: 600;
+}
+
+/* connector line between steps */
+.ap2-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: calc(50% + 14px);
+  right: calc(-50% + 14px);
+  height: 2px;
+  background: var(--color-ink-200);
+}
+
+.ap2-step.done:not(:last-child)::after {
+  background: var(--ap2-accent);
+}
+
+/* ── Card action buttons ─────────────────────────────────────────────────── */
+.ap2-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ap2-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-ink-200);
+  background: var(--color-surface);
+  color: var(--color-ink-700);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.ap2-btn-ghost:hover:not(:disabled) {
+  border-color: var(--color-ink-400);
+  color: var(--color-ink-900);
+}
+
+.ap2-btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ap2-btn-withdraw {
+  color: var(--color-danger-600);
+  border-color: var(--color-danger-200);
+}
+
+.ap2-btn-withdraw:hover:not(:disabled) {
+  background: var(--color-danger-50);
+  border-color: var(--color-danger-400);
+  color: var(--color-danger-700);
+}
+
+/* ── Browse link ─────────────────────────────────────────────────────────── */
+.ap2-browse-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: var(--radius-xl);
+  background: var(--color-brand-600);
+  color: var(--color-on-brand);
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+
+.ap2-browse-link:hover {
+  filter: brightness(0.93);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .ap2-stages-legend {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .ap2-page {
+    gap: 28px;
+  }
+  .ap2-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ap2-search {
+    min-width: 0;
+    width: 100%;
+  }
+  .ap2-card-status {
+    flex-basis: 100%;
+  }
+  .ap2-active-notice {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ap2-card-track {
+    flex-basis: 100%;
+  }
+}

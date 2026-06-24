@@ -226,6 +226,9 @@
 .nx-roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
 @media(max-width:900px){.nx-roles-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:580px){.nx-roles-grid{grid-template-columns:1fr}}
+/* two-card variant: admin role removed — keep the pair centered and intentional, not a broken 3-col */
+.nx-roles-grid.two{grid-template-columns:repeat(2,1fr);max-width:760px;margin:0 auto}
+@media(max-width:580px){.nx-roles-grid.two{grid-template-columns:1fr}}
 /* role-card-glow: named class per spec, provides the jade/gold glow on hover */
 .role-card-glow{
   border:1px solid var(--line);border-radius:var(--r);overflow:hidden;

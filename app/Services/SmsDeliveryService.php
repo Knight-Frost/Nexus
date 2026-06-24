@@ -202,9 +202,9 @@ class SmsDeliveryService
      */
     protected function formatSmsMessage(Notification $notification): string
     {
-        // Format: "Nexus: {title} - {message}"
+        // Format: "Homecrest: {title} - {message}"
         // Max 160 chars for single SMS
-        $prefix = 'Nexus: ';
+        $prefix = config('brand.short_name').': ';
         $title = $notification->title;
         $message = $notification->message;
 

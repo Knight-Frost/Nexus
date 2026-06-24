@@ -104,4 +104,50 @@ class Property extends Model
     {
         return $this->hasMany(Unit::class)->where('is_active', true);
     }
+
+    /**
+     * Gallery images for this property via the media_assets system.
+     * Coexists with ListingPhoto on Listing; planned future consolidation.
+     */
+    public function mediaAssets()
+    {
+        return $this->morphMany(MediaAsset::class, 'attachable')
+            ->where('collection', \App\Enums\MediaCollection::PropertyGallery->value)
+            ->where('status', 'active')
+            ->ordered();
+    }
+
+    /**
+     * All reviews for this property.
+     */
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Approved reviews for this property (publicly visible).
+     */
+    public function approvedReviews()
+    {
+        return $this->hasMany(Review::class)->where('status', \App\Enums\ReviewStatus::APPROVED);
+    }
+
+    /**
+     * Average rating computed from approved reviews only (1 decimal, or null if none).
+     */
+    public function getAverageRatingAttribute(): ?float
+    {
+        $avg = $this->approvedReviews()->avg('rating');
+
+        return $avg !== null ? round((float) $avg, 1) : null;
+    }
+
+    /**
+     * Count of approved reviews.
+     */
+    public function getReviewCountAttribute(): int
+    {
+        return $this->approvedReviews()->count();
+    }
 }

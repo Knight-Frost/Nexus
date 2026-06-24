@@ -31,7 +31,7 @@ class MarkOverdueCommand extends Command
      */
     public function handle(LedgerAutomationService $automationService): int
     {
-        $this->info('⏰ Nexus - Overdue Detection');
+        $this->info('⏰ '.config('brand.display_name').' - Overdue Detection');
         $this->info('============================');
         $this->newLine();
 

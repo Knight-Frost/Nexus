@@ -32,7 +32,7 @@ class WeeklyDigestNotificationsCommand extends Command
      */
     public function handle(NotificationDigestService $digestService): int
     {
-        $this->info('📬 Nexus - Weekly Notification Digest');
+        $this->info('📬 '.config('brand.display_name').' - Weekly Notification Digest');
         $this->info('====================================');
         $this->newLine();
 

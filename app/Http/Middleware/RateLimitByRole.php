@@ -56,12 +56,16 @@ class RateLimitByRole
 
         $response = $next($request);
 
-        // Add rate limit headers to response
+        // Add rate limit headers to response.
+        // Use headers->set() (not the ->header() macro) so this also works for
+        // StreamedResponse / BinaryFileResponse — e.g. authorized document
+        // downloads, which would otherwise 500 on the missing header() method.
         $remaining = RateLimiter::remaining($key, $maxAttempts);
 
-        return $response
-            ->header('X-RateLimit-Limit', $maxAttempts)
-            ->header('X-RateLimit-Remaining', max(0, $remaining));
+        $response->headers->set('X-RateLimit-Limit', (string) $maxAttempts);
+        $response->headers->set('X-RateLimit-Remaining', (string) max(0, $remaining));
+
+        return $response;
     }
 
     /**

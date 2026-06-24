@@ -35,7 +35,7 @@ class DeliverSmsNotificationsCommand extends Command
      */
     public function handle(SmsDeliveryService $deliveryService): int
     {
-        $this->info('📱 Nexus - SMS Notification Delivery');
+        $this->info('📱 '.config('brand.display_name').' - SMS Notification Delivery');
         $this->info('====================================');
         $this->newLine();
 

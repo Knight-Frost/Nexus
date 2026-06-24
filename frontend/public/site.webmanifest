@@ -1,6 +1,6 @@
 {
-  "name": "Nexus | Secure Property Rentals",
-  "short_name": "Nexus",
+  "name": "Wyncrest — Property Platform",
+  "short_name": "Wyncrest",
   "description": "Secure property-rental management for tenants, landlords, and administrators.",
   "icons": [
     { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
@@ -8,8 +8,8 @@
     { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
-  "theme_color": "#0e1113",
-  "background_color": "#0e1113",
+  "theme_color": "#0A7068",
+  "background_color": "#F6F8FB",
   "display": "standalone",
   "start_url": "/",
   "lang": "en"

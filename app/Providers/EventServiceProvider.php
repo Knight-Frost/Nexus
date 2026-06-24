@@ -2,11 +2,25 @@
 
 namespace App\Providers;
 
+use App\Events\IdentityVerified;
 use App\Events\LedgerEntryMarkedOverdue;
+use App\Events\ListingPublished;
+use App\Events\ListingRejected;
+use App\Events\ListingSubmittedForReview;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Events\RentGenerated;
+use App\Events\UserCreated;
 use App\Listeners\CreateNotificationListener;
+use App\Listeners\LogIdentityVerified;
+use App\Listeners\LogListingPublished;
+use App\Listeners\LogListingRejected;
+use App\Listeners\LogUserCreated;
+use App\Listeners\NotifyAdminOfListingSubmission;
+use App\Listeners\SendIdentityVerifiedNotification;
+use App\Listeners\SendListingPublishedNotification;
+use App\Listeners\SendListingRejectedNotification;
+use App\Listeners\SendWelcomeEmail;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 class EventServiceProvider extends ServiceProvider
@@ -29,6 +43,31 @@ class EventServiceProvider extends ServiceProvider
         ],
         PaymentFailed::class => [
             CreateNotificationListener::class,
+        ],
+
+        // Listing lifecycle events
+        ListingPublished::class => [
+            LogListingPublished::class,
+            SendListingPublishedNotification::class,
+        ],
+        ListingRejected::class => [
+            LogListingRejected::class,
+            SendListingRejectedNotification::class,
+        ],
+        ListingSubmittedForReview::class => [
+            NotifyAdminOfListingSubmission::class,
+        ],
+
+        // Identity verification events
+        IdentityVerified::class => [
+            LogIdentityVerified::class,
+            SendIdentityVerifiedNotification::class,
+        ],
+
+        // User lifecycle events
+        UserCreated::class => [
+            LogUserCreated::class,
+            SendWelcomeEmail::class,
         ],
     ];
 

@@ -91,7 +91,7 @@ class LandlordListingController extends Controller
     {
         $this->authorize('view', $listing);
 
-        return response()->json($listing->load(['unit.property', 'photos', 'reviewer']));
+        return response()->json($listing->load(['unit.property', 'photos', 'reviewer', 'mediaAssets']));
     }
 
     /**
@@ -124,6 +124,14 @@ class LandlordListingController extends Controller
      */
     public function submit(SubmitListingRequest $request, Listing $listing): JsonResponse
     {
+        // Phase 4: Verification gate — landlord must be identity-verified before
+        // submitting a listing for admin review.
+        if (! $request->user()->isVerified()) {
+            return response()->json([
+                'message' => 'You must complete identity verification before submitting a listing for review.',
+            ], 403);
+        }
+
         // Update status
         $listing->update([
             'status' => ListingStatus::PENDING_REVIEW,

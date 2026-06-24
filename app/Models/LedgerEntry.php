@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * - Status transitions are ONLY allowed via transitionStatus()
  * - Corrections require compensating entries
  *
- * This is the financial source of truth for Nexus.
+ * This is the financial source of truth for Homecrest.
  * SECURITY: Strict immutability enforced at model level.
  */
 class LedgerEntry extends Model

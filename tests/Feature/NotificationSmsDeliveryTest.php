@@ -213,7 +213,7 @@ class NotificationSmsDeliveryTest extends TestCase
 
         // Run command
         $this->artisan('notifications:sms-deliver')
-            ->expectsOutput('📱 Nexus - SMS Notification Delivery')
+            ->expectsOutput('📱 '.config('brand.display_name').' - SMS Notification Delivery')
             ->assertSuccessful();
 
         // Verify all delivered

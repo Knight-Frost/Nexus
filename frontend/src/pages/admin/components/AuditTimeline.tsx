@@ -1,123 +1,99 @@
-import { cn } from '@/lib/cn';
+import { Button } from '@/components/ui/Button';
+import { EmptyState, Skeleton } from '@/components/ui/states';
+import { IconActivity } from '@/components/ui/icons';
+import { NexusCard, DashboardSection, SectionHeader } from '@/components/cards';
+import { formatDateTime } from '@/lib/format';
 import type { AuditLog } from '@/lib/types';
-import type { AuditEvent, RecentAuditItem } from '../adminMockData';
 
-/** Severity dot color mapping */
-const DOT_COLOR: Record<string, string> = {
-  success: 'bg-success-500',
-  warning: 'bg-warning-500',
-  danger: 'bg-danger-600',
-  info: 'bg-info-500',
-  critical: 'bg-danger-600',
-};
-
-/* ---- Normalised row for timeline ---------------------------------------- */
-
-interface TimelineRow {
-  id: string;
-  severity: string;
-  action: string;
-  subject: string;
-  time: string;
+/* Severity → semantic token (color = meaning, text label is always also present). */
+function severityDotClass(severity: AuditLog['severity']): string {
+  switch (severity) {
+    case 'critical': return 'bg-danger-500';
+    case 'warning':  return 'bg-warning-500';
+    default:         return 'bg-info-500';
+  }
 }
 
-function fromAuditLog(log: AuditLog): TimelineRow {
-  return {
-    id: String(log.id),
-    severity: log.severity === 'critical' ? 'danger' : log.severity,
-    action: log.action,
-    subject: log.description ?? (log.subject_type ? `${log.subject_type} #${log.subject_id}` : '—'),
-    time: new Date(log.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-  };
+function severityLabel(severity: AuditLog['severity']): string {
+  switch (severity) {
+    case 'critical': return 'Critical';
+    case 'warning':  return 'Warning';
+    default:         return 'Info';
+  }
 }
 
-function fromMockEvent(event: AuditEvent, idx: number): TimelineRow {
-  return {
-    id: String(idx),
-    severity: event.severity,
-    action: event.title,
-    subject: event.detail,
-    time: event.time,
-  };
+function actorLabel(log: AuditLog): string {
+  if (log.actor.role === 'system') return 'System';
+  const id = log.actor.id !== null ? ` #${log.actor.id}` : '';
+  return `${log.actor.name}${id}`;
 }
-
-function fromRecentAudit(item: RecentAuditItem): TimelineRow {
-  return {
-    id: item.id,
-    severity: item.severity,
-    action: item.action,
-    subject: item.subject,
-    time: item.time,
-  };
-}
-
-/* ---- Props --------------------------------------------------------------- */
 
 interface AuditTimelineProps {
-  /** Real API audit logs */
-  logs?: AuditLog[];
-  /** Legacy mock events (AuditEvent[]) */
-  events?: AuditEvent[];
-  /** New mock audit items (RecentAuditItem[]) */
-  recentAudit?: RecentAuditItem[];
-  /** Max rows to show */
+  logs: AuditLog[];
+  loading: boolean;
   max?: number;
-  /** Compact variant — no category filter chips */
-  compact?: boolean;
+  onFullLog: () => void;
 }
 
-export function AuditTimeline({ logs, events, recentAudit, max = 10, compact }: AuditTimelineProps) {
-  let rows: TimelineRow[] = [];
-
-  if (logs && logs.length > 0) {
-    rows = logs.map(fromAuditLog);
-  } else if (recentAudit && recentAudit.length > 0) {
-    rows = recentAudit.map(fromRecentAudit);
-  } else if (events && events.length > 0) {
-    rows = events.map((e, i) => fromMockEvent(e, i));
-  }
-
-  const visible = rows.slice(0, max);
-
-  if (visible.length === 0) {
-    return (
-      <div className="px-6 py-8 text-center text-sm text-ink-500">
-        No audit events to display.
-      </div>
-    );
-  }
+/**
+ * Recent platform activity from the immutable audit log. Real entries only —
+ * actor, humanized action, and timestamp.
+ */
+export function AuditTimeline({ logs, loading, max = 6, onFullLog }: AuditTimelineProps) {
+  const rows = logs.slice(0, max);
 
   return (
-    <ul className={cn('flex flex-col', compact ? 'divide-y divide-ink-100' : '')}>
-      {visible.map((row, i) => (
-        <li
-          key={row.id}
-          className={cn(
-            'flex items-start gap-3 px-6 py-3.5',
-            !compact && i > 0 && 'border-t border-ink-100',
-          )}
-        >
-          {/* Severity dot */}
-          <span className="mt-1.5 shrink-0">
-            <span
-              className={cn(
-                'block h-2 w-2 rounded-full',
-                DOT_COLOR[row.severity] ?? 'bg-ink-400',
-              )}
-              aria-label={row.severity}
-            />
-          </span>
-
-          {/* Content */}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-ink-900 leading-snug">{row.action}</p>
-            <p className="truncate text-xs text-ink-500">{row.subject}</p>
+    <DashboardSection>
+      <SectionHeader
+        eyebrow="Platform"
+        title="Recent activity"
+        action={
+          <Button variant="ghost" size="sm" onClick={onFullLog}>
+            View full log
+          </Button>
+        }
+      />
+      <NexusCard role="neutral" className="p-5">
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="mt-1 h-2.5 w-2.5 rounded-full shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
           </div>
-
-          {/* Time */}
-          <span className="shrink-0 text-xs text-ink-400 tabular-nums">{row.time}</span>
-        </li>
-      ))}
-    </ul>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon={<IconActivity />}
+            title="No recent activity"
+            description="Consequential actions across the platform will appear here."
+          />
+        ) : (
+          <ol className="adm-timeline">
+            {rows.map((log) => (
+              <li key={log.id} className="adm-timeline-item">
+                <span
+                  className={`adm-timeline-dot ${severityDotClass(log.severity)}`}
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-ink-900">{log.action_label}</p>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  <span className="sr-only">Severity: {severityLabel(log.severity)} · </span>
+                  {actorLabel(log)}
+                  {log.summary ? ` · ${log.summary}` : ''}
+                </p>
+                <p className="mt-0.5 font-mono text-[0.6875rem] text-ink-400">
+                  {formatDateTime(log.created_at)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </NexusCard>
+    </DashboardSection>
   );
 }

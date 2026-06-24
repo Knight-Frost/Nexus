@@ -13,25 +13,66 @@ import { http, portalHttp } from './api';
 import { type Portal, getActivePortal } from './storage';
 import type {
   Admin,
+  AdminDashboard,
+  AdminReview,
+  AdminUserDetail,
+  AdminUserSummary,
+  AdminVerificationDetail,
+  AdminVerificationRequest,
   AppNotification,
+  Application,
   AuditLog,
+  AuditLogDetail,
+  AuditSummary,
   AuthResponse,
   Contract,
+  ConversationDetail,
+  ConversationMessage,
+  ConversationSummary,
   Feature,
+  LandlordDashboard,
+  LandlordOnboarding,
+  LandlordReviewsResponse,
   LedgerEntry,
   Listing,
+  MaintenanceCategory,
+  MaintenancePriority,
+  MaintenanceRequest,
+  MaintenanceStatus,
+  MediaAsset,
+  MessageableRecipient,
   Paginated,
   Property,
+  Review,
+  ReviewEligibility,
+  ReviewStatus,
+  TenantDashboard,
+  TenantDocument,
+  TenantProfileResponse,
   Unit,
   User,
   UserType,
+  VerificationStatus,
+  VerificationStatusResponse,
+  VerificationSubmitResponse,
   WeatherData,
 } from './types';
+
+/** Shape returned by the scoped analytics endpoints. */
+export interface AnalyticsResponse {
+  analytics: Record<string, unknown>;
+  scoped_to: string;
+}
 
 /** Returns the active portal's axios instance for endpoints usable by any role. */
 function activePortalClient() {
   const p = getActivePortal();
   return p ? portalHttp[p] : http;
+}
+
+/** Response from GET /auth/providers */
+export interface AuthProviders {
+  google: boolean;
 }
 
 /* ============================ Auth ====================================== */
@@ -58,6 +99,57 @@ export const authApi = {
   },
   async logout(portal: Portal): Promise<void> {
     await portalHttp[portal].post('/logout');
+  },
+
+  /** Returns which social providers are currently configured. */
+  async authProviders(): Promise<AuthProviders> {
+    const { data } = await http.get<AuthProviders>('/auth/providers');
+    return data;
+  },
+
+  /**
+   * Returns the Google OAuth URL; the caller should do:
+   *   window.location.href = url
+   */
+  async googleRedirect(): Promise<string> {
+    const { data } = await http.get<{ url: string }>('/auth/google/redirect');
+    return data.url;
+  },
+
+  /** Request a password-reset link email. Always resolves (no enumeration). */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const { data } = await http.post<{ message: string }>('/forgot-password', { email });
+    return data;
+  },
+
+  /** Complete the password reset using the token from the email link. */
+  async resetPassword(payload: {
+    token: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+  }): Promise<{ message: string }> {
+    const { data } = await http.post<{ message: string }>('/reset-password', payload);
+    return data;
+  },
+
+  /** (Authenticated) Send or resend the email verification link. */
+  async sendEmailVerification(portal: Portal): Promise<{ message: string }> {
+    const { data } = await portalHttp[portal].post<{ message: string }>(
+      '/email/verification-notification',
+    );
+    return data;
+  },
+
+  /** Verify an email address using the params from the signed link. */
+  async verifyEmail(payload: {
+    id: string;
+    hash: string;
+    signature: string;
+    expires: string;
+  }): Promise<{ message: string }> {
+    const { data } = await http.post<{ message: string }>('/email/verify', payload);
+    return data;
   },
 };
 
@@ -86,9 +178,163 @@ export const publicApi = {
 
 /* ============================ Tenant ==================================== */
 export const tenantApi = {
-  async dashboard(): Promise<Record<string, unknown>> {
-    const { data } = await portalHttp.tenant.get('/tenant/dashboard');
+  /** Single source of truth for the tenant dashboard (all real, owner-scoped). */
+  async dashboard(): Promise<TenantDashboard> {
+    const { data } = await portalHttp.tenant.get<TenantDashboard>('/tenant/dashboard');
     return data;
+  },
+
+  /* ---- Profile + readiness ---------------------------------------------- */
+  async profile(): Promise<TenantProfileResponse> {
+    const { data } = await portalHttp.tenant.get<TenantProfileResponse>('/tenant/profile');
+    return data;
+  },
+  async updateProfile(payload: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string | null;
+    date_of_birth?: string | null;
+    city?: string | null;
+    next_of_kin_name?: string | null;
+    next_of_kin_phone?: string | null;
+    next_of_kin_relationship?: string | null;
+  }): Promise<TenantProfileResponse> {
+    const { data } = await portalHttp.tenant.patch<TenantProfileResponse>(
+      '/tenant/profile',
+      payload,
+    );
+    return data;
+  },
+
+  /* ---- Applications ------------------------------------------------------ */
+  async applications(): Promise<Application[]> {
+    const { data } = await portalHttp.tenant.get<Application[]>('/tenant/applications');
+    return data;
+  },
+  async application(id: number): Promise<Application> {
+    const { data } = await portalHttp.tenant.get<Application>(`/tenant/applications/${id}`);
+    return data;
+  },
+  async apply(listingId: number, coverNote?: string): Promise<Application> {
+    const { data } = await portalHttp.tenant.post<Application>('/tenant/applications', {
+      listing_id: listingId,
+      cover_note: coverNote ?? null,
+    });
+    return data;
+  },
+  async withdrawApplication(id: number): Promise<Application> {
+    const { data } = await portalHttp.tenant.post<Application>(
+      `/tenant/applications/${id}/withdraw`,
+    );
+    return data;
+  },
+
+  /* ---- Maintenance ------------------------------------------------------- */
+  async maintenance(): Promise<MaintenanceRequest[]> {
+    const { data } = await portalHttp.tenant.get<MaintenanceRequest[]>('/tenant/maintenance');
+    return data;
+  },
+  async maintenanceRequest(id: number): Promise<MaintenanceRequest> {
+    const { data } = await portalHttp.tenant.get<MaintenanceRequest>(`/tenant/maintenance/${id}`);
+    return data;
+  },
+  async createMaintenance(payload: {
+    contract_id: string;
+    title: string;
+    description: string;
+    category: MaintenanceCategory;
+    priority: MaintenancePriority;
+  }): Promise<MaintenanceRequest> {
+    const { data } = await portalHttp.tenant.post<MaintenanceRequest>(
+      '/tenant/maintenance',
+      payload,
+    );
+    return data;
+  },
+  async cancelMaintenance(id: number): Promise<MaintenanceRequest> {
+    const { data } = await portalHttp.tenant.post<MaintenanceRequest>(
+      `/tenant/maintenance/${id}/cancel`,
+    );
+    return data;
+  },
+
+  /* ---- Documents (private storage; authorized download) ------------------ */
+  async documents(): Promise<TenantDocument[]> {
+    const { data } = await portalHttp.tenant.get<TenantDocument[]>('/tenant/documents');
+    return data;
+  },
+  async uploadDocument(file: File, documentType: string): Promise<TenantDocument> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('document_type', documentType);
+    const { data } = await portalHttp.tenant.post<TenantDocument>('/tenant/documents', form);
+    return data;
+  },
+  /** Streams the file via an authorized endpoint (Bearer token), returns a Blob. */
+  async downloadDocument(id: number): Promise<Blob> {
+    const { data } = await portalHttp.tenant.get(`/tenant/documents/${id}/download`, {
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+  async deleteDocument(id: number): Promise<void> {
+    await portalHttp.tenant.delete(`/tenant/documents/${id}`);
+  },
+
+  /* ---- Messaging --------------------------------------------------------- */
+  async messageableRecipients(q?: string): Promise<MessageableRecipient[]> {
+    const { data } = await portalHttp.tenant.get<MessageableRecipient[]>(
+      '/tenant/messageable-recipients',
+      { params: q ? { q } : undefined },
+    );
+    return data;
+  },
+  async conversations(): Promise<ConversationSummary[]> {
+    const { data } = await portalHttp.tenant.get<ConversationSummary[]>('/tenant/conversations');
+    return data;
+  },
+  async conversation(id: number): Promise<ConversationDetail> {
+    const { data } = await portalHttp.tenant.get<ConversationDetail>(`/tenant/conversations/${id}`);
+    return data;
+  },
+  async startConversation(
+    listingId: number,
+    body: string,
+  ): Promise<{ conversation: ConversationDetail['conversation'] & { messages: ConversationMessage[] } }> {
+    const { data } = await portalHttp.tenant.post('/tenant/conversations', {
+      listing_id: listingId,
+      body,
+    });
+    return data;
+  },
+  async sendMessage(
+    conversationId: number,
+    body: string,
+    files?: File[],
+  ): Promise<{ message: ConversationMessage }> {
+    if (files && files.length > 0) {
+      const form = new FormData();
+      if (body) form.append('body', body);
+      files.forEach((f) => form.append('attachments[]', f));
+      const { data } = await portalHttp.tenant.post(
+        `/tenant/conversations/${conversationId}/messages`,
+        form,
+      );
+      return data;
+    }
+    const { data } = await portalHttp.tenant.post(
+      `/tenant/conversations/${conversationId}/messages`,
+      { body },
+    );
+    return data;
+  },
+  /** Fetches a message attachment as a blob via Bearer-auth and returns an object URL. */
+  async messageAttachmentBlob(id: number): Promise<string> {
+    const { data } = await portalHttp.tenant.get(
+      `/tenant/messages/attachments/${id}`,
+      { responseType: 'blob' },
+    );
+    return URL.createObjectURL(data as Blob);
   },
   async savedListings(): Promise<Listing[]> {
     const { data } = await portalHttp.tenant.get<Listing[]>('/tenant/saved-listings');
@@ -123,6 +369,58 @@ export const tenantApi = {
     const { data } = await portalHttp.tenant.get<LedgerEntry[]>('/tenant/ledger');
     return data;
   },
+
+  /* ---- Verification ------------------------------------------------------ */
+  async verificationStatus(): Promise<VerificationStatusResponse> {
+    const { data } = await portalHttp.tenant.get<VerificationStatusResponse>(
+      '/tenant/verification',
+    );
+    return data;
+  },
+  async submitVerification(note?: string): Promise<VerificationSubmitResponse> {
+    const { data } = await portalHttp.tenant.post<VerificationSubmitResponse>(
+      '/tenant/verification/submit',
+      { note: note ?? null },
+    );
+    return data;
+  },
+
+  /* ---- Reviews ----------------------------------------------------------- */
+  async reviews(): Promise<Review[]> {
+    const { data } = await portalHttp.tenant.get<Review[]>('/tenant/reviews');
+    return data;
+  },
+  async reviewEligibility(listingId: number): Promise<ReviewEligibility> {
+    const { data } = await portalHttp.tenant.get<ReviewEligibility>(
+      `/tenant/listings/${listingId}/review-eligibility`,
+    );
+    return data;
+  },
+  async createReview(payload: {
+    contract_id: string;
+    rating: number;
+    title?: string;
+    body: string;
+  }): Promise<Review> {
+    const { data } = await portalHttp.tenant.post<Review>('/tenant/reviews', payload);
+    return data;
+  },
+  async updateReview(
+    id: number,
+    payload: { rating?: number; title?: string; body?: string },
+  ): Promise<Review> {
+    const { data } = await portalHttp.tenant.patch<Review>(`/tenant/reviews/${id}`, payload);
+    return data;
+  },
+
+  /* ---- Avatar ------------------------------------------------------------ */
+  async uploadAvatar(file: File): Promise<MediaAsset> {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await portalHttp.tenant.post<MediaAsset>('/tenant/avatar', form);
+    return data;
+  },
+
   async balance(): Promise<{ balance_cents: number; balance_dollars: number }> {
     const { data } = await portalHttp.tenant.get('/tenant/payments/balance');
     return data;
@@ -139,8 +437,75 @@ export const tenantApi = {
 
 /* =========================== Landlord =================================== */
 export const landlordApi = {
-  async onboarding(): Promise<Record<string, unknown>> {
-    const { data } = await portalHttp.landlord.get('/landlord/onboarding');
+  /** Single source of truth for the landlord dashboard (all real, owner-scoped). */
+  async dashboard(): Promise<LandlordDashboard> {
+    const { data } = await portalHttp.landlord.get<LandlordDashboard>('/landlord/dashboard');
+    return data;
+  },
+  async onboarding(): Promise<LandlordOnboarding> {
+    const { data } = await portalHttp.landlord.get<LandlordOnboarding>('/landlord/onboarding');
+    return data;
+  },
+
+  /* ---- Applications (decide on tenant applications) ---------------------- */
+  async applications(): Promise<Application[]> {
+    const { data } = await portalHttp.landlord.get<Application[]>('/landlord/applications');
+    return data;
+  },
+  async application(id: number): Promise<Application> {
+    const { data } = await portalHttp.landlord.get<Application>(`/landlord/applications/${id}`);
+    return data;
+  },
+  async decideApplication(
+    id: number,
+    decision: 'approved' | 'rejected',
+    reason?: string,
+  ): Promise<Application> {
+    const { data } = await portalHttp.landlord.post<Application>(
+      `/landlord/applications/${id}/decide`,
+      { decision, decision_reason: reason ?? null },
+    );
+    return data;
+  },
+
+  /* ---- Maintenance (manage requests on owned properties) ---------------- */
+  async maintenance(): Promise<MaintenanceRequest[]> {
+    const { data } = await portalHttp.landlord.get<MaintenanceRequest[]>('/landlord/maintenance');
+    return data;
+  },
+  async updateMaintenanceStatus(
+    id: number,
+    status: MaintenanceStatus,
+    resolutionNotes?: string,
+  ): Promise<MaintenanceRequest> {
+    const { data } = await portalHttp.landlord.patch<MaintenanceRequest>(
+      `/landlord/maintenance/${id}/status`,
+      { status, resolution_notes: resolutionNotes ?? null },
+    );
+    return data;
+  },
+
+  /* ---- Analytics (scoped to the landlord's portfolio) ------------------- */
+  async analyticsFinancial(params?: {
+    start_date?: string;
+    end_date?: string;
+    property_id?: number;
+  }): Promise<AnalyticsResponse> {
+    const { data } = await portalHttp.landlord.get<AnalyticsResponse>(
+      '/landlord/analytics/financial',
+      { params },
+    );
+    return data;
+  },
+  async analyticsContracts(params?: {
+    start_date?: string;
+    end_date?: string;
+    property_id?: number;
+  }): Promise<AnalyticsResponse> {
+    const { data } = await portalHttp.landlord.get<AnalyticsResponse>(
+      '/landlord/analytics/contracts',
+      { params },
+    );
     return data;
   },
   async properties(): Promise<Property[]> {
@@ -172,6 +537,11 @@ export const landlordApi = {
     const { data } = await portalHttp.landlord.get<Unit[]>('/landlord/units');
     return data;
   },
+  /** Single unit detail — includes `media_assets` (gallery) ordered by sort_order. */
+  async unit(id: number): Promise<Unit> {
+    const { data } = await portalHttp.landlord.get<Unit>(`/landlord/units/${id}`);
+    return data;
+  },
   async createUnit(propertyId: number, payload: Partial<Unit>): Promise<Unit> {
     const { data } = await portalHttp.landlord.post<{ unit: Unit }>(
       `/landlord/properties/${propertyId}/units`,
@@ -191,6 +561,11 @@ export const landlordApi = {
   },
   async listings(): Promise<Listing[]> {
     const { data } = await portalHttp.landlord.get<Listing[]>('/landlord/listings');
+    return data;
+  },
+  /** Single listing detail — includes `media_assets` (gallery) ordered by sort_order. */
+  async listing(id: number): Promise<Listing> {
+    const { data } = await portalHttp.landlord.get<Listing>(`/landlord/listings/${id}`);
     return data;
   },
   async createListing(unitId: number, payload: Partial<Listing>): Promise<Listing> {
@@ -243,12 +618,192 @@ export const landlordApi = {
     const { data } = await portalHttp.landlord.get<LedgerEntry[]>('/landlord/ledger');
     return data;
   },
+
+  /* ---- CSV exports (real server-generated, owner-scoped) ---------------- */
+  async exportLedger(): Promise<void> {
+    await downloadCsv(portalHttp.landlord, '/landlord/ledger/export', 'rent-ledger.csv');
+  },
+  async exportListings(): Promise<void> {
+    await downloadCsv(portalHttp.landlord, '/landlord/listings/export', 'listings.csv');
+  },
+  async exportApplications(): Promise<void> {
+    await downloadCsv(portalHttp.landlord, '/landlord/applications/export', 'applicants.csv');
+  },
+
+  /* ---- Media: property / unit / listing galleries ----------------------- */
+  /**
+   * Upload an image to a property's gallery.
+   * Accepts multipart/form-data; optional alt_text and caption.
+   * Returns the created MediaAsset (id is a UUID string).
+   */
+  async uploadPropertyMedia(
+    propertyId: number,
+    file: File,
+    meta?: { alt_text?: string; caption?: string },
+  ): Promise<MediaAsset> {
+    const form = new FormData();
+    form.append('file', file);
+    if (meta?.alt_text) form.append('alt_text', meta.alt_text);
+    if (meta?.caption) form.append('caption', meta.caption);
+    const { data } = await portalHttp.landlord.post<MediaAsset>(
+      `/landlord/properties/${propertyId}/media`,
+      form,
+    );
+    return data;
+  },
+  async uploadUnitMedia(
+    unitId: number,
+    file: File,
+    meta?: { alt_text?: string; caption?: string },
+  ): Promise<MediaAsset> {
+    const form = new FormData();
+    form.append('file', file);
+    if (meta?.alt_text) form.append('alt_text', meta.alt_text);
+    if (meta?.caption) form.append('caption', meta.caption);
+    const { data } = await portalHttp.landlord.post<MediaAsset>(
+      `/landlord/units/${unitId}/media`,
+      form,
+    );
+    return data;
+  },
+  async uploadListingMedia(
+    listingId: number,
+    file: File,
+    meta?: { alt_text?: string; caption?: string },
+  ): Promise<MediaAsset> {
+    const form = new FormData();
+    form.append('file', file);
+    if (meta?.alt_text) form.append('alt_text', meta.alt_text);
+    if (meta?.caption) form.append('caption', meta.caption);
+    const { data } = await portalHttp.landlord.post<MediaAsset>(
+      `/landlord/listings/${listingId}/media`,
+      form,
+    );
+    return data;
+  },
+  /** Reorder media assets by sending an ordered array of UUIDs. */
+  async reorderMedia(ids: string[]): Promise<{ message: string }> {
+    const { data } = await portalHttp.landlord.patch<{ message: string }>(
+      '/landlord/media/reorder',
+      { ids },
+    );
+    return data;
+  },
+  /** Soft-delete a media asset by UUID. */
+  async deleteMedia(id: string): Promise<{ message: string }> {
+    const { data } = await portalHttp.landlord.delete<{ message: string }>(
+      `/landlord/media/${id}`,
+    );
+    return data;
+  },
+
+  /* ---- Verification (landlord identity, same lifecycle as tenant) -------- */
+  async verificationStatus(): Promise<VerificationStatusResponse> {
+    const { data } = await portalHttp.landlord.get<VerificationStatusResponse>(
+      '/landlord/verification',
+    );
+    return data;
+  },
+  async submitVerification(note?: string): Promise<VerificationSubmitResponse> {
+    const { data } = await portalHttp.landlord.post<VerificationSubmitResponse>(
+      '/landlord/verification/submit',
+      { note: note ?? null },
+    );
+    return data;
+  },
+
+  /* ---- Reviews (read approved reviews on own properties + respond) ------- */
+  async reviews(): Promise<LandlordReviewsResponse> {
+    const { data } = await portalHttp.landlord.get<LandlordReviewsResponse>('/landlord/reviews');
+    return data;
+  },
+  async respondToReview(reviewId: number, response: string): Promise<Review> {
+    const { data } = await portalHttp.landlord.post<Review>(
+      `/landlord/reviews/${reviewId}/respond`,
+      { response },
+    );
+    return data;
+  },
+
+  /* ---- Documents (private storage; mirrors the tenant document endpoints) - */
+  async documents(): Promise<TenantDocument[]> {
+    const { data } = await portalHttp.landlord.get<TenantDocument[]>('/landlord/documents');
+    return data;
+  },
+  async uploadDocument(file: File, documentType: string): Promise<TenantDocument> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('document_type', documentType);
+    const { data } = await portalHttp.landlord.post<TenantDocument>('/landlord/documents', form);
+    return data;
+  },
+  /** Streams the file via an authorized endpoint (Bearer token), returns a Blob. */
+  async downloadDocument(id: number): Promise<Blob> {
+    const { data } = await portalHttp.landlord.get(`/landlord/documents/${id}/download`, {
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+  async deleteDocument(id: number): Promise<void> {
+    await portalHttp.landlord.delete(`/landlord/documents/${id}`);
+  },
 };
+
+/**
+ * Stream a server-generated CSV to a browser download. Keeps the truth rule:
+ * the file is produced by the API (owner-scoped, policy-safe), not fabricated
+ * in the client. Falls back to the server filename when present.
+ */
+async function downloadCsv(
+  client: (typeof portalHttp)['landlord'] | (typeof portalHttp)['admin'],
+  url: string,
+  fallbackName: string,
+  params?: Record<string, unknown>,
+): Promise<void> {
+  const res = await client.get(url, { responseType: 'blob', params });
+  const disposition = String(res.headers['content-disposition'] ?? '');
+  const match = disposition.match(/filename="?([^"]+)"?/i);
+  const filename = match?.[1] ?? fallbackName;
+
+  const blobUrl = URL.createObjectURL(res.data as Blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(blobUrl);
+}
 
 /* ============================= Admin ==================================== */
 export const adminApi = {
-  async dashboard(): Promise<Record<string, unknown>> {
-    const { data } = await portalHttp.admin.get('/admin/dashboard');
+  async dashboard(): Promise<AdminDashboard> {
+    const { data } = await portalHttp.admin.get<AdminDashboard>('/admin/dashboard');
+    return data;
+  },
+
+  /* ---- User management -------------------------------------------------- */
+  async users(params?: {
+    type?: UserType;
+    status?: 'active' | 'suspended';
+    search?: string;
+    page?: number;
+  }): Promise<Paginated<AdminUserSummary>> {
+    const { data } = await portalHttp.admin.get<Paginated<AdminUserSummary>>('/admin/users', {
+      params,
+    });
+    return data;
+  },
+  async user(id: number): Promise<AdminUserDetail> {
+    const { data } = await portalHttp.admin.get<AdminUserDetail>(`/admin/users/${id}`);
+    return data;
+  },
+  async suspendUser(id: number, reason: string): Promise<{ message: string; user: AdminUserSummary }> {
+    const { data } = await portalHttp.admin.post(`/admin/users/${id}/suspend`, { reason });
+    return data;
+  },
+  async activateUser(id: number): Promise<{ message: string; user: AdminUserSummary }> {
+    const { data } = await portalHttp.admin.post(`/admin/users/${id}/activate`);
     return data;
   },
   async pendingListings(): Promise<Listing[]> {
@@ -261,11 +816,40 @@ export const adminApi = {
   async rejectListing(id: number, reason: string): Promise<void> {
     await portalHttp.admin.post(`/admin/listings/${id}/reject`, { rejection_reason: reason });
   },
-  async auditLogs(params?: { page?: number }): Promise<Paginated<AuditLog>> {
+  async auditLogs(params?: {
+    severity?: 'info' | 'warning' | 'critical';
+    area?: string;
+    actor_role?: 'admin' | 'landlord' | 'tenant' | 'user' | 'system';
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+    sort?: 'newest' | 'oldest';
+    page?: number;
+    per_page?: number;
+  }): Promise<Paginated<AuditLog>> {
     const { data } = await portalHttp.admin.get<Paginated<AuditLog>>('/admin/audit-logs', {
       params,
     });
     return data;
+  },
+  async auditLog(id: number): Promise<AuditLogDetail> {
+    const { data } = await portalHttp.admin.get<AuditLogDetail>(`/admin/audit-logs/${id}`);
+    return data;
+  },
+  async auditSummary(): Promise<AuditSummary> {
+    const { data } = await portalHttp.admin.get<AuditSummary>('/admin/audit-logs/summary');
+    return data;
+  },
+  async auditExport(params?: {
+    severity?: 'info' | 'warning' | 'critical';
+    area?: string;
+    actor_role?: 'admin' | 'landlord' | 'tenant' | 'user' | 'system';
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+    sort?: 'newest' | 'oldest';
+  }): Promise<void> {
+    await downloadCsv(portalHttp.admin, '/admin/audit-logs/export', 'audit-logs.csv', params);
   },
   async contracts(params?: { page?: number }): Promise<Paginated<Contract>> {
     const { data } = await portalHttp.admin.get<Paginated<Contract>>('/admin/contracts', {
@@ -282,6 +866,100 @@ export const adminApi = {
   async landlordFeatures(landlordId: number): Promise<Feature[]> {
     const { data } = await portalHttp.admin.get<Feature[]>(
       `/admin/landlords/${landlordId}/features`,
+    );
+    return data;
+  },
+
+  /* ---- Verification moderation ------------------------------------------ */
+  async verifications(params?: {
+    status?: VerificationStatus;
+    page?: number;
+  }): Promise<Paginated<AdminVerificationRequest>> {
+    const { data } = await portalHttp.admin.get<Paginated<AdminVerificationRequest>>(
+      '/admin/verifications',
+      { params },
+    );
+    return data;
+  },
+  async verification(id: string): Promise<AdminVerificationDetail> {
+    const { data } = await portalHttp.admin.get<AdminVerificationDetail>(
+      `/admin/verifications/${id}`,
+    );
+    return data;
+  },
+  async approveVerification(
+    id: string,
+    reason?: string,
+  ): Promise<{ message: string; verification_request: AdminVerificationRequest }> {
+    const { data } = await portalHttp.admin.post(
+      `/admin/verifications/${id}/approve`,
+      { reason: reason ?? null },
+    );
+    return data;
+  },
+  async rejectVerification(
+    id: string,
+    reason: string,
+  ): Promise<{ message: string; verification_request: AdminVerificationRequest }> {
+    const { data } = await portalHttp.admin.post(
+      `/admin/verifications/${id}/reject`,
+      { reason },
+    );
+    return data;
+  },
+  async requestInfoVerification(
+    id: string,
+    note: string,
+  ): Promise<{ message: string; verification_request: AdminVerificationRequest }> {
+    const { data } = await portalHttp.admin.post(
+      `/admin/verifications/${id}/request-info`,
+      { note },
+    );
+    return data;
+  },
+  /**
+   * Stream an applicant's verification document via the admin-gated, audited
+   * endpoint and trigger a browser download. The file is produced by the API
+   * (policy-safe, every access logged) — never fabricated client-side.
+   */
+  async downloadDocument(id: number, fallbackName = 'document'): Promise<void> {
+    const res = await portalHttp.admin.get(`/admin/documents/${id}/download`, {
+      responseType: 'blob',
+    });
+    const disposition = String(res.headers['content-disposition'] ?? '');
+    const match = disposition.match(/filename="?([^"]+)"?/i);
+    const filename = match?.[1] ?? fallbackName;
+
+    const blobUrl = URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  },
+
+  /* ---- Review moderation ------------------------------------------------- */
+  async adminReviews(params?: {
+    status?: ReviewStatus;
+    property_id?: number;
+    page?: number;
+  }): Promise<Paginated<AdminReview>> {
+    const { data } = await portalHttp.admin.get<Paginated<AdminReview>>(
+      '/admin/reviews',
+      { params },
+    );
+    return data;
+  },
+  async moderateReview(
+    id: number,
+    action: 'approve' | 'reject' | 'hide' | 'flag',
+    reason?: string,
+  ): Promise<AdminReview> {
+    const { data } = await portalHttp.admin.post<AdminReview>(
+      `/admin/reviews/${id}/moderate`,
+      { action, reason: reason ?? null },
     );
     return data;
   },
@@ -319,5 +997,17 @@ export const notificationApi = {
   },
   async markAllRead(): Promise<void> {
     await activePortalClient().post('/notifications/mark-all-read');
+  },
+  /** Per-notification-type email/SMS delivery preferences (real backend). */
+  async getPreferences(): Promise<Record<string, { email: boolean; sms: boolean }>> {
+    const { data } = await activePortalClient().get<Record<string, { email: boolean; sms: boolean }>>(
+      '/notification-preferences',
+    );
+    return data;
+  },
+  async updatePreferences(
+    prefs: Record<string, { email: boolean; sms: boolean }>,
+  ): Promise<void> {
+    await activePortalClient().put('/notification-preferences', prefs);
   },
 };

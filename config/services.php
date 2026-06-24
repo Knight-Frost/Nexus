@@ -66,4 +66,31 @@ return [
         'from' => env('TWILIO_FROM'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OpenWeatherMap — tenant dashboard weather chip
+    |--------------------------------------------------------------------------
+    | Free tier: https://openweathermap.org/api
+    | Set OPENWEATHER_API_KEY in .env — leave blank to disable the widget.
+    */
+    'openweather' => [
+        'key' => env('OPENWEATHER_API_KEY'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Google OAuth (Socialite)
+    |--------------------------------------------------------------------------
+    |
+    | SECURITY: Never commit real credentials to version control.
+    | Leave GOOGLE_CLIENT_ID blank to disable Google sign-in gracefully.
+    | The SPA checks GET /auth/providers to decide whether to show the button.
+    |
+    */
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
 ];

@@ -69,7 +69,7 @@ export function resolveChoice(choice: ThemeChoice): ResolvedTheme {
 
 /** The page background per theme — also used for the browser UI `theme-color`. */
 const THEME_COLOR: Record<ResolvedTheme, string> = {
-  dark: '#0e1113',
+  dark: '#071011',
   light: '#F7F9FC',
 };
 

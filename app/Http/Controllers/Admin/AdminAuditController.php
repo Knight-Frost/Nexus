@@ -3,84 +3,84 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AuditLogDetailResource;
+use App\Http\Resources\AuditLogResource;
 use App\Models\AuditLog;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * AdminAuditController
- *
- * Provides read-only access to audit logs for admins.
- * Supports filtering by various criteria.
- */
 class AdminAuditController extends Controller
 {
+    public function __construct(private readonly AuditLogService $service) {}
+
     /**
-     * Display a listing of audit logs with filters.
+     * Paginated list of audit logs with enriched derived fields.
+     *
+     * Returns flat shape: { data, current_page, last_page, per_page, total }
+     * so the frontend can rely on a stable, predictable envelope.
      */
     public function index(Request $request): JsonResponse
     {
         $filters = $request->validate([
-            'action' => ['nullable', 'string', 'max:255'],
-            'actor_type' => ['nullable', 'string', 'max:255'],
-            'actor_id' => ['nullable', 'integer'],
-            'subject_type' => ['nullable', 'string', 'max:255'],
-            'subject_id' => ['nullable', 'integer'],
             'severity' => ['nullable', 'in:info,warning,critical'],
+            'area' => ['nullable', 'string', 'max:100'],
+            'actor_role' => ['nullable', 'in:admin,landlord,tenant,user,system'],
             'from_date' => ['nullable', 'date'],
             'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'sort' => ['nullable', 'in:newest,oldest'],
+            'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $query = AuditLog::query()
-            ->with(['actor', 'subject'])
-            ->orderBy('created_at', 'desc');
+        $paginator = $this->service->paginate($filters);
 
-        // Apply filters
-        if (! empty($filters['action'])) {
-            $query->where('action', $filters['action']);
-        }
-
-        if (! empty($filters['actor_type'])) {
-            $query->where('actor_type', $filters['actor_type']);
-        }
-
-        if (! empty($filters['actor_id'])) {
-            $query->where('actor_id', $filters['actor_id']);
-        }
-
-        if (! empty($filters['subject_type'])) {
-            $query->where('subject_type', $filters['subject_type']);
-        }
-
-        if (! empty($filters['subject_id'])) {
-            $query->where('subject_id', $filters['subject_id']);
-        }
-
-        if (! empty($filters['severity'])) {
-            $query->where('severity', $filters['severity']);
-        }
-
-        if (! empty($filters['from_date'])) {
-            $query->where('created_at', '>=', $filters['from_date']);
-        }
-
-        if (! empty($filters['to_date'])) {
-            $query->where('created_at', '<=', $filters['to_date'].' 23:59:59');
-        }
-
-        $perPage = $filters['per_page'] ?? 50;
-
-        $logs = $query->paginate($perPage);
-
-        return response()->json($logs);
+        // Build flat envelope the frontend expects
+        return response()->json([
+            'data' => AuditLogResource::collection($paginator->items()),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ]);
     }
 
     /**
-     * Display the specified audit log.
+     * Full detail for a single audit log entry.
+     * Returns as flat JSON (no wrapping 'data' key) to match the index envelope.
      */
     public function show(AuditLog $auditLog): JsonResponse
     {
-        return response()->json($auditLog->load(['actor', 'subject']));
+        $resource = new AuditLogDetailResource($auditLog->load(['actor', 'subject']));
+
+        return response()->json($resource->toArray(request()));
+    }
+
+    /**
+     * Summary metrics and insights for the Audit & Activity Center header.
+     */
+    public function summary(Request $request): JsonResponse
+    {
+        return response()->json($this->service->summary());
+    }
+
+    /**
+     * CSV export of filtered audit logs (max 5 000 rows).
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $request->validate([
+            'severity' => ['nullable', 'in:info,warning,critical'],
+            'area' => ['nullable', 'string', 'max:100'],
+            'actor_role' => ['nullable', 'in:admin,landlord,tenant,user,system'],
+            'from_date' => ['nullable', 'date'],
+            'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'sort' => ['nullable', 'in:newest,oldest'],
+        ]);
+
+        return $this->service->export($filters);
     }
 }

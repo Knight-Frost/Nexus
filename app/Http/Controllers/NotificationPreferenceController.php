@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\NotificationType;
 use App\Models\NotificationPreference;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -26,8 +27,11 @@ class NotificationPreferenceController extends Controller
     {
         $user = $request->user();
 
-        // Get all user preferences
-        $preferences = NotificationPreference::where('user_id', $user->id)->get();
+        // Admins have no per-user preferences and must not be matched by id
+        // against the users table (IDOR). Return the defaults, unqueried.
+        $preferences = $user instanceof User
+            ? NotificationPreference::where('user_id', $user->id)->get()
+            : collect();
 
         // Format response
         $formatted = [];
@@ -67,6 +71,15 @@ class NotificationPreferenceController extends Controller
     public function update(Request $request)
     {
         $user = $request->user();
+
+        // Notification preferences belong to tenant/landlord accounts only.
+        // Reject admin writes outright rather than create rows keyed to an
+        // admin id that would collide with a real user's preferences (IDOR).
+        if (! $user instanceof User) {
+            return response()->json([
+                'message' => 'Notification preferences are only available for tenant and landlord accounts.',
+            ], 403);
+        }
 
         // Validate request
         $validator = Validator::make($request->all(), [

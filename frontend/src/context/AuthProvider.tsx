@@ -8,6 +8,7 @@ import {
   clearPortalToken,
   getActivePortal,
   getPortalToken,
+  portalTokenKey,
   setActivePortal,
   setPortalToken,
 } from '@/lib/storage';
@@ -39,6 +40,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // contaminate a portal session.
   useEffect(() => {
     clearLegacyToken();
+  }, []);
+
+  // Cross-tab logout / session expiry. When another tab logs out (or a 401
+  // clears a token), it removes nexus.auth.{p}.token from localStorage, which
+  // fires a `storage` event here. If the removed key is THIS tab's active
+  // portal, end the session too — so a logout in one tab doesn't leave stale
+  // authenticated UI in another. Other portals are untouched (key won't match).
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === null) return; // localStorage.clear()
+      const p = getActivePortal();
+      if (!p) return;
+      if (e.key === portalTokenKey(p) && e.newValue === null) {
+        clearActivePortal();
+        setUser(null);
+        setPortal(null);
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   // Hydrate from the portal stored in sessionStorage for this tab.

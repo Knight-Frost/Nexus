@@ -2,22 +2,27 @@ import { useState } from 'react';
 import { useAuth } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
 import { adminApi, landlordApi, tenantApi } from '@/lib/endpoints';
-import { formatCents, formatDate, humanize, ledgerStatusTone } from '@/lib/format';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
-import { StatCard } from '@/components/ui/StatCard';
+import { formatCents, formatDate, humanize } from '@/lib/format';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
+import { EmptyState, ErrorState, LoadingState, SkeletonCard } from '@/components/ui/states';
 import {
   IconChevronRight,
   IconLedger,
   IconCheckCircle,
   IconAlertCircle,
   IconClock,
+  IconWallet,
 } from '@/components/ui/icons';
 import { cn } from '@/lib/cn';
+import {
+  StatusCard,
+  SemanticBadge,
+  DashboardSection,
+  DataCardGrid,
+  getLedgerVariant,
+  getCollectedVariant,
+} from '@/components/cards';
 import type { LedgerEntry, LedgerStatus } from '@/lib/types';
 
 function isPayable(entry: LedgerEntry): boolean {
@@ -109,6 +114,9 @@ export function LedgerPage() {
         ? 'All rent entries and fees across your contracts.'
         : 'Platform-wide rent entries, fees, and payments.';
 
+  const eyebrow =
+    role === 'admin' ? 'Governance' : role === 'landlord' ? 'Operations' : 'My Rental';
+
   const allEntries = ledger.data?.entries ?? [];
   const summary = computeSummary(allEntries);
   const isTenant = role === 'tenant';
@@ -118,42 +126,61 @@ export function LedgerPage() {
       ? allEntries
       : allEntries.filter((e) => e.status === activeFilter);
 
-  return (
-    <div className="animate-rise space-y-6">
-      <PageHeader
-        eyebrow={role === 'admin' ? 'Governance' : role === 'landlord' ? 'Operations' : 'My Rental'}
-        title={title}
-        description={description}
-      />
+  /* ── summary stat cards loading state ── */
+  const statsLoading = ledger.loading;
 
-      {/* Summary stat cards */}
-      {allEntries.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard
-            label={isTenant ? 'Total paid' : 'Total collected'}
-            value={formatCents(summary.collected)}
-            tone="success"
-            icon={<IconCheckCircle className="h-[18px] w-[18px]" />}
-            hint="Paid entries"
-          />
-          <StatCard
-            label="Pending"
-            value={formatCents(summary.pending)}
-            tone="warning"
-            icon={<IconClock className="h-[18px] w-[18px]" />}
-            hint="Due but not yet paid"
-          />
-          <StatCard
-            label="Overdue"
-            value={formatCents(summary.overdue)}
-            tone={summary.overdue > 0 ? 'danger' : 'success'}
-            icon={<IconAlertCircle className="h-[18px] w-[18px]" />}
-            hint={summary.overdue > 0 ? 'Requires attention' : 'Nothing overdue'}
-          />
-        </div>
+  return (
+    <div className="animate-rise space-y-10">
+
+      {/* ── Page header ── */}
+      <div>
+        <span className="eyebrow mb-2.5">{eyebrow}</span>
+        <h1 className="font-display text-[clamp(28px,3vw,40px)] font-semibold leading-tight tracking-tight text-ink-950">
+          {title}
+        </h1>
+        <p className="mt-2.5 text-[15px] text-ink-500 max-w-[64ch]">{description}</p>
+      </div>
+
+      {/* ── Summary stat cards (only shown when entries exist or still loading) ── */}
+      {(statsLoading || allEntries.length > 0) && (
+        <DashboardSection eyebrow="Summary" title="Financial Overview">
+          <DataCardGrid cols={3}>
+            {statsLoading ? (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
+            ) : (
+              <>
+                <StatusCard
+                  label={isTenant ? 'Total paid' : 'Total collected'}
+                  value={formatCents(summary.collected)}
+                  sub="Paid entries"
+                  icon={<IconCheckCircle size={18} />}
+                  role={getCollectedVariant(summary.collected, summary.overdue)}
+                />
+                <StatusCard
+                  label="Pending"
+                  value={formatCents(summary.pending)}
+                  sub="Due but not yet paid"
+                  icon={<IconClock size={18} />}
+                  role={summary.pending > 0 ? 'warning' : 'neutral'}
+                />
+                <StatusCard
+                  label="Overdue"
+                  value={formatCents(summary.overdue)}
+                  sub={summary.overdue > 0 ? 'Requires attention' : 'Nothing overdue'}
+                  icon={<IconAlertCircle size={18} />}
+                  role={summary.overdue > 0 ? 'danger' : 'success'}
+                />
+              </>
+            )}
+          </DataCardGrid>
+        </DashboardSection>
       )}
 
-      {/* Tenant outstanding balance */}
+      {/* ── Tenant outstanding balance banner ── */}
       {isTenant && balance.data && (balance.data.balance_cents ?? 0) > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm">
           <IconAlertCircle size={16} className="shrink-0 text-warning-600" />
@@ -166,7 +193,7 @@ export function LedgerPage() {
         </div>
       )}
 
-      {/* Pay result banner */}
+      {/* ── Pay result banner ── */}
       {payResult && (
         <div
           className={cn(
@@ -187,62 +214,67 @@ export function LedgerPage() {
         </div>
       )}
 
-      {ledger.loading ? (
-        <LoadingState />
-      ) : ledger.error ? (
-        <ErrorState message={ledger.error.message} onRetry={ledger.reload} />
-      ) : allEntries.length === 0 ? (
-        <EmptyState
-          icon={<IconLedger />}
-          title="No ledger entries"
-          description="Charges and payments will appear here once a contract is active."
-        />
-      ) : (
-        <>
-          {/* Filter tabs */}
-          <div className="flex gap-1 overflow-x-auto rounded-xl bg-ink-100 border border-ink-200 p-1 w-fit">
-            {STATUS_TABS.map(({ value, label }) => {
-              const count = value === 'all' ? allEntries.length : allEntries.filter((e) => e.status === value).length;
-              if (value !== 'all' && count === 0) return null;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setActiveFilter(value)}
-                  className={cn(
-                    'flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-                    activeFilter === value
-                      ? 'bg-surface text-ink-900 shadow-sm'
-                      : 'text-ink-500 hover:text-ink-700',
-                  )}
-                >
-                  {label}
-                  {count > 0 && (
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none',
-                        activeFilter === value
-                          ? 'bg-brand-100 text-brand-700'
-                          : 'bg-ink-200 text-ink-500',
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+      {/* ── Ledger entries ── */}
+      <DashboardSection
+        eyebrow="Entries"
+        title="Ledger"
+        description="Individual charges, fees, and payments."
+      >
+        {ledger.loading ? (
+          <LoadingState />
+        ) : ledger.error ? (
+          <ErrorState message={ledger.error.message} onRetry={ledger.reload} />
+        ) : allEntries.length === 0 ? (
+          <EmptyState
+            icon={<IconLedger />}
+            title="No ledger entries"
+            description="Charges and payments will appear here once a contract is active."
+          />
+        ) : (
+          <>
+            {/* Filter tabs */}
+            <div className="flex gap-1 overflow-x-auto rounded-xl bg-ink-100 border border-ink-200 p-1 w-fit">
+              {STATUS_TABS.map(({ value, label }) => {
+                const count = value === 'all' ? allEntries.length : allEntries.filter((e) => e.status === value).length;
+                if (value !== 'all' && count === 0) return null;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setActiveFilter(value)}
+                    className={cn(
+                      'flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+                      activeFilter === value
+                        ? 'bg-surface text-ink-900 shadow-sm'
+                        : 'text-ink-500 hover:text-ink-700',
+                    )}
+                  >
+                    {label}
+                    {count > 0 && (
+                      <span
+                        className={cn(
+                          'rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none',
+                          activeFilter === value
+                            ? 'bg-brand-100 text-brand-700'
+                            : 'bg-ink-200 text-ink-500',
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<IconLedger />}
-              title={`No ${activeFilter} entries`}
-              description="Try a different filter."
-            />
-          ) : (
-            <Card>
-              <CardBody className="p-0">
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon={<IconLedger />}
+                title={`No ${activeFilter} entries`}
+                description="Try a different filter."
+              />
+            ) : (
+              <div className="rounded-2xl border border-ink-200 bg-surface shadow-sm overflow-hidden">
                 <Table>
                   <THead>
                     <TH>Date</TH>
@@ -255,6 +287,7 @@ export function LedgerPage() {
                   <TBody>
                     {filtered.map((entry) => {
                       const alreadyPaid = paidIds.has(entry.id);
+                      const statusForDisplay = alreadyPaid ? 'paid' : entry.status;
                       return (
                         <TR key={entry.id}>
                           <TD className="whitespace-nowrap text-ink-600 text-sm">
@@ -272,9 +305,10 @@ export function LedgerPage() {
                             </span>
                           </TD>
                           <TD>
-                            <Badge tone={ledgerStatusTone(alreadyPaid ? 'paid' : entry.status)}>
-                              {humanize(alreadyPaid ? 'paid' : entry.status)}
-                            </Badge>
+                            <SemanticBadge
+                              role={getLedgerVariant(statusForDisplay as LedgerStatus)}
+                              status={statusForDisplay}
+                            />
                           </TD>
                           {isTenant && (
                             <TD className="text-right">
@@ -297,36 +331,45 @@ export function LedgerPage() {
                     })}
                   </TBody>
                 </Table>
-              </CardBody>
-            </Card>
-          )}
+              </div>
+            )}
 
-          {(ledger.data?.lastPage ?? 1) > 1 && (
-            <div className="mt-6 flex items-center justify-center gap-4">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={(ledger.data?.currentPage ?? 1) <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-ink-500">
-                Page {ledger.data?.currentPage ?? 1} of {ledger.data?.lastPage ?? 1}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={(ledger.data?.currentPage ?? 1) >= (ledger.data?.lastPage ?? 1)}
-                onClick={() => setPage((p) => p + 1)}
-                leftIcon={<IconChevronRight className="h-4 w-4" />}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+            {(ledger.data?.lastPage ?? 1) > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-4">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={(ledger.data?.currentPage ?? 1) <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-ink-500">
+                  Page {ledger.data?.currentPage ?? 1} of {ledger.data?.lastPage ?? 1}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={(ledger.data?.currentPage ?? 1) >= (ledger.data?.lastPage ?? 1)}
+                  onClick={() => setPage((p) => p + 1)}
+                  leftIcon={<IconChevronRight className="h-4 w-4" />}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </DashboardSection>
+
+      {/* ── Ledger integrity note ── */}
+      <div className="flex items-center gap-3 rounded-xl border border-ink-200 bg-surface px-5 py-4 shadow-sm">
+        <IconWallet size={18} className="shrink-0 text-ink-400" />
+        <p className="text-sm text-ink-500">
+          The ledger is immutable. All charges are recorded as they occur and can never be
+          edited. Corrections are made as compensating entries.
+        </p>
+      </div>
     </div>
   );
 }

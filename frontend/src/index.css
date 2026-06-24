@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ==========================================================================
-   Nexus Design System — "Nexus Jade"
+   Homecrest Design System — "Homecrest Jade"
    Sophisticated oxidized mineral teal. Premium architecture, trust.
    Dark mode: luminous jade glows against obsidian.
    Light mode: deep rich jade on warm pearl surfaces.
@@ -33,53 +33,64 @@
   --color-on-obsidian:     #FFFFFF;
   --color-on-mint:         #FFFFFF;
 
-  /* Brand — Nexus Jade luminous on dark obsidian */
-  --color-brand-50:  #0D1F1B;
-  --color-brand-100: #142A25;
-  --color-brand-200: #1D3D37;
-  --color-brand-300: #2A5249;
-  --color-brand-400: #2DA89C;
-  --color-brand-500: #2ABFAD; /* focus ring */
-  --color-brand-600: #0E8478; /* button fill — controlled, not blinding */
-  --color-brand-700: #2EC8B6; /* text links on dark — luminous jade */
-  --color-brand-800: #46D6C6; /* emphasized text */
-  --color-brand-900: #2ABFAD;
-  --color-brand-950: #0A1918;
+  /* Brand — Petrol / Teal luminous on dark */
+  --color-brand-50:  #0E2A28;
+  --color-brand-100: #123431;
+  --color-brand-200: #17433F;
+  --color-brand-300: #1E5852;
+  --color-brand-400: #2DD4BF;
+  --color-brand-500: #2DD4BF; /* focus ring */
+  --color-brand-600: #14B8A6; /* teal accent */
+  --color-brand-700: #5EEAD4; /* text links on dark */
+  --color-brand-800: #7FF0E2;
+  --color-brand-900: #A7F3E9;
+  --color-brand-950: #D5FBF4;
 
-  /* Ink — graphite scale for dark, surfaces->text */
-  --color-ink-50:  #181E2C; /* subtlest surface, row hover */
-  --color-ink-100: #1E2438; /* hover bg, skeleton */
-  --color-ink-200: #252D40; /* default borders */
-  --color-ink-300: #2E384E; /* stronger borders */
-  --color-ink-400: #4F5E7A; /* placeholders */
-  --color-ink-500: #7880A0; /* muted text */
-  --color-ink-600: #98A4C0; /* readable secondary text */
-  --color-ink-700: #B8C0D4; /* body text */
-  --color-ink-800: #CAD0E4; /* labels / strong text */
-  --color-ink-900: #E0E6F2; /* primary text */
-  --color-ink-950: #EEF2FA; /* headings */
+  /* Ink — petrol neutral scale for dark, surfaces->text */
+  --color-ink-50:  #182B2C; /* subtlest surface, row hover */
+  --color-ink-100: #132324; /* hover bg, skeleton */
+  --color-ink-200: #1C2D2E; /* default borders */
+  --color-ink-300: #263A3B; /* stronger borders */
+  --color-ink-400: #667570; /* placeholders */
+  --color-ink-500: #93A19D; /* muted text */
+  --color-ink-600: #C6D0CC; /* readable secondary text */
+  --color-ink-700: #D7DFDC; /* body text */
+  --color-ink-800: #E7EEEB; /* labels / strong text */
+  --color-ink-900: #F3F7F5; /* primary text */
+  --color-ink-950: #F9FCFB; /* headings */
 
-  /* Semantic — DARK defaults */
-  --color-success-50:  #0D1E17;
-  --color-success-500: #34CC84;
-  --color-success-600: #34CC84;
-  --color-warning-50:  #1E1606;
-  --color-warning-500: #F0A42A;
-  --color-warning-600: #F0A42A;
-  --color-danger-50:   #1C0E0C;
-  --color-danger-500:  #F46054;
-  --color-danger-600:  #F46054;
-  /* Solid danger fill for buttons — dark enough to carry a white label (5.4:1). */
-  --color-danger-solid: #C23420;
-  --color-danger-solid-hover: #A62A18;
-  --color-info-50:  #0C1420;
-  --color-info-500: #5C8ED6;
-  --color-info-600: #5C8ED6;
+  /* Semantic — DARK defaults (Petrol/Teal) */
+  --color-success-50:  #0E2A1F;
+  --color-success-500: #34D399;
+  --color-success-600: #4ADE9E;
+  --color-warning-50:  #2A2208;
+  --color-warning-500: #FBBF24;
+  --color-warning-600: #FCD34D;
+  --color-danger-50:   #2A1413;
+  --color-danger-500:  #F87171;
+  --color-danger-600:  #FCA5A5;
+  /* Solid danger fill for buttons */
+  --color-danger-solid: #B42318;
+  --color-danger-solid-hover: #991B0F;
+  --color-info-50:  #0C1C26;
+  --color-info-500: #5EA8E0;
+  --color-info-600: #7BBBE8;
 
   /* Canvas + on-brand (DARK defaults) */
-  --color-canvas:   #0C0F18; /* obsidian, barely blue-black */
-  --color-surface:  #131820; /* card/sidebar surface */
-  --color-on-brand: #FFFFFF;
+  --color-canvas:   #071011; /* petrol near-black */
+  --color-surface:  #101C1D; /* dark surface */
+  --color-on-brand: #04211E;
+
+  /* Action ramp — coral (primary buttons only; DARK defaults) */
+  --color-action-400: #E2604E;
+  --color-action-500: #D94F3D;
+  --color-action-600: #CE4634;
+  --color-action-700: #B93D2E;
+  --color-on-action:  #FFFFFF;
+
+  /* Action-soft — coral tint for sent bubbles + selected list rows (dark) */
+  --color-action-soft:        rgba(217, 79, 61, 0.14);
+  --color-action-soft-border: rgba(217, 79, 61, 0.34);
 
   /* Typography — switching to Space Grotesk + Hanken Grotesque */
   --font-display: 'Space Grotesk', system-ui, sans-serif;
@@ -100,13 +111,13 @@
 }
 
 /* ==========================================================================
-   LIGHT THEME
-   Warm pearl canvas. Deep rich jade is the primary interactive color.
-   Canvas: #F0EDE8 (warm pearl — slightly warm, NOT cold porcelain).
-   Contrast targets (measured against #F0EDE8 canvas):
-     - ink-500 (#6C6660) ~4.5:1  — muted text minimum (WCAG AA for body)
-     - ink-700 (#363230) ~9.5:1  — body text
-     - ink-950 (#0E0C08) ~20:1   — headings
+   LIGHT THEME — White Liquid Glass
+   Cool white canvas, slate ink, ink-teal accent. Premium architectural light.
+   Canvas: #F6F8FB (cool white — a breath of sky, never warm beige).
+   Contrast targets (measured against #F6F8FB canvas):
+     - ink-500 (#64748B) ~4.6:1  — muted text minimum (WCAG AA for body)
+     - ink-700 (#334155) ~9.5:1  — body text
+     - ink-950 (#0B1220) ~20:1   — headings
      - brand-600 (#0A7068) → primary fills; on-brand = #FFFFFF
      - brand-700 (#096058) → active nav text / text links
    `:root[data-theme='light']` (specificity 0,2,0) beats @theme's `:root`
@@ -115,57 +126,68 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Brand — deep rich jade on warm pearl */
-  --color-brand-50:  #EBF4F1;
-  --color-brand-100: #CDE8E2;
-  --color-brand-200: #A0D4CC;
-  --color-brand-300: #5ABFB4;
-  --color-brand-400: #1EA098;
+  /* Brand — ink-teal ramp on cool white */
+  --color-brand-50:  #E6F2F1;
+  --color-brand-100: #C5E4E1;
+  --color-brand-200: #98D0CB;
+  --color-brand-300: #54B3AB;
+  --color-brand-400: #1C988F;
   --color-brand-500: #0D8278; /* focus ring */
   --color-brand-600: #0A7068; /* primary button fill */
   --color-brand-700: #096058; /* text links / active nav */
-  --color-brand-800: #085050;
+  --color-brand-800: #08504C;
   --color-brand-900: #063E3A;
   --color-brand-950: #032828;
 
-  /* Ink — warm stone scale for light, surfaces->text */
-  --color-ink-50:  #EDEBE5; /* subtle elevated surface / row hover */
-  --color-ink-100: #E2DED8; /* hover bg / skeleton */
-  --color-ink-200: #D6D0C8; /* default borders */
-  --color-ink-300: #C4BDB4; /* stronger borders / dividers */
-  --color-ink-400: #9C968E; /* placeholders */
-  --color-ink-500: #6C6660; /* muted text — 4.5:1+ on canvas */
-  --color-ink-600: #4E4844; /* secondary text */
-  --color-ink-700: #363230; /* body text */
-  --color-ink-800: #262220; /* labels */
-  --color-ink-900: #181410; /* primary text */
-  --color-ink-950: #0E0C08; /* headings */
+  /* Ink — cool slate scale for light, surfaces->text */
+  --color-ink-50:  #F4F7FA; /* subtle elevated surface / row hover */
+  --color-ink-100: #EEF2F6; /* hover bg / skeleton */
+  --color-ink-200: #E2E8F0; /* default borders */
+  --color-ink-300: #CBD5E1; /* stronger borders / dividers */
+  --color-ink-400: #94A3B8; /* placeholders */
+  --color-ink-500: #64748B; /* muted text — 4.6:1+ on canvas */
+  --color-ink-600: #475569; /* secondary text */
+  --color-ink-700: #334155; /* body text */
+  --color-ink-800: #1E293B; /* labels */
+  --color-ink-900: #111827; /* primary text */
+  --color-ink-950: #0B1220; /* headings */
 
-  /* Semantic — refined on warm pearl surfaces */
-  --color-success-50:  #E6F4EC;
+  /* Semantic — tuned on cool white canvas */
+  --color-success-50:  #E7F6EF;
   --color-success-500: #0A7A50;
   --color-success-600: #086040;
-  --color-warning-50:  #FEF0DC;
-  --color-warning-500: #BE6200;
-  --color-warning-600: #9A5000;
+  --color-warning-50:  #FEF3E2;
+  --color-warning-500: #B45309;
+  --color-warning-600: #92400E;
   --color-danger-50:   #FDECEC;
   --color-danger-500:  #C02018;
   --color-danger-600:  #9E1A12;
   --color-danger-solid: #C02018;
   --color-danger-solid-hover: #9E1A12;
-  --color-info-50:  #EAF0FC;
+  --color-info-50:  #EAF1FC;
   --color-info-500: #1954B4;
   --color-info-600: #143E98;
 
-  /* Canvas + on-brand (white text on jade button) */
-  --color-canvas:   #F4F6F9; /* clean white-gray — neutral app background */
+  /* Canvas + on-brand */
+  --color-canvas:   #F6F8FB; /* cool white — architectural light */
   --color-surface:  #FFFFFF;
   --color-on-brand: #FFFFFF;
 
-  /* Shadows — crisp, warm-tinted */
-  --shadow-sm: 0 1px 2px rgb(14 12 8 / 0.04), 0 1px 3px rgb(14 12 8 / 0.06);
-  --shadow-md: 0 2px 6px -1px rgb(14 12 8 / 0.06), 0 12px 26px -6px rgb(14 12 8 / 0.10);
-  --shadow-lg: 0 26px 60px -20px rgb(14 12 8 / 0.15), 0 4px 14px -4px rgb(14 12 8 / 0.08);
+  /* Action ramp — ink-teal (matches brand on light; NOT coral) */
+  --color-action-400: #1C988F;
+  --color-action-500: #0D8278;
+  --color-action-600: #0A7068;
+  --color-action-700: #085048;
+  --color-on-action:  #FFFFFF;
+
+  /* Action-soft — teal tint for sent bubbles + selected list rows (light) */
+  --color-action-soft:        rgba(13,130,120,0.10);
+  --color-action-soft-border: rgba(13,130,120,0.22);
+
+  /* Shadows — cool slate, soft */
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / .04), 0 1px 3px rgb(15 23 42 / .06);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / .06), 0 12px 32px -8px rgb(15 23 42 / .10);
+  --shadow-lg: 0 24px 64px -16px rgb(15 23 42 / .14), 0 4px 14px -4px rgb(15 23 42 / .08);
 }
 
 /* ==========================================================================
@@ -177,52 +199,93 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --color-brand-50:  #0D1F1B;
-  --color-brand-100: #142A25;
-  --color-brand-200: #1D3D37;
-  --color-brand-300: #2A5249;
-  --color-brand-400: #2DA89C;
-  --color-brand-500: #2ABFAD;
-  --color-brand-600: #0E8478;
-  --color-brand-700: #2EC8B6;
-  --color-brand-800: #46D6C6;
-  --color-brand-900: #2ABFAD;
-  --color-brand-950: #0A1918;
+  --color-brand-50:  #0E2A28;
+  --color-brand-100: #123431;
+  --color-brand-200: #17433F;
+  --color-brand-300: #1E5852;
+  --color-brand-400: #2DD4BF;
+  --color-brand-500: #2DD4BF;
+  --color-brand-600: #14B8A6;
+  --color-brand-700: #5EEAD4;
+  --color-brand-800: #7FF0E2;
+  --color-brand-900: #A7F3E9;
+  --color-brand-950: #D5FBF4;
 
-  --color-ink-50:  #181E2C;
-  --color-ink-100: #1E2438;
-  --color-ink-200: #252D40;
-  --color-ink-300: #2E384E;
-  --color-ink-400: #4F5E7A;
-  --color-ink-500: #7880A0;
-  --color-ink-600: #98A4C0;
-  --color-ink-700: #B8C0D4;
-  --color-ink-800: #CAD0E4;
-  --color-ink-900: #E0E6F2;
-  --color-ink-950: #EEF2FA;
+  --color-ink-50:  #182B2C;
+  --color-ink-100: #132324;
+  --color-ink-200: #1C2D2E;
+  --color-ink-300: #263A3B;
+  --color-ink-400: #667570;
+  --color-ink-500: #93A19D;
+  --color-ink-600: #C6D0CC;
+  --color-ink-700: #D7DFDC;
+  --color-ink-800: #E7EEEB;
+  --color-ink-900: #F3F7F5;
+  --color-ink-950: #F9FCFB;
 
-  --color-success-50:  #0D1E17;
-  --color-success-500: #34CC84;
-  --color-success-600: #34CC84;
-  --color-warning-50:  #1E1606;
-  --color-warning-500: #F0A42A;
-  --color-warning-600: #F0A42A;
-  --color-danger-50:   #1C0E0C;
-  --color-danger-500:  #F46054;
-  --color-danger-600:  #F46054;
-  --color-danger-solid: #C23420;
-  --color-danger-solid-hover: #A62A18;
-  --color-info-50:  #0C1420;
-  --color-info-500: #5C8ED6;
-  --color-info-600: #5C8ED6;
+  --color-success-50:  #0E2A1F;
+  --color-success-500: #34D399;
+  --color-success-600: #4ADE9E;
+  --color-warning-50:  #2A2208;
+  --color-warning-500: #FBBF24;
+  --color-warning-600: #FCD34D;
+  --color-danger-50:   #2A1413;
+  --color-danger-500:  #F87171;
+  --color-danger-600:  #FCA5A5;
+  --color-danger-solid: #B42318;
+  --color-danger-solid-hover: #991B0F;
+  --color-info-50:  #0C1C26;
+  --color-info-500: #5EA8E0;
+  --color-info-600: #7BBBE8;
 
-  --color-canvas:   #0C0F18;
-  --color-surface:  #131820;
-  --color-on-brand: #FFFFFF;
+  --color-canvas:   #071011;
+  --color-surface:  #101C1D;
+  --color-on-brand: #04211E;
+
+  --color-action-400: #E2604E;
+  --color-action-500: #D94F3D;
+  --color-action-600: #CE4634;
+  --color-action-700: #B93D2E;
+  --color-on-action:  #FFFFFF;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.6);
   --shadow-md: 0 2px 6px -1px rgb(0 0 0 / 0.55), 0 12px 26px -6px rgb(0 0 0 / 0.65);
   --shadow-lg: 0 26px 60px -20px rgb(0 0 0 / 0.85), 0 4px 14px -4px rgb(0 0 0 / 0.55);
+}
+
+/* ==========================================================================
+   AUTH SCENE — Oxblood on dark (editorial identity, scoped)
+   The auth screen is a standalone dark photographic composition that lives
+   OUTSIDE the AppShell, so it never receives `data-skin="editorial"`. Without
+   this block it would inherit the base dark tokens (teal brand + Space Grotesk)
+   and clash with the approved Warm Paper & Oxblood direction. We scope the
+   override to `[data-theme='dark'].auth-scene` (0,2,0 — beats the plain dark
+   block at 0,1,0) so the whole subtree reads as one rationed oxblood accent on
+   near-black, with the Fraunces display face used for headings.
+   Remapping the `brand-*` ramp re-colors every existing `brand-*` utility at
+   once (Tailwind v4 resolves `var(--color-brand-*)` at the element), so the
+   markup stays untouched. `action-*` (the coral Sign-in button) is unchanged.
+   ========================================================================== */
+[data-theme='dark'].auth-scene {
+  /* Oxblood / brick-red ramp — luminous enough to read on near-black */
+  --color-brand-50:  #2A1310; /* faint red-tinted fill (feature icon bg) */
+  --color-brand-100: #3A1A15;
+  --color-brand-200: #4A211A;
+  --color-brand-300: #7A2E22;
+  --color-brand-400: #E0604B; /* primary accent: "unified", eyebrow, links, icons */
+  --color-brand-500: #D94F3D; /* focus ring / hairline accents */
+  --color-brand-600: #CE4634; /* solid fills: logo, N chip, create-account border */
+  --color-brand-700: #E0604B; /* text links on dark */
+  --color-brand-800: #F2A593; /* lighter — link hover */
+  --color-brand-900: #B93D2E; /* deep — logo gradient end */
+  --color-brand-950: #9E3024; /* oxblood floor */
+
+  /* White marks on the red logo / divider chip (base dark on-brand is dark green) */
+  --color-on-brand: #FFFFFF;
+
+  /* Serif display, matching the approved editorial identity (Fraunces is loaded
+     globally via editorial.css's @import). */
+  --font-display: 'Fraunces', 'Times New Roman', Georgia, serif;
 }
 
 /* ==========================================================================
@@ -231,13 +294,69 @@
    component CSS for domain-specific styling (GH₵ amounts, etc.).
    ========================================================================== */
 :root {
-  --color-money:    #C4A85E; /* champagne gold for GH₵ amounts — dark default */
-  --color-money-bg: rgba(196, 168, 94, 0.14);
+  --color-money:    #CBD8D2; /* cool platinum for GH₵ amounts — dark default */
+  --color-money-bg: rgba(45, 212, 191, 0.10);
+
+  /* ── Glass tokens — DARK defaults (translucent over dark surfaces) ──────── */
+  --glass-bg:             rgba(255,255,255,0.04);
+  --glass-bg-strong:      rgba(255,255,255,0.08);
+  --glass-border:         rgba(255,255,255,0.08);
+  --glass-border-strong:  rgba(255,255,255,0.14);
+  --glass-blur:           16px;
+  --glass-highlight:      inset 0 1px 0 rgba(255,255,255,0.06);
+  --glass-shadow:         0 8px 32px rgb(0 0 0 / .50), 0 2px 8px rgb(0 0 0 / .40);
+  --glass-shadow-lg:      0 24px 64px rgb(0 0 0 / .65);
+
+  /* Homecrest card system — fallbacks for contexts without the editorial skin.
+     The editorial skin (light + dark) overrides these with tuned values. */
+  --nexus-logo:    #C24436;
+  --nexus-on-logo: #FFFFFF;
+  --nexus-cmd-fg:        #F2F7F5;
+  --nexus-cmd-sub:       rgba(242, 247, 245, 0.70);
+  --nexus-cmd-chip:      rgba(255, 255, 255, 0.10);
+  --nexus-cmd-chip-fg:   #F2F7F5;
+  --nexus-cmd-success:   #134D2E;
+  --nexus-cmd-success-2: #0C3A22;
+  --nexus-cmd-danger:    #7A241B;
+  --nexus-cmd-danger-2:  #571712;
+  --nexus-cmd-review:    #9E4521;
+  --nexus-cmd-review-2:  #743016;
+  --nexus-cmd-info:      #0A5B68;
+  --nexus-cmd-info-2:    #06424C;
+  --nexus-cmd-neutral:   #16292A;
+  --nexus-cmd-neutral-2: #0E1F20;
 }
 
 :root[data-theme='light'] {
-  --color-money:    #9A7A3A;
-  --color-money-bg: #F5EED6;
+  --color-money:    #075865;
+  --color-money-bg: rgba(13, 117, 132, 0.10);
+
+  /* ── Glass tokens — LIGHT overrides (frosted white glass) ──────────────── */
+  --glass-bg:             rgba(255,255,255,0.60);
+  --glass-bg-strong:      rgba(255,255,255,0.78);
+  --glass-border:         rgba(15,23,42,0.08);
+  --glass-border-strong:  rgba(15,23,42,0.12);
+  --glass-blur:           16px;
+  --glass-highlight:      inset 0 1px 0 rgba(255,255,255,0.65);
+  --glass-shadow:         0 8px 32px rgba(15,23,42,0.07), 0 2px 8px rgba(15,23,42,0.04);
+  --glass-shadow-lg:      0 24px 64px rgba(15,23,42,0.12);
+
+  --nexus-logo:    #9E3024;
+  --nexus-on-logo: #FFFFFF;
+  --nexus-cmd-fg:        #F0F5F8;
+  --nexus-cmd-sub:       rgba(240,245,248,0.74);
+  --nexus-cmd-chip:      rgba(255,255,255,0.16);
+  --nexus-cmd-chip-fg:   #FFFFFF;
+  --nexus-cmd-success:   #086040;
+  --nexus-cmd-success-2: #064830;
+  --nexus-cmd-danger:    #9E1A12;
+  --nexus-cmd-danger-2:  #7A1410;
+  --nexus-cmd-review:    #92400E;
+  --nexus-cmd-review-2:  #6F3008;
+  --nexus-cmd-info:      #096058;
+  --nexus-cmd-info-2:    #063E3A;
+  --nexus-cmd-neutral:   #1E293B;
+  --nexus-cmd-neutral-2: #111827;
 }
 
 /* ---- Base layer ---------------------------------------------------------- */
@@ -314,6 +433,89 @@
 
 /* ---- Utilities layer ----------------------------------------------------- */
 @layer utilities {
+  /* ── Glass primitives — reusable White Liquid Glass system ─────────────── */
+
+  /* Base glass panel: frosted pane, soft shadow, hairline border. */
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+    border-radius: var(--radius-2xl);
+  }
+
+  /* Glass card: slightly stronger fill, hover lift for interactive surfaces. */
+  .glass-card {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+    border-radius: var(--radius-2xl);
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+  .glass-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--glass-shadow-lg), var(--glass-highlight);
+    border-color: var(--glass-border-strong);
+  }
+
+  /* Glass tile: compact stat/metric tile with tighter radius. */
+  .glass-tile {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+    border-radius: var(--radius-xl);
+  }
+
+  /* Glass input: frosted input field, inner hairline, teal focus ring. */
+  .glass-input {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(8px) saturate(160%);
+    -webkit-backdrop-filter: blur(8px) saturate(160%);
+    border: 1px solid var(--glass-border-strong);
+    box-shadow: inset 0 1px 2px rgba(15,23,42,0.04);
+    border-radius: var(--radius-xl);
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+  .glass-input:focus {
+    outline: none;
+    border-color: var(--color-brand-500);
+    box-shadow:
+      inset 0 1px 2px rgba(15,23,42,0.04),
+      0 0 0 3px rgba(13,130,120,0.18);
+  }
+
+  /* Graceful degradation: no backdrop-filter support → solid white surface */
+  @supports not (backdrop-filter: blur(1px)) {
+    .glass-panel,
+    .glass-card,
+    .glass-tile,
+    .glass-input {
+      background: var(--color-surface);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glass-card {
+      transition: none;
+    }
+    .glass-card:hover {
+      transform: none;
+    }
+  }
+
   @keyframes nx-fade-in {
     from { opacity: 0; }
     to   { opacity: 1; }
@@ -338,6 +540,14 @@
     0%   { transform: scale(1);   opacity: 1; }
     50%  { transform: scale(1.4); opacity: 0.7; }
     100% { transform: scale(1);   opacity: 1; }
+  }
+
+  @keyframes nx-slide-in-right {
+    from { transform: translateX(100%); }
+    to   { transform: translateX(0); }
+  }
+  .animate-slide-in-right {
+    animation: nx-slide-in-right 0.34s var(--ease-out-soft) both;
   }
 
   .animate-fade-in {
@@ -382,7 +592,8 @@
   @media (prefers-reduced-motion: reduce) {
     .animate-fade-in,
     .animate-rise,
-    .animate-scale-in {
+    .animate-scale-in,
+    .animate-slide-in-right {
       animation: none;
     }
     .skeleton::after {

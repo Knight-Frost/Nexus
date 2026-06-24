@@ -160,6 +160,53 @@ privately.
 
 ---
 
+## Branding
+
+The product name and all user-facing strings are controlled from two central files:
+
+| Layer | Config file | How to read it |
+|-------|-------------|----------------|
+| Backend (PHP) | `config/brand.php` | `config('brand.display_name')`, `config('brand.short_name')`, etc. |
+| Frontend (TS) | `frontend/src/config/brand.ts` | `import { brand, pageTitle } from '@/config/brand'` |
+| HTML shell | `frontend/index.html` | Vite plugin in `frontend/vite.config.js` replaces `%BRAND_NAME%` etc. |
+
+### Env vars that drive the brand
+
+Backend (in `.env`):
+- `BRAND_DISPLAY_NAME` — full product name (default: `Wyncrest`)
+- `BRAND_SHORT_NAME` — compact name used in SMS (default: `Wyncrest`)
+- `BRAND_LEGAL_NAME` — legal entity name (default: `Wyncrest`)
+- `BRAND_SUPPORT_NAME` — support team name (default: `Wyncrest Support`)
+- `BRAND_DESCRIPTOR` — product descriptor (default: `Property Platform`)
+- `BRAND_TAGLINE` / `BRAND_SECONDARY_TAGLINE`
+- `MAIL_ADMIN_ADDRESS` — platform admin email (default: `admin@wyncrest.app`)
+
+Frontend (must be prefixed `VITE_` for Vite):
+- `VITE_APP_NAME`, `VITE_BRAND_SHORT_NAME`, `VITE_BRAND_INITIAL`
+- `VITE_BRAND_DESCRIPTOR`, `VITE_BRAND_TAGLINE`, `VITE_BRAND_SECONDARY_TAGLINE`
+- `VITE_BRAND_AUTH_HEADLINE`, `VITE_BRAND_AUTH_SUBHEADLINE`, `VITE_SUPPORT_NAME`
+
+All values default to `Wyncrest` strings — the app works with zero configuration.
+
+### Files you must NOT hand-edit for a rename
+
+Change env vars only. The following files are the source of truth:
+- `config/brand.php` (backend defaults)
+- `frontend/src/config/brand.ts` (frontend defaults)
+- `frontend/index.html` (uses `%BRAND_NAME%` / `%BRAND_DESCRIPTOR%` / `%BRAND_TAGLINE%`)
+- `frontend/public/site.webmanifest` (static asset — update manually when renaming)
+
+### Verifying no user-facing hardcoded names remain
+
+```bash
+grep -rn "Homecrest\|HOMECREST\|Nexus\|NEXUS" frontend/src app resources/views config \
+  | grep -v "NexusCard\|nexus_\|nvx-\|--nexus\|nexus:\|// \|#\|* "
+```
+
+Any remaining hits are either CSS/internal identifiers (intentional) or user-facing bugs.
+
+---
+
 ## License
 
 MIT.

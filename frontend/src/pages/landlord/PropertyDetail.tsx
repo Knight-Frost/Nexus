@@ -3,19 +3,31 @@ import { Link, useParams } from 'react-router';
 import { useApi } from '@/hooks/useApi';
 import { landlordApi } from '@/lib/endpoints';
 import { fieldErrors } from '@/lib/api';
-import type { ApiError, Listing, Unit, UnitAvailabilityStatus } from '@/lib/types';
-import { formatCedisDecimal, humanize, listingStatusTone } from '@/lib/format';
-import type { Tone } from '@/lib/format';
+import type {
+  ApiError,
+  Listing,
+  MediaAsset,
+  Property,
+  PropertyType,
+  Unit,
+  UnitAvailabilityStatus,
+} from '@/lib/types';
+import { formatCedisDecimal, humanize } from '@/lib/format';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { Field, Input, Select } from '@/components/ui/Field';
+import { Field, Input, Select, Textarea } from '@/components/ui/Field';
 import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
-import { IconChevronRight, IconEdit, IconHome, IconPlus } from '@/components/ui/icons';
+import { IconChevronRight, IconEdit, IconHome, IconImage, IconPlus } from '@/components/ui/icons';
 import { useToast } from '@/components/ui/toast';
+import {
+  SemanticBadge,
+  NexusCard,
+  getListingModerationVariant,
+} from '@/components/cards';
+import { GalleryManager } from '@/components/media/GalleryManager';
 
 const AVAILABILITY_STATUSES: UnitAvailabilityStatus[] = [
   'available',
@@ -25,7 +37,9 @@ const AVAILABILITY_STATUSES: UnitAvailabilityStatus[] = [
   'unlisted',
 ];
 
-function availabilityTone(status: UnitAvailabilityStatus): Tone {
+import type { SemanticRole } from '@/components/cards';
+
+function availabilityRole(status: UnitAvailabilityStatus): SemanticRole {
   switch (status) {
     case 'available':   return 'success';
     case 'occupied':    return 'warning';
@@ -34,6 +48,16 @@ function availabilityTone(status: UnitAvailabilityStatus): Tone {
     default:            return 'neutral';
   }
 }
+
+const PROPERTY_TYPES: PropertyType[] = [
+  'single_family',
+  'multi_family',
+  'apartment',
+  'condo',
+  'townhouse',
+  'commercial',
+  'other',
+];
 
 interface UnitForm {
   unit_number: string;
@@ -44,6 +68,8 @@ interface UnitForm {
   rent_amount: string;
   security_deposit: string;
   availability_status: UnitAvailabilityStatus;
+  available_from: string;
+  amenities: string;
 }
 
 function emptyUnitForm(): UnitForm {
@@ -56,6 +82,51 @@ function emptyUnitForm(): UnitForm {
     rent_amount: '',
     security_deposit: '',
     availability_status: 'available',
+    available_from: '',
+    amenities: '',
+  };
+}
+
+function unitFormFrom(u: Unit): UnitForm {
+  return {
+    unit_number: u.unit_number,
+    internal_name: u.internal_name ?? '',
+    bedrooms: u.bedrooms,
+    bathrooms: u.bathrooms,
+    square_feet: u.square_feet != null ? String(u.square_feet) : '',
+    rent_amount: u.rent_amount,
+    security_deposit: u.security_deposit ?? '',
+    availability_status: u.availability_status,
+    available_from: u.available_from ?? '',
+    amenities: (u.amenities ?? []).join(', '),
+  };
+}
+
+interface PropertyForm {
+  name: string;
+  property_type: PropertyType;
+  street_address: string;
+  street_address_2: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  country: string;
+  year_built: string;
+  description: string;
+}
+
+function propertyFormFrom(p: Property): PropertyForm {
+  return {
+    name: p.name,
+    property_type: p.property_type,
+    street_address: p.street_address,
+    street_address_2: p.street_address_2 ?? '',
+    city: p.city,
+    state: p.state,
+    zip_code: p.zip_code,
+    country: p.country,
+    year_built: p.year_built != null ? String(p.year_built) : '',
+    description: p.description ?? '',
   };
 }
 
@@ -68,6 +139,10 @@ export function PropertyDetail() {
     () => landlordApi.property(propertyId),
     [propertyId],
   );
+
+  // Gallery media for this property — returned by GET /landlord/properties/{id}
+  // as `media_assets`, ordered by sort_order. Refetched after upload/delete/reorder.
+  const mediaAssets: MediaAsset[] = data?.media_assets ?? [];
 
   // Fetch all listings and filter by units belonging to this property.
   const listingsApi = useApi(() => landlordApi.listings(), []);
@@ -92,18 +167,60 @@ export function PropertyDetail() {
   );
 
   const [formOpen, setFormOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [form, setForm] = useState<UnitForm>(emptyUnitForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  // Property edit modal
+  const [propOpen, setPropOpen] = useState(false);
+  const [propForm, setPropForm] = useState<PropertyForm | null>(null);
+  const [propErrors, setPropErrors] = useState<Record<string, string>>({});
+  const [propSaving, setPropSaving] = useState(false);
+
+  // Unit gallery modal — GET /landlord/units/{id} returns `media_assets` (sort_order).
+  const [galleryUnit, setGalleryUnit] = useState<Unit | null>(null);
+  const [unitMedia, setUnitMedia] = useState<MediaAsset[]>([]);
+  const [unitMediaLoading, setUnitMediaLoading] = useState(false);
+
+  async function loadUnitMedia(unitId: number) {
+    setUnitMediaLoading(true);
+    try {
+      const full = await landlordApi.unit(unitId);
+      setUnitMedia((full.media_assets ?? []).slice().sort((a, b) => a.sort_order - b.sort_order));
+    } catch (err) {
+      toast((err as ApiError).message, 'error');
+    } finally {
+      setUnitMediaLoading(false);
+    }
+  }
+
+  function openUnitGallery(u: Unit) {
+    setGalleryUnit(u);
+    setUnitMedia([]);
+    void loadUnitMedia(u.id);
+  }
+
   function openCreate() {
+    setEditingUnit(null);
     setForm(emptyUnitForm());
+    setErrors({});
+    setFormOpen(true);
+  }
+
+  function openEditUnit(u: Unit) {
+    setEditingUnit(u);
+    setForm(unitFormFrom(u));
     setErrors({});
     setFormOpen(true);
   }
 
   function update<K extends keyof UnitForm>(key: K, value: UnitForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateProp<K extends keyof PropertyForm>(key: K, value: PropertyForm[K]) {
+    setPropForm((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
   function reloadAll() {
@@ -116,6 +233,10 @@ export function PropertyDetail() {
     e.preventDefault();
     setSaving(true);
     setErrors({});
+    const amenities = form.amenities
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean);
     const payload: Partial<Unit> = {
       unit_number: form.unit_number,
       internal_name: form.internal_name || null,
@@ -125,10 +246,17 @@ export function PropertyDetail() {
       rent_amount: form.rent_amount,
       security_deposit: form.security_deposit || null,
       availability_status: form.availability_status,
+      available_from: form.available_from || null,
+      amenities: amenities.length ? amenities : null,
     };
     try {
-      await landlordApi.createUnit(propertyId, payload);
-      toast('Unit created', 'success');
+      if (editingUnit) {
+        await landlordApi.updateUnit(editingUnit.id, payload);
+        toast('Unit updated', 'success');
+      } else {
+        await landlordApi.createUnit(propertyId, payload);
+        toast('Unit created', 'success');
+      }
       setFormOpen(false);
       reloadAll();
     } catch (err) {
@@ -138,6 +266,38 @@ export function PropertyDetail() {
       if (Object.keys(fe).length === 0) toast(e2.message, 'error');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePropertySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!propForm) return;
+    setPropSaving(true);
+    setPropErrors({});
+    const payload: Partial<Property> = {
+      name: propForm.name,
+      property_type: propForm.property_type,
+      street_address: propForm.street_address,
+      street_address_2: propForm.street_address_2 || null,
+      city: propForm.city,
+      state: propForm.state,
+      zip_code: propForm.zip_code,
+      country: propForm.country,
+      year_built: propForm.year_built ? Number(propForm.year_built) : null,
+      description: propForm.description || null,
+    };
+    try {
+      await landlordApi.updateProperty(propertyId, payload);
+      toast('Property updated', 'success');
+      setPropOpen(false);
+      reload();
+    } catch (err) {
+      const e2 = err as ApiError;
+      const fe = fieldErrors(e2);
+      setPropErrors(fe);
+      if (Object.keys(fe).length === 0) toast(e2.message, 'error');
+    } finally {
+      setPropSaving(false);
     }
   }
 
@@ -179,7 +339,16 @@ export function PropertyDetail() {
         description={fullAddress}
         action={
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" leftIcon={<IconEdit size={15} />}>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<IconEdit size={15} />}
+              onClick={() => {
+                setPropForm(propertyFormFrom(property));
+                setPropErrors({});
+                setPropOpen(true);
+              }}
+            >
               Edit
             </Button>
             <Button size="sm" leftIcon={<IconPlus size={15} />} onClick={openCreate}>
@@ -190,41 +359,56 @@ export function PropertyDetail() {
       />
 
       {/* Property info */}
-      <Card>
-        <CardBody>
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <NexusCard role="neutral" specular className="p-6">
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <dt className="text-xs text-ink-500">Type</dt>
+            <dd className="mt-1">
+              <SemanticBadge role="neutral">{humanize(property.property_type)}</SemanticBadge>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-ink-500">Status</dt>
+            <dd className="mt-1">
+              <SemanticBadge role={property.is_active ? 'success' : 'neutral'}>
+                {property.is_active ? 'Active' : 'Inactive'}
+              </SemanticBadge>
+            </dd>
+          </div>
+          {property.year_built != null && (
             <div>
-              <dt className="text-xs text-ink-500">Type</dt>
-              <dd className="mt-1">
-                <Badge tone="brand">{humanize(property.property_type)}</Badge>
-              </dd>
+              <dt className="text-xs text-ink-500">Year Built</dt>
+              <dd className="mt-1 text-sm font-medium text-ink-900">{property.year_built}</dd>
             </div>
-            <div>
-              <dt className="text-xs text-ink-500">Status</dt>
-              <dd className="mt-1">
-                <Badge tone={property.is_active ? 'success' : 'neutral'}>
-                  {property.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </dd>
-            </div>
-            {property.year_built != null && (
-              <div>
-                <dt className="text-xs text-ink-500">Year Built</dt>
-                <dd className="mt-1 text-sm font-medium text-ink-900">{property.year_built}</dd>
-              </div>
-            )}
-            {property.lot_size && (
-              <div>
-                <dt className="text-xs text-ink-500">Lot Size</dt>
-                <dd className="mt-1 text-sm font-medium text-ink-900">{property.lot_size}</dd>
-              </div>
-            )}
-          </dl>
-          {property.description && (
-            <p className="mt-4 border-t border-ink-100 pt-4 text-sm text-ink-600">
-              {property.description}
-            </p>
           )}
+          {property.lot_size && (
+            <div>
+              <dt className="text-xs text-ink-500">Lot Size</dt>
+              <dd className="mt-1 text-sm font-medium text-ink-900">{property.lot_size}</dd>
+            </div>
+          )}
+        </dl>
+        {property.description && (
+          <p className="mt-4 border-t border-ink-100 pt-4 text-sm text-ink-600">
+            {property.description}
+          </p>
+        )}
+      </NexusCard>
+
+      {/* Photo gallery */}
+      <Card>
+        <CardHeader
+          title="Photo Gallery"
+          description="Upload, reorder, or remove photos for this property. The first image is used as the primary photo."
+          action={<IconImage size={18} className="text-ink-400" />}
+        />
+        <CardBody>
+          <GalleryManager
+            target={{ type: 'property', id: propertyId }}
+            items={mediaAssets}
+            onRefetch={reload}
+            loading={loading}
+          />
         </CardBody>
       </Card>
 
@@ -280,12 +464,20 @@ export function PropertyDetail() {
                       </span>
                     </TD>
                     <TD>
-                      <Badge tone={availabilityTone(u.availability_status)}>
+                      <SemanticBadge role={availabilityRole(u.availability_status)}>
                         {humanize(u.availability_status)}
-                      </Badge>
+                      </SemanticBadge>
                     </TD>
                     <TD className="text-right">
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={<IconImage size={14} />}
+                        onClick={() => openUnitGallery(u)}
+                      >
+                        Photos
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => openEditUnit(u)}>
                         Edit
                       </Button>
                     </TD>
@@ -333,7 +525,9 @@ export function PropertyDetail() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-ink-500">{l.view_count} views</span>
-                      <Badge tone={listingStatusTone(l.status)}>{humanize(l.status)}</Badge>
+                      <SemanticBadge role={getListingModerationVariant(l.status)}>
+                        {humanize(l.status)}
+                      </SemanticBadge>
                     </div>
                   </li>
                 ))}
@@ -347,7 +541,7 @@ export function PropertyDetail() {
       <Modal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        title="Add unit"
+        title={editingUnit ? 'Edit unit' : 'Add unit'}
         description="Define the unit details and monthly rent."
         footer={
           <>
@@ -355,7 +549,7 @@ export function PropertyDetail() {
               Cancel
             </Button>
             <Button type="submit" form="unit-form" loading={saving}>
-              Create unit
+              {editingUnit ? 'Save changes' : 'Create unit'}
             </Button>
           </>
         }
@@ -460,25 +654,214 @@ export function PropertyDetail() {
             </Field>
           </div>
 
-          <Field label="Availability" error={errors.availability_status} required>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Availability" error={errors.availability_status} required>
+              {(fid, invalid) => (
+                <Select
+                  id={fid}
+                  invalid={invalid}
+                  value={form.availability_status}
+                  onChange={(e) =>
+                    update('availability_status', e.target.value as UnitAvailabilityStatus)
+                  }
+                >
+                  {AVAILABILITY_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {humanize(s)}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field label="Available from" error={errors.available_from}>
+              {(fid, invalid) => (
+                <Input
+                  id={fid}
+                  type="date"
+                  invalid={invalid}
+                  value={form.available_from}
+                  onChange={(e) => update('available_from', e.target.value)}
+                />
+              )}
+            </Field>
+          </div>
+
+          <Field
+            label="Amenities"
+            error={errors.amenities}
+            hint="Comma-separated, e.g. Air conditioning, Parking, Borehole"
+          >
             {(fid, invalid) => (
-              <Select
+              <Input
                 id={fid}
                 invalid={invalid}
-                value={form.availability_status}
-                onChange={(e) =>
-                  update('availability_status', e.target.value as UnitAvailabilityStatus)
-                }
-              >
-                {AVAILABILITY_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {humanize(s)}
-                  </option>
-                ))}
-              </Select>
+                placeholder="Air conditioning, Parking, Borehole"
+                value={form.amenities}
+                onChange={(e) => update('amenities', e.target.value)}
+              />
             )}
           </Field>
         </form>
+      </Modal>
+
+      {/* Edit property modal */}
+      <Modal
+        open={propOpen}
+        onClose={() => setPropOpen(false)}
+        title="Edit property"
+        description="Update the property details and full address."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPropOpen(false)} disabled={propSaving}>
+              Cancel
+            </Button>
+            <Button type="submit" form="property-edit-form" loading={propSaving}>
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        {propForm && (
+          <form id="property-edit-form" onSubmit={handlePropertySubmit} className="space-y-4">
+            <Field label="Property name" error={propErrors.name} required>
+              {(fid, invalid) => (
+                <Input
+                  id={fid}
+                  invalid={invalid}
+                  value={propForm.name}
+                  onChange={(e) => updateProp('name', e.target.value)}
+                />
+              )}
+            </Field>
+
+            <Field label="Property type" error={propErrors.property_type} required>
+              {(fid, invalid) => (
+                <Select
+                  id={fid}
+                  invalid={invalid}
+                  value={propForm.property_type}
+                  onChange={(e) => updateProp('property_type', e.target.value as PropertyType)}
+                >
+                  {PROPERTY_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {humanize(t)}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+
+            <Field label="Street address" error={propErrors.street_address} required>
+              {(fid, invalid) => (
+                <Input
+                  id={fid}
+                  invalid={invalid}
+                  value={propForm.street_address}
+                  onChange={(e) => updateProp('street_address', e.target.value)}
+                />
+              )}
+            </Field>
+
+            <Field label="Street address 2 / Estate / Area" error={propErrors.street_address_2}>
+              {(fid, invalid) => (
+                <Input
+                  id={fid}
+                  invalid={invalid}
+                  value={propForm.street_address_2}
+                  onChange={(e) => updateProp('street_address_2', e.target.value)}
+                />
+              )}
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="City" error={propErrors.city} required>
+                {(fid, invalid) => (
+                  <Input
+                    id={fid}
+                    invalid={invalid}
+                    value={propForm.city}
+                    onChange={(e) => updateProp('city', e.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label="Region / State" error={propErrors.state} required>
+                {(fid, invalid) => (
+                  <Input
+                    id={fid}
+                    invalid={invalid}
+                    value={propForm.state}
+                    onChange={(e) => updateProp('state', e.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label="Digital address / Postcode" error={propErrors.zip_code} required>
+                {(fid, invalid) => (
+                  <Input
+                    id={fid}
+                    invalid={invalid}
+                    value={propForm.zip_code}
+                    onChange={(e) => updateProp('zip_code', e.target.value)}
+                  />
+                )}
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Country" error={propErrors.country} required>
+                {(fid, invalid) => (
+                  <Input
+                    id={fid}
+                    invalid={invalid}
+                    value={propForm.country}
+                    onChange={(e) => updateProp('country', e.target.value)}
+                  />
+                )}
+              </Field>
+              <Field label="Year built" error={propErrors.year_built}>
+                {(fid, invalid) => (
+                  <Input
+                    id={fid}
+                    type="number"
+                    invalid={invalid}
+                    value={propForm.year_built}
+                    onChange={(e) => updateProp('year_built', e.target.value)}
+                  />
+                )}
+              </Field>
+            </div>
+
+            <Field label="Description" error={propErrors.description}>
+              {(fid, invalid) => (
+                <Textarea
+                  id={fid}
+                  invalid={invalid}
+                  rows={3}
+                  value={propForm.description}
+                  onChange={(e) => updateProp('description', e.target.value)}
+                />
+              )}
+            </Field>
+          </form>
+        )}
+      </Modal>
+
+      {/* Unit gallery modal */}
+      <Modal
+        open={galleryUnit !== null}
+        onClose={() => setGalleryUnit(null)}
+        title={galleryUnit ? `Photos — Unit ${galleryUnit.unit_number}` : 'Photos'}
+        description="Upload, reorder, or remove photos for this unit."
+        size="lg"
+        footer={<Button variant="secondary" onClick={() => setGalleryUnit(null)}>Close</Button>}
+      >
+        {galleryUnit && (
+          <GalleryManager
+            target={{ type: 'unit', id: galleryUnit.id }}
+            items={unitMedia}
+            loading={unitMediaLoading}
+            onRefetch={() => loadUnitMedia(galleryUnit.id)}
+          />
+        )}
       </Modal>
     </div>
   );

@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <meta name="theme-color" content="#0e1113" />
+    <meta name="theme-color" content="#071011" />
 
     <!-- Set the theme BEFORE first paint to avoid a flash of the wrong theme.
          Mirrors the resolver in src/context/theme.ts (kept tiny + dependency-free
@@ -29,25 +29,64 @@
                 : 'light';
           document.documentElement.setAttribute('data-theme', resolved);
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', resolved === 'light' ? '#faf8f3' : '#0e1113');
+          if (m) m.setAttribute('content', resolved === 'light' ? '#faf8f3' : '#071011');
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'dark');
         }
       })();
     </script>
+    <!-- Apply stored accent-color vars BEFORE first paint to avoid a flash.
+         Only runs when a non-default accent is stored; default = stylesheet wins. -->
+    <script>
+      (function () {
+        try {
+          var ACCENT_KEY = 'nexus.accent';
+          var DEFAULT = 'ink-teal';
+          var stored = localStorage.getItem(ACCENT_KEY);
+          if (!stored || stored === DEFAULT) return;
+          // Minimal inline accent table — brand-50/500/600/700 + action-400/500/600/700.
+          // Full table lives in src/config/accents.ts; this mirrors it for pre-paint.
+          var TABLE = {
+            'deep-sapphire':  { '--color-brand-50':'#EBF0FB','--color-brand-500':'#2059C0','--color-brand-600':'#1B4DA8','--color-brand-700':'#163F8C','--color-action-400':'#3570D4','--color-action-500':'#2059C0','--color-action-600':'#1B4DA8','--color-action-700':'#163F8C' },
+            'petrol-blue':    { '--color-brand-50':'#E3EFF4','--color-brand-500':'#1D6885','--color-brand-600':'#1A5C78','--color-brand-700':'#154E67','--color-action-400':'#237497','--color-action-500':'#1D6885','--color-action-600':'#1A5C78','--color-action-700':'#154E67' },
+            'royal-plum':     { '--color-brand-50':'#F3EAFA','--color-brand-500':'#7A2FA8','--color-brand-600':'#6B2D8B','--color-brand-700':'#5A2575','--color-action-400':'#8B38BC','--color-action-500':'#7A2FA8','--color-action-600':'#6B2D8B','--color-action-700':'#5A2575' },
+            'forest-slate':   { '--color-brand-50':'#E5EFEA','--color-brand-500':'#327254','--color-brand-600':'#2D5A3D','--color-brand-700':'#264D34','--color-action-400':'#358460','--color-action-500':'#327254','--color-action-600':'#2D5A3D','--color-action-700':'#264D34' },
+            'graphite':       { '--color-brand-50':'#F1F2F4','--color-brand-500':'#4B5465','--color-brand-600':'#374151','--color-brand-700':'#2E3744','--color-action-400':'#647080','--color-action-500':'#4B5465','--color-action-600':'#374151','--color-action-700':'#2E3744' },
+            'crimson':        { '--color-brand-50':'#FDE8E8','--color-brand-500':'#C02020','--color-brand-600':'#9B1C1C','--color-brand-700':'#811818','--color-action-400':'#D53030','--color-action-500':'#C02020','--color-action-600':'#9B1C1C','--color-action-700':'#811818' },
+            'indigo':         { '--color-brand-50':'#EEEDFB','--color-brand-500':'#4543BC','--color-brand-600':'#3730A3','--color-brand-700':'#2D288A','--color-action-400':'#5756D1','--color-action-500':'#4543BC','--color-action-600':'#3730A3','--color-action-700':'#2D288A' },
+            'emerald':        { '--color-brand-50':'#D1FAE5','--color-brand-500':'#059669','--color-brand-600':'#065F46','--color-brand-700':'#054E3B','--color-action-400':'#10B981','--color-action-500':'#059669','--color-action-600':'#065F46','--color-action-700':'#054E3B' },
+            'cerulean':       { '--color-brand-50':'#E0F2FE','--color-brand-500':'#0484C9','--color-brand-600':'#0369A1','--color-brand-700':'#025687','--color-action-400':'#0E97E0','--color-action-500':'#0484C9','--color-action-600':'#0369A1','--color-action-700':'#025687' },
+            'rosewood':       { '--color-brand-50':'#FDF2F5','--color-brand-500':'#BC1A55','--color-brand-600':'#881337','--color-brand-700':'#730F2E','--color-action-400':'#DA3D73','--color-action-500':'#BC1A55','--color-action-600':'#881337','--color-action-700':'#730F2E' },
+            'aubergine':      { '--color-brand-50':'#F5EDFB','--color-brand-500':'#7228AF','--color-brand-600':'#4C1D6B','--color-brand-700':'#3F185A','--color-action-400':'#8C3DC4','--color-action-500':'#7228AF','--color-action-600':'#4C1D6B','--color-action-700':'#3F185A' },
+            'storm-blue':     { '--color-brand-50':'#E3EAF3','--color-brand-500':'#204F84','--color-brand-600':'#1E3A5F','--color-brand-700':'#183050','--color-action-400':'#2A629A','--color-action-500':'#204F84','--color-action-600':'#1E3A5F','--color-action-700':'#183050' },
+            'pine':           { '--color-brand-50':'#DCFCE7','--color-brand-500':'#16A34A','--color-brand-600':'#14532D','--color-brand-700':'#0F4225','--color-action-400':'#22C55E','--color-action-500':'#16A34A','--color-action-600':'#14532D','--color-action-700':'#0F4225' },
+            'slate-violet':   { '--color-brand-50':'#EEF2FF','--color-brand-500':'#6366F1','--color-brand-600':'#4338CA','--color-brand-700':'#3730A3','--color-action-400':'#818CF8','--color-action-500':'#6366F1','--color-action-600':'#4338CA','--color-action-700':'#3730A3' },
+            'charcoal-mint':  { '--color-brand-50':'#CCFBF1','--color-brand-500':'#0D9488','--color-brand-600':'#134E4A','--color-brand-700':'#0F3F3C','--color-action-400':'#14B8A6','--color-action-500':'#0D9488','--color-action-600':'#134E4A','--color-action-700':'#0F3F3C' },
+          };
+          var vars = TABLE[stored];
+          if (!vars) return;
+          var root = document.documentElement;
+          for (var prop in vars) {
+            root.style.setProperty(prop, vars[prop]);
+          }
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
     <meta
       name="description"
-      content="Nexus is a secure property-rental platform for tenants, landlords, and administrators."
+      content="%BRAND_NAME% — %BRAND_TAGLINE% A secure property platform for tenants, landlords, and administrators."
     />
-    <meta property="og:title" content="Nexus | Secure Property Rentals" />
-    <meta property="og:description" content="Find, manage, and grow property rentals in one secure platform." />
+    <meta property="og:title" content="%BRAND_NAME% — %BRAND_DESCRIPTOR%" />
+    <meta property="og:description" content="%BRAND_TAGLINE%" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/android-chrome-512x512.png" />
-    <title>Nexus | Secure Property Rentals</title>
+    <title>%BRAND_NAME% — %BRAND_DESCRIPTOR%</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Manrope = auth form UI face; Cormorant Garamond = auth hero display face.
+         Only the weights actually used are requested (perf + no layout shift). -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesque:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
   </head>

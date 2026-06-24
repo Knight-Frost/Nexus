@@ -2,7 +2,7 @@
  * Formatting helpers. Centralized so money/date rendering is consistent and the
  * two backend money schemes are never confused at the call site.
  *
- * Currency: Nexus is a Ghana platform — all money is displayed in Ghana Cedis (GH&#8373;).
+ * Currency: Homecrest is a Ghana platform — all money is displayed in Ghana Cedis (GH&#8373;).
  * The backend stores integer "cents" (pesewas) for Contract/LedgerEntry amounts
  * and decimal strings for Unit.rent_amount.
  */
@@ -40,12 +40,60 @@ export function formatCedisDecimal(value: string | number | null | undefined): s
   return Number.isFinite(n) ? 'GH₵ ' + GHS_NO_DEC.format(n) : '—';
 }
 
+/**
+ * Resolve a stored file path to a public URL (listing photos live under
+ * /storage). Returns null when there is no real file, so callers fall back to a
+ * neutral placeholder rather than a broken image.
+ */
+export function storageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return `${import.meta.env.VITE_API_URL ?? ''}/storage/${path}`;
+}
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? '—'
     : d.toLocaleDateString('en-GH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/**
+ * Compact relative time, e.g. "just now", "3 hours ago", "2 days ago".
+ * Always derived from a real timestamp — used for "Updated X ago" labels.
+ */
+export function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '—';
+  const secs = Math.round((Date.now() - then) / 1000);
+  if (secs < 45) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} ${mins === 1 ? 'minute' : 'minutes'} ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} ${hrs === 1 ? 'hour' : 'hours'} ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+  const years = Math.round(months / 12);
+  return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+}
+
+/**
+ * Days until a future date (negative if past). Used for "in 4 days" / "Overdue
+ * 12 days" lease + payment posture, computed from real due dates.
+ */
+export function daysUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const target = new Date(iso).getTime();
+  if (Number.isNaN(target)) return null;
+  const startOfDay = (t: number) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  return Math.round((startOfDay(target) - startOfDay(Date.now())) / 86_400_000);
 }
 
 export function formatDateTime(iso: string | null | undefined): string {

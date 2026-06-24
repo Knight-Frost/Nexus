@@ -71,8 +71,16 @@ export function Donut({
   const r = 32;
   const cx = 40;
   const cy = 40;
+  const strokeW = 8;
   const circ = 2 * Math.PI * r;
   const offset = circ - (clamped / 100) * circ;
+
+  // Inner clear width available for the centred label (small padding off the ring).
+  const innerLabelWidth = 2 * (r - strokeW / 2) - 3;
+  const labelFontSize = 8;
+  // Only constrain labels that would otherwise spill onto the ring (e.g.
+  // "Security score"). Short labels ("Ready", "Health") are left at natural width.
+  const labelTooWide = !!label && label.length * labelFontSize * 0.55 > innerLabelWidth;
 
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" aria-hidden="true">
@@ -116,9 +124,12 @@ export function Donut({
           x={cx}
           y={cy + 12}
           textAnchor="middle"
-          fontSize="8"
+          fontSize={labelFontSize}
           fill="var(--color-ink-500)"
           fontFamily="var(--font-sans, system-ui)"
+          {...(labelTooWide
+            ? { textLength: innerLabelWidth, lengthAdjust: 'spacingAndGlyphs' as const }
+            : {})}
         >
           {label}
         </text>

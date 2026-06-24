@@ -1,587 +1,586 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Link } from 'react-router';
+import { brand } from '@/config/brand';
 import { useAuth } from '@/context/auth';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody, CardHeader } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Field, Input } from '@/components/ui/Field';
-import { Modal } from '@/components/ui/Modal';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { cn } from '@/lib/cn';
+import { useApi } from '@/hooks/useApi';
+import { tenantApi } from '@/lib/endpoints';
+import { fieldErrors } from '@/lib/api';
+import { formatDate } from '@/lib/format';
+import { Donut } from '@/components/ui/charts';
+import { useToast } from '@/components/ui/toast';
 import {
-  IconCheck,
-  IconCheckCircle,
-  IconAlertTriangle,
-  IconLock,
-  IconLogout,
-  IconEdit,
+  IconUser,
   IconMail,
   IconPhone,
-  IconUsers,
+  IconCalendar,
+  IconCheck,
+  IconCheckCircle,
+  IconClock,
+  IconDoc,
+  IconChevronRight,
+  IconUpload,
 } from '@/components/ui/icons';
+import { SemanticBadge } from '@/components/cards';
+import type { TenantProfile, Readiness, ApiError, MediaAsset } from '@/lib/types';
+import './account.css';
 
-/* ---- Tiny toggle pill ---------------------------------------------------- */
-function Toggle({
-  checked,
-  onChange,
-  label,
+/* ── helpers ─────────────────────────────────────────────────────────────── */
+
+function initials(name: string): string {
+  return name.split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+}
+
+/* ── Avatar uploader ─────────────────────────────────────────────────────── */
+function AvatarUploader({
+  name,
+  currentUrl,
+  onUploaded,
 }: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
+  name: string;
+  currentUrl?: string | null;
+  onUploaded: (asset: MediaAsset) => void;
 }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-2 focus-visible:outline-brand-600',
-        checked ? 'bg-brand-600' : 'bg-ink-200',
-      )}
-    >
-      <span
-        className={cn(
-          'pointer-events-none inline-block h-4 w-4 translate-x-0 rounded-full bg-white shadow-sm transition-transform',
-          checked ? 'translate-x-4' : 'translate-x-0',
-        )}
-      />
-    </button>
-  );
-}
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
 
-/* ---- Section that shows a result banner ---------------------------------- */
-function ResultBanner({ message, type }: { message: string; type: 'success' | 'error' }) {
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium border',
-        type === 'success'
-          ? 'bg-success-50 text-success-700 border-success-200'
-          : 'bg-danger-50 text-danger-700 border-danger-200',
-      )}
-    >
-      {type === 'success' ? (
-        <IconCheckCircle size={15} className="shrink-0" />
-      ) : (
-        <IconAlertTriangle size={15} className="shrink-0" />
-      )}
-      {message}
-    </div>
-  );
-}
+  const displayUrl = localUrl ?? currentUrl ?? null;
+  const abbrev = initials(name);
 
-/* ---- Preference row ------------------------------------------------------ */
-function PrefRow({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-ink-900">{label}</p>
-        <p className="mt-0.5 text-xs text-ink-500">{description}</p>
-      </div>
-      <Toggle checked={checked} onChange={onChange} label={label} />
-    </div>
-  );
-}
-
-/* ---- Main component ------------------------------------------------------ */
-export function ProfilePage() {
-  const { user, logout } = useAuth();
-
-  /* ---- Profile edit state ---- */
-  const [editing, setEditing] = useState(false);
-  const [profileResult, setProfileResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  const displayName =
-    user && 'first_name' in user
-      ? `${user.first_name} ${user.last_name}`
-      : user && 'name' in user
-        ? user.name
-        : 'Unknown';
-
-  const [firstName, setFirstName] = useState(
-    user && 'first_name' in user ? user.first_name : '',
-  );
-  const [lastName, setLastName] = useState(
-    user && 'last_name' in user ? user.last_name : '',
-  );
-  const [phone, setPhone] = useState(
-    user && 'phone' in user ? user.phone ?? '' : '',
-  );
-
-  function handleSaveProfile() {
-    // No real endpoint yet — show success feedback
-    setProfileResult({ type: 'success', message: 'Profile updated. (Changes are preview only — no save endpoint is available yet.)' });
-    setEditing(false);
-  }
-
-  /* ---- Notification preferences state ---- */
-  const [prefs, setPrefs] = useState({
-    rentReminders: true,
-    listingUpdates: true,
-    applicationUpdates: true,
-    maintenanceUpdates: false,
-  });
-
-  function setPref(key: keyof typeof prefs, val: boolean) {
-    setPrefs((p) => ({ ...p, [key]: val }));
-  }
-
-  /* ---- Password change state ---- */
-  const [pwCurrent, setPwCurrent] = useState('');
-  const [pwNew, setPwNew] = useState('');
-  const [pwConfirm, setPwConfirm] = useState('');
-  const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
-  const [pwResult, setPwResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  function handleChangePassword() {
-    const errors: Record<string, string> = {};
-    if (!pwCurrent) errors.pwCurrent = 'Current password is required.';
-    if (!pwNew || pwNew.length < 8) errors.pwNew = 'New password must be at least 8 characters.';
-    if (pwNew !== pwConfirm) errors.pwConfirm = 'Passwords do not match.';
-    if (Object.keys(errors).length > 0) {
-      setPwErrors(errors);
+  async function handleFile(file: File) {
+    if (uploading) return;
+    const ok = file.type.startsWith('image/');
+    if (!ok) {
+      toast('Please upload a JPEG, PNG, or WebP image.', 'error');
       return;
     }
-    // No real endpoint yet
-    setPwResult({ type: 'success', message: 'Password change submitted. (Preview only — no save endpoint yet.)' });
-    setPwCurrent('');
-    setPwNew('');
-    setPwConfirm('');
-    setPwErrors({});
-  }
-
-  /* ---- Sign-out modal ---- */
-  const [signOutOpen, setSignOutOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-
-  async function handleSignOut() {
-    setSigningOut(true);
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Avatar must be under 5 MB.', 'error');
+      return;
+    }
+    // Preview immediately
+    const preview = URL.createObjectURL(file);
+    setLocalUrl(preview);
+    setUploading(true);
     try {
-      await logout();
+      const asset = await tenantApi.uploadAvatar(file);
+      onUploaded(asset);
+      // Replace preview with server URL if available
+      if (asset.url) setLocalUrl(asset.url);
+      toast('Avatar updated', 'success');
+    } catch {
+      setLocalUrl(null); // revert preview
+      toast('Upload failed. Please try again.', 'error');
     } finally {
-      setSigningOut(false);
-      setSignOutOpen(false);
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+      URL.revokeObjectURL(preview);
     }
   }
 
-  /* ---- Delete account modal ---- */
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  return (
+    <div className="ac-avatar-uploader">
+      <div className="ac-avatar-preview">
+        {displayUrl
+          ? <img src={displayUrl} alt={name} className="ac-avatar-img" />
+          : <span className="ac-avatar">{abbrev}</span>
+        }
+        {uploading && <span className="ac-avatar-spinner" aria-label="Uploading avatar…" />}
+      </div>
+      <div className="ac-avatar-info">
+        <p className="ac-avatar-name">{name}</p>
+        <button
+          type="button"
+          className="ac-btn ac-btn-ghost ac-btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <IconUpload size={14} />
+          {uploading ? 'Uploading…' : 'Change photo'}
+        </button>
+        <p style={{ fontSize: 12, color: 'var(--color-ink-400)', marginTop: 3 }}>
+          JPEG, PNG or WebP · max 5 MB
+        </p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); }}
+        disabled={uploading}
+      />
+    </div>
+  );
+}
 
-  const identityVerified =
-    user && 'identity_verified' in user ? user.identity_verified : false;
-  const userEmail = user?.email ?? '';
-  const userRole =
-    user && 'role' in user
-      ? user.role === 'admin'
-        ? 'Administrator'
-        : user.role === 'landlord'
-          ? 'Landlord'
-          : 'Tenant'
-      : 'User';
+/* Support icon as inline SVG (not in icons.tsx, keeps component self-contained) */
+function HeadphonesIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+      <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+      <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+    </svg>
+  );
+}
+
+/* ── IdentityCard (shared across roles) ──────────────────────────────────── */
+function IdentityCard({
+  name, abbrev, email, phone, role, memberSince, verified,
+}: {
+  name: string;
+  abbrev: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  memberSince: string;
+  verified: boolean;
+}) {
+  return (
+    <div className="ac-card">
+      <div className="ac-identity">
+        <span className="ac-avatar">{abbrev}</span>
+        <div className="ac-identity-body">
+          <div className="ac-identity-top">
+            <div>
+              <h2 className="ac-identity-name">{name}</h2>
+              <span className="ac-badge tenant" style={{ marginTop: 8 }}>
+                <IconUser size={13} /> {role.toUpperCase()}
+              </span>
+            </div>
+            {verified && (
+              <SemanticBadge role="success">Identity verified</SemanticBadge>
+            )}
+          </div>
+          <div className="ac-identity-contact">
+            <span className="ac-contact-item"><IconMail size={15} /> {email}</span>
+            {phone && <span className="ac-contact-item"><IconPhone size={15} /> {phone}</span>}
+          </div>
+          <div className="ac-identity-meta">
+            <div className="ac-meta-item">
+              <IconCalendar size={16} className="ac-meta-ico" />
+              <div>
+                <div className="ac-meta-lab">Member since</div>
+                <div className="ac-meta-val">{memberSince}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── VerificationCard ────────────────────────────────────────────────────── */
+function VerificationCard({ verified }: { verified: boolean }) {
+  const steps = ['Government ID uploaded', 'Selfie verification', 'Admin review', 'Complete'];
+  const current = verified ? 4 : 1;
+  return (
+    <div className="ac-card">
+      <div className="ac-card-head">
+        <div>
+          <h2 className="ac-card-title">Identity &amp; verification</h2>
+          <p className="ac-card-desc">We use secure verification to help keep our community safe.</p>
+        </div>
+        <SemanticBadge role={verified ? 'success' : 'warning'}>
+          {verified ? 'Verified' : 'Pending'}
+        </SemanticBadge>
+      </div>
+      <div className="ac-vsteps">
+        {steps.map((label, i) => {
+          const done = i < current;
+          const cur = i === current;
+          return (
+            <div key={label} className={`ac-vstep${done ? ' done' : ''}${cur ? ' current' : ''}`}>
+              <span className="ac-vnode">
+                {done ? <IconCheck size={17} strokeWidth={3} /> : i + 1}
+              </span>
+              <span className="ac-vlabel">{label}</span>
+            </div>
+          );
+        })}
+      </div>
+      {!verified && (
+        <div className="ac-vactions">
+          <button className="ac-btn ac-btn-primary">Continue verification</button>
+          <button className="ac-link">Learn more <IconChevronRight size={14} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── ReadinessCard (tenants only) ────────────────────────────────────────── */
+function ReadinessCard({ readiness }: { readiness: Readiness }) {
+  const pct = readiness.percentage;
+  return (
+    <div className="ac-card ac-completion">
+      <div className="ac-completion-head">
+        <Donut pct={pct} size={128} label="Complete" />
+        <p className="ac-prog-text">
+          <strong>{pct >= 80 ? 'Almost there!' : 'Keep going!'}</strong>
+          Complete these steps to get the most out of {brand.appName}.
+        </p>
+      </div>
+      <ul className="ac-check ac-check-grid">
+        {readiness.items.map((item) => (
+          <li key={item.key}>
+            {item.complete
+              ? <IconCheckCircle size={17} className="ac-check-ico ac-ok" />
+              : <IconClock size={17} className="ac-check-ico ac-pending" />}
+            {item.label}
+            <span className={`ac-check-state ${item.complete ? 'ac-ok' : 'ac-pending'}`}>
+              {item.complete ? 'Complete' : 'Pending'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ── TenantProfileForm ───────────────────────────────────────────────────── */
+function TenantProfileForm({
+  profile,
+  onSaved,
+}: {
+  profile: TenantProfile;
+  onSaved: (p: TenantProfile) => void;
+}) {
+  const { toast } = useToast();
+
+  const [form, setForm] = useState({
+    first_name: profile.first_name ?? '',
+    last_name: profile.last_name ?? '',
+    phone: profile.phone ?? '',
+    city: profile.city ?? '',
+    date_of_birth: profile.date_of_birth ?? '',
+    next_of_kin_name: profile.next_of_kin_name ?? '',
+    next_of_kin_phone: profile.next_of_kin_phone ?? '',
+    next_of_kin_relationship: profile.next_of_kin_relationship ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [ferrors, setFerrors] = useState<Record<string, string>>({});
+
+  function set(key: keyof typeof form, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+    setFerrors((e) => { const n = { ...e }; delete n[key]; return n; });
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setFerrors({});
+    try {
+      const res = await tenantApi.updateProfile({
+        first_name: form.first_name || undefined,
+        last_name: form.last_name || undefined,
+        phone: form.phone || null,
+        city: form.city || null,
+        date_of_birth: form.date_of_birth || null,
+        next_of_kin_name: form.next_of_kin_name || null,
+        next_of_kin_phone: form.next_of_kin_phone || null,
+        next_of_kin_relationship: form.next_of_kin_relationship || null,
+      });
+      onSaved(res.user);
+      toast('Profile updated', 'success');
+    } catch (err) {
+      const fe = fieldErrors(err as ApiError);
+      if (Object.keys(fe).length) {
+        setFerrors(fe);
+      } else {
+        toast((err as ApiError).message ?? 'Could not save profile', 'error');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function field(
+    label: string,
+    key: keyof typeof form,
+    opts?: { type?: string; readOnly?: boolean; hint?: string },
+  ) {
+    return (
+      <div className="ac-field">
+        <label className="ac-field-lab" htmlFor={`pf-${key}`}>{label}</label>
+        <input
+          id={`pf-${key}`}
+          type={opts?.type ?? 'text'}
+          readOnly={opts?.readOnly}
+          value={form[key]}
+          onChange={(e) => set(key, e.target.value)}
+          style={{
+            display: 'block',
+            width: '100%',
+            marginTop: 4,
+            padding: '9px 12px',
+            borderRadius: 'var(--radius-xl)',
+            border: ferrors[key]
+              ? '1.5px solid var(--color-danger-600)'
+              : '1px solid var(--color-ink-300)',
+            fontSize: 14,
+            color: opts?.readOnly ? 'var(--color-ink-500)' : 'var(--color-ink-900)',
+            background: opts?.readOnly ? 'var(--color-ink-50)' : 'var(--color-surface)',
+            fontFamily: 'var(--font-sans)',
+            boxSizing: 'border-box',
+          }}
+          aria-describedby={ferrors[key] ? `pf-${key}-err` : undefined}
+        />
+        {opts?.hint && !ferrors[key] && (
+          <p style={{ fontSize: 12, color: 'var(--color-ink-400)', marginTop: 3 }}>{opts.hint}</p>
+        )}
+        {ferrors[key] && (
+          <p id={`pf-${key}-err`} role="alert" style={{ fontSize: 12, color: 'var(--color-danger-600)', marginTop: 3 }}>
+            {ferrors[key]}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-rise space-y-6">
-      <PageHeader
-        eyebrow="Account"
-        title="Profile & Settings"
-        description="Manage your personal details, preferences, and security."
-      />
-
-      {/* ── 1. Profile ─────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader
-          title="Profile"
-          action={
-            !editing ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => { setEditing(true); setProfileResult(null); }}
-                leftIcon={<IconEdit size={15} />}
-              >
-                Edit
-              </Button>
-            ) : null
-          }
-        />
-        <CardBody>
-          {profileResult && (
-            <div className="mb-4">
-              <ResultBanner message={profileResult.message} type={profileResult.type} />
-            </div>
-          )}
-
-          {!editing ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-100 text-brand-700 font-display text-xl font-bold shrink-0">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-display text-lg font-semibold text-ink-900">{displayName}</p>
-                  <p className="text-sm text-ink-500">{userRole}</p>
-                </div>
-              </div>
-              <div className="mt-4 divide-y divide-ink-100">
-                <div className="flex items-center gap-2.5 py-3">
-                  <IconMail size={15} className="shrink-0 text-ink-400" />
-                  <span className="text-sm text-ink-700">{userEmail}</span>
-                </div>
-                {user && 'phone' in user && user.phone && (
-                  <div className="flex items-center gap-2.5 py-3">
-                    <IconPhone size={15} className="shrink-0 text-ink-400" />
-                    <span className="text-sm text-ink-700">{user.phone}</span>
-                  </div>
-                )}
-                {user && 'user_type' in user && (
-                  <div className="flex items-center gap-2.5 py-3">
-                    <IconUsers size={15} className="shrink-0 text-ink-400" />
-                    <span className="text-sm text-ink-700 capitalize">{user.user_type} account</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="First name">
-                  {(id) => (
-                    <Input
-                      id={id}
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="First name"
-                    />
-                  )}
-                </Field>
-                <Field label="Last name">
-                  {(id) => (
-                    <Input
-                      id={id}
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Last name"
-                    />
-                  )}
-                </Field>
-              </div>
-              <Field label="Email" hint="Contact support to change your email address.">
-                {(id) => (
-                  <Input id={id} value={userEmail} disabled />
-                )}
-              </Field>
-              <Field label="Phone number">
-                {(id) => (
-                  <Input
-                    id={id}
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+233 20 000 0000"
-                  />
-                )}
-              </Field>
-              <div className="flex gap-3 pt-1">
-                <Button onClick={handleSaveProfile} leftIcon={<IconCheck size={15} />}>
-                  Save changes
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => { setEditing(false); setProfileResult(null); }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      {/* ── 2. Verification Status ──────────────────────────────────────────── */}
-      {user && 'identity_verified' in user && (
-        <Card>
-          <CardHeader title="Identity Verification" />
-          <CardBody>
-            {identityVerified ? (
-              <div className="flex items-center gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3">
-                <IconCheckCircle size={18} className="shrink-0 text-success-600" />
-                <div>
-                  <p className="text-sm font-semibold text-success-800">Identity Verified</p>
-                  <p className="text-xs text-success-600">Your identity has been confirmed.</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mb-4 flex items-center gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3">
-                  <IconAlertTriangle size={18} className="shrink-0 text-warning-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-warning-800">Verification Required</p>
-                    <p className="text-xs text-warning-600">
-                      Verify your identity to unlock all platform features.
-                    </p>
-                  </div>
-                </div>
-                <ol className="space-y-3">
-                  {[
-                    { step: 1, label: 'Upload a government-issued ID', done: false },
-                    { step: 2, label: 'Take a selfie to confirm your identity', done: false },
-                    { step: 3, label: 'Wait for admin review (usually 24–48 hrs)', done: false },
-                  ].map(({ step, label, done }) => (
-                    <li key={step} className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                          done
-                            ? 'bg-success-100 text-success-700'
-                            : 'bg-ink-100 text-ink-400',
-                        )}
-                      >
-                        {done ? <IconCheck size={14} /> : step}
-                      </div>
-                      <span className={cn('text-sm', done ? 'text-ink-400 line-through' : 'text-ink-700')}>
-                        {label}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-                <div className="mt-4">
-                  <Button variant="secondary" size="sm" disabled>
-                    Start Verification (coming soon)
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardBody>
-        </Card>
-      )}
-
-      {/* ── 3. Theme Preference ─────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader title="Appearance" />
-        <CardBody>
-          <p className="mb-4 text-sm text-ink-500">
-            Choose your preferred color theme. Your choice is saved in the browser.
-          </p>
-          <ThemeToggle variant="segmented" />
-        </CardBody>
-      </Card>
-
-      {/* ── 4. Notification Preferences ─────────────────────────────────────── */}
-      <Card>
-        <CardHeader title="Notification Preferences" />
-        <CardBody>
-          <p className="mb-4 text-sm text-ink-500">
-            Choose which updates you want to be notified about. (Preview — preferences stored locally.)
-          </p>
-          <div className="divide-y divide-ink-100">
-            <PrefRow
-              label="Rent reminders"
-              description="Get notified before rent is due and when a charge is generated."
-              checked={prefs.rentReminders}
-              onChange={(v) => setPref('rentReminders', v)}
-            />
-            <PrefRow
-              label="Listing updates"
-              description="Changes to listing status, approvals, or rejections."
-              checked={prefs.listingUpdates}
-              onChange={(v) => setPref('listingUpdates', v)}
-            />
-            <PrefRow
-              label="Application updates"
-              description="When your application or a contract changes status."
-              checked={prefs.applicationUpdates}
-              onChange={(v) => setPref('applicationUpdates', v)}
-            />
-            <PrefRow
-              label="Maintenance updates"
-              description="Status changes on maintenance requests."
-              checked={prefs.maintenanceUpdates}
-              onChange={(v) => setPref('maintenanceUpdates', v)}
-            />
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* ── 5. Security ─────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader title="Security" />
-        <CardBody>
-          <div className="space-y-5">
-            {/* Change password */}
-            <div>
-              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink-900">
-                <IconLock size={15} className="text-ink-400" />
-                Change Password
-              </h4>
-              {pwResult && (
-                <div className="mb-3">
-                  <ResultBanner message={pwResult.message} type={pwResult.type} />
-                </div>
-              )}
-              <div className="space-y-3">
-                <Field label="Current password" error={pwErrors.pwCurrent}>
-                  {(id, invalid) => (
-                    <Input
-                      id={id}
-                      invalid={invalid}
-                      type="password"
-                      value={pwCurrent}
-                      onChange={(e) => {
-                        setPwCurrent(e.target.value);
-                        setPwErrors((p) => ({ ...p, pwCurrent: '' }));
-                      }}
-                      placeholder="Your current password"
-                    />
-                  )}
-                </Field>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="New password" error={pwErrors.pwNew}>
-                    {(id, invalid) => (
-                      <Input
-                        id={id}
-                        invalid={invalid}
-                        type="password"
-                        value={pwNew}
-                        onChange={(e) => {
-                          setPwNew(e.target.value);
-                          setPwErrors((p) => ({ ...p, pwNew: '' }));
-                        }}
-                        placeholder="Min. 8 characters"
-                      />
-                    )}
-                  </Field>
-                  <Field label="Confirm new password" error={pwErrors.pwConfirm}>
-                    {(id, invalid) => (
-                      <Input
-                        id={id}
-                        invalid={invalid}
-                        type="password"
-                        value={pwConfirm}
-                        onChange={(e) => {
-                          setPwConfirm(e.target.value);
-                          setPwErrors((p) => ({ ...p, pwConfirm: '' }));
-                        }}
-                        placeholder="Repeat new password"
-                      />
-                    )}
-                  </Field>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleChangePassword}
-                  leftIcon={<IconCheck size={15} />}
-                >
-                  Update Password
-                </Button>
-              </div>
-            </div>
-
-            <hr className="border-ink-100" />
-
-            {/* Sign out of all devices */}
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-ink-900">Sign Out</p>
-                <p className="text-xs text-ink-500">
-                  Sign out of your current session on this device.
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSignOutOpen(true)}
-                leftIcon={<IconLogout size={15} />}
-              >
-                Sign Out
-              </Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* ── 6. Danger Zone ──────────────────────────────────────────────────── */}
-      <Card className="border-danger-200">
-        <CardHeader title="Danger Zone" />
-        <CardBody>
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-4 rounded-xl border border-danger-100 bg-danger-50/50 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-danger-800">Delete Account</p>
-                <p className="text-xs text-danger-600">
-                  Permanently remove your account and all associated data. This cannot be undone.
-                </p>
-              </div>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setDeleteOpen(true)}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* ── Sign-out modal ────────────────────────────────────────────────── */}
-      <Modal
-        open={signOutOpen}
-        onClose={() => !signingOut && setSignOutOpen(false)}
-        title="Sign out?"
-        description="You will be signed out of your current session. You can sign back in at any time."
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setSignOutOpen(false)} disabled={signingOut}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleSignOut}
-              loading={signingOut}
-              leftIcon={<IconLogout size={15} />}
-            >
-              Sign Out
-            </Button>
-          </>
-        }
-      />
-
-      {/* ── Delete account modal ──────────────────────────────────────────── */}
-      <Modal
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        title="Delete account"
-        description="Account deletion is irreversible. Please contact support to request account deletion."
-        footer={
-          <Button variant="secondary" onClick={() => setDeleteOpen(false)}>
-            Close
-          </Button>
-        }
-      >
-        <div className="flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
-          <IconAlertTriangle size={16} className="mt-0.5 shrink-0 text-warning-600" />
-          <span>
-            To delete your account, email{' '}
-            <a href="mailto:support@nexus.app" className="font-medium underline">
-              support@nexus.app
-            </a>{' '}
-            from your registered email address. We will process your request within 5 business days.
-          </span>
+    <form onSubmit={handleSubmit}>
+      <div className="ac-card">
+        <div className="ac-card-head">
+          <h2 className="ac-card-title">Personal details</h2>
+          <button
+            type="submit"
+            className="ac-btn ac-btn-primary ac-btn-sm"
+            disabled={saving}
+          >
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
         </div>
-      </Modal>
+
+        {/* Read-only identifiers */}
+        <div style={{ marginBottom: 20 }}>
+          <p className="ac-field-lab" style={{ marginBottom: 4 }}>Email address</p>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink-700)' }}>
+            {profile.email}
+            <span className="ac-verified" style={{ marginLeft: 10 }}><IconCheck size={11} /> Read-only</span>
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--color-ink-400)', marginTop: 2 }}>
+            Email cannot be changed here. Contact support if needed.
+          </p>
+        </div>
+
+        <div className="ac-fields">
+          {field('First name', 'first_name')}
+          {field('Last name', 'last_name')}
+          {field('Phone number', 'phone', { type: 'tel' })}
+          {field('City', 'city')}
+          {field('Date of birth', 'date_of_birth', { type: 'date', hint: 'YYYY-MM-DD' })}
+        </div>
+
+        <div style={{ marginTop: 28, paddingTop: 22, borderTop: '1px solid var(--color-ink-200)' }}>
+          <p className="ac-field-lab" style={{ marginBottom: 12, fontWeight: 600, fontSize: 13.5, color: 'var(--color-ink-700)' }}>
+            Emergency / next of kin
+          </p>
+          <div className="ac-fields">
+            {field('Full name', 'next_of_kin_name')}
+            {field('Phone number', 'next_of_kin_phone', { type: 'tel' })}
+            {field('Relationship', 'next_of_kin_relationship')}
+          </div>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+/* ── Tenant profile view (fetches real data) ─────────────────────────────── */
+function TenantProfileView() {
+  const { data, loading, error, reload } = useApi(() => tenantApi.profile(), []);
+  const [liveProfile, setLiveProfile] = useState<TenantProfile | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <div className="ac-main">
+        <div className="ac-card" style={{ padding: 48, textAlign: 'center', color: 'var(--color-ink-400)', fontSize: 14 }}>
+          Loading profile…
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="ac-main">
+        <div className="ac-card" style={{ padding: 32 }}>
+          <p style={{ color: 'var(--color-danger-600)', fontWeight: 600, marginBottom: 10 }}>
+            Could not load profile
+          </p>
+          <p style={{ color: 'var(--color-ink-500)', fontSize: 14, marginBottom: 16 }}>
+            {error?.message ?? 'An unexpected error occurred.'}
+          </p>
+          <button className="ac-btn ac-btn-ghost" onClick={reload}>Try again</button>
+        </div>
+      </div>
+    );
+  }
+
+  const profile = liveProfile ?? data.user;
+  const readiness = data.readiness;
+
+  function handleSaved(p: TenantProfile) {
+    setLiveProfile(p);
+  }
+
+  return (
+    <>
+      <div className="ac-main">
+        <AvatarUploader
+          name={profile.full_name}
+          currentUrl={avatarUrl}
+          onUploaded={(asset) => { if (asset.url) setAvatarUrl(asset.url); }}
+        />
+        <IdentityCard
+          name={profile.full_name}
+          abbrev={profile.initials || initials(profile.full_name)}
+          email={profile.email}
+          phone={profile.phone}
+          role={profile.user_type}
+          memberSince={formatDate(profile.created_at)}
+          verified={profile.identity_verified}
+        />
+        <VerificationCard verified={profile.identity_verified} />
+        <TenantProfileForm profile={profile} onSaved={handleSaved} />
+      </div>
+
+      <ReadinessCard readiness={readiness} />
+
+      <aside className="ac-rail">
+        <div className="ac-card">
+          <div className="ac-mini-row">
+            <span className="ac-mini-ico"><HeadphonesIcon size={20} /></span>
+            <div>
+              <div className="ac-mini-title" style={{ marginBottom: 4 }}>Need help?</div>
+              <div className="ac-mini-text">Our support team is here to help with account questions.</div>
+            </div>
+          </div>
+          <Link to="/app/messages" className="ac-btn ac-btn-ghost" style={{ marginTop: 14, width: '100%' }}>
+            Contact support
+          </Link>
+        </div>
+
+        <div className="ac-card">
+          <div className="ac-mini-head">
+            <span className="ac-mini-title"><IconDoc size={17} /> Documents</span>
+            <Link to="/app/documents" className="ac-link">View all <IconChevronRight size={14} /></Link>
+          </div>
+          <p className="ac-mini-text" style={{ marginTop: 4 }}>
+            Your uploaded documents (ID, proof of income, etc.) are managed on the{' '}
+            <Link to="/app/documents" style={{ color: 'var(--color-brand-700)', fontWeight: 600 }}>
+              Documents page
+            </Link>
+            .
+          </p>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+/* ── Non-tenant (landlord / admin) read-only view ────────────────────────── */
+function NonTenantProfileView() {
+  const { user } = useAuth();
+  if (!user) return null;
+
+  const name = 'full_name' in user ? user.full_name : user.name;
+  const email = user.email;
+  const phone = 'phone' in user ? user.phone ?? null : null;
+  const role = user.role;
+  const verified = 'identity_verified' in user ? user.identity_verified : false;
+  const memberSince = 'created_at' in user ? formatDate(user.created_at) : '—';
+
+  return (
+    <div className="ac-main">
+      <IdentityCard
+        name={name}
+        abbrev={initials(name)}
+        email={email}
+        phone={phone}
+        role={role}
+        memberSince={memberSince}
+        verified={verified}
+      />
+
+      <div className="ac-card">
+        <div className="ac-card-head">
+          <h2 className="ac-card-title">Account details</h2>
+        </div>
+        <div className="ac-fields">
+          <div className="ac-field">
+            <div className="ac-field-lab">Full name</div>
+            <div className="ac-field-val">{name}</div>
+          </div>
+          <div className="ac-field">
+            <div className="ac-field-lab">Email address</div>
+            <div className="ac-field-val">{email}</div>
+          </div>
+          {phone && (
+            <div className="ac-field">
+              <div className="ac-field-lab">Phone</div>
+              <div className="ac-field-val">{phone}</div>
+            </div>
+          )}
+          <div className="ac-field">
+            <div className="ac-field-lab">Role</div>
+            <div className="ac-field-val" style={{ textTransform: 'capitalize' }}>{role}</div>
+          </div>
+          <div className="ac-field">
+            <div className="ac-field-lab">Member since</div>
+            <div className="ac-field-val">{memberSince}</div>
+          </div>
+          <div className="ac-field">
+            <div className="ac-field-lab">Identity</div>
+            <div className="ac-field-val">
+              {verified
+                ? <SemanticBadge role="success">Verified</SemanticBadge>
+                : <SemanticBadge role="neutral">Not verified</SemanticBadge>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ac-card">
+        <div className="ac-mini-row">
+          <span className="ac-mini-ico"><HeadphonesIcon size={20} /></span>
+          <div>
+            <div className="ac-mini-title" style={{ marginBottom: 4 }}>Need help?</div>
+            <div className="ac-mini-text">Our support team can help with account questions.</div>
+          </div>
+        </div>
+        <Link to="/app/messages" className="ac-btn ac-btn-ghost" style={{ marginTop: 14, display: 'inline-flex' }}>
+          Contact support
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page shell ──────────────────────────────────────────────────────────── */
+export function ProfilePage() {
+  const { user } = useAuth();
+  const isTenant = user?.role === 'tenant';
+
+  return (
+    <div className="ac-page">
+      <div>
+        <p className="ac-eyebrow">Account</p>
+        <h1 className="ac-title">Profile</h1>
+        <p className="ac-sub">Manage your personal details and identity information.</p>
+      </div>
+
+      <div className="ac-grid">
+        {isTenant ? <TenantProfileView /> : <NonTenantProfileView />}
+      </div>
     </div>
   );
 }

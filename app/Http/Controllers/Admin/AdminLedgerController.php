@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\NotificationType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GenerateLateFeeRequest;
 use App\Models\LedgerEntry;
 use App\Services\LedgerService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,7 +21,8 @@ use Illuminate\Http\Request;
 class AdminLedgerController extends Controller
 {
     public function __construct(
-        protected LedgerService $ledgerService
+        protected LedgerService $ledgerService,
+        protected NotificationService $notificationService
     ) {}
 
     /**
@@ -30,9 +33,10 @@ class AdminLedgerController extends Controller
         $filters = $request->validate([
             'type' => ['sometimes', 'string', 'in:rent,late_fee'],
             'status' => ['sometimes', 'string', 'in:pending,paid,overdue,waived'],
-            'tenant_id' => ['sometimes'],
-            'landlord_id' => ['sometimes'],
-            'contract_id' => ['sometimes'],
+            // why: tenant_id/landlord_id are bigint users.id FKs; contract_id is a UUID PK. (June 2026)
+            'tenant_id' => ['sometimes', 'integer'],
+            'landlord_id' => ['sometimes', 'integer'],
+            'contract_id' => ['sometimes', 'uuid'],
         ]);
 
         $query = LedgerEntry::with(['contract', 'tenant', 'landlord', 'relatedRentEntry'])
@@ -81,6 +85,27 @@ class AdminLedgerController extends Controller
                 $ledgerEntry,
                 $request->amount_cents
             );
+
+            // Notify the tenant of the late fee
+            $tenant = $ledgerEntry->tenant;
+            if ($tenant) {
+                $eventId = "late-fee-added:{$lateFee->id}";
+                if (! $this->notificationService->exists($tenant, $eventId)) {
+                    $amount = 'GH₵ '.number_format($request->amount_cents / 100, 2);
+                    $this->notificationService->create(
+                        user: $tenant,
+                        type: NotificationType::LATE_FEE_ADDED,
+                        title: 'Late Fee Added',
+                        message: "A late fee of {$amount} has been added to your account for an overdue rent payment.",
+                        data: [
+                            'event_id' => $eventId,
+                            'late_fee_entry_id' => $lateFee->id,
+                            'related_rent_entry_id' => $ledgerEntry->id,
+                            'amount_cents' => $request->amount_cents,
+                        ]
+                    );
+                }
+            }
 
             return response()->json([
                 'message' => 'Late fee generated successfully',

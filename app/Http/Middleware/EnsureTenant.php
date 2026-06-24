@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\AccountStatus;
 use App\Enums\UserType;
 use Closure;
 use Illuminate\Http\Request;
@@ -33,6 +34,20 @@ class EnsureTenant
         if ($user->user_type !== UserType::TENANT) {
             return response()->json([
                 'message' => 'This action is only available to tenants.',
+            ], 403);
+        }
+
+        // Phase 4: Check blocked or archived status BEFORE legacy is_active check
+        // so the message is specific to the governance action taken.
+        $accountStatus = $user->account_status;
+        if ($accountStatus === AccountStatus::BLOCKED) {
+            return response()->json([
+                'message' => 'Your account has been blocked.',
+            ], 403);
+        }
+        if ($accountStatus === AccountStatus::ARCHIVED) {
+            return response()->json([
+                'message' => 'Your account has been archived.',
             ], 403);
         }
 

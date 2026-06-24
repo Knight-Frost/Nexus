@@ -6,16 +6,35 @@ namespace App\Enums;
  * NotificationType
  *
  * Defines all notification types in the system.
- * Phase 3.5 implements: rent_generated, rent_overdue, payment_succeeded, payment_failed
  */
 enum NotificationType: string
 {
     case RENT_GENERATED = 'rent_generated';
-    case RENT_DUE_SOON = 'rent_due_soon';           // Future (Phase 3.6)
+    case RENT_DUE_SOON = 'rent_due_soon';
     case RENT_OVERDUE = 'rent_overdue';
     case PAYMENT_SUCCEEDED = 'payment_succeeded';
     case PAYMENT_FAILED = 'payment_failed';
-    case LATE_FEE_ADDED = 'late_fee_added';         // Future
-    case CONTRACT_SIGNED = 'contract_signed';       // Future
-    case CONTRACT_TERMINATED = 'contract_terminated'; // Future
+    case LATE_FEE_ADDED = 'late_fee_added';
+    case CONTRACT_SIGNED = 'contract_signed';
+    case CONTRACT_TERMINATED = 'contract_terminated';
+    case LISTING_APPROVED = 'listing_approved';
+    case LISTING_REJECTED = 'listing_rejected';
+    case ACCOUNT_SUSPENDED = 'account_suspended';
+    case ACCOUNT_REACTIVATED = 'account_reactivated';
+    case VERIFICATION_SUBMITTED = 'verification_submitted';
+    case VERIFICATION_APPROVED = 'verification_approved';
+    case VERIFICATION_REJECTED = 'verification_rejected';
+    case VERIFICATION_NEEDS_INFO = 'verification_needs_info';
+    case ACCOUNT_BLOCKED = 'account_blocked';
+    case ACCOUNT_ARCHIVED = 'account_archived';
+
+    // Application lifecycle
+    case APPLICATION_SUBMITTED = 'application_submitted';
+    case APPLICATION_APPROVED = 'application_approved';
+    case APPLICATION_REJECTED = 'application_rejected';
+
+    // Reviews
+    case REVIEW_SUBMITTED = 'review_submitted';
+    case REVIEW_APPROVED = 'review_approved';
+    case REVIEW_RESPONSE = 'review_response';
 }

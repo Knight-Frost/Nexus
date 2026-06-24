@@ -97,7 +97,7 @@ class NotificationWorkflowTest extends TestCase
         // Verify notification content
         $notification = Notification::where('user_id', $this->tenant->id)->first();
         $this->assertEquals('Rent Generated', $notification->title);
-        $this->assertStringContainsString('$2,500', $notification->message);
+        $this->assertStringContainsString('GH₵ 2,500', $notification->message);
         $this->assertStringContainsString('March 1, 2025', $notification->message);
         $this->assertEquals($this->rentEntry->id, $notification->data['ledger_entry_id']);
     }
@@ -163,7 +163,7 @@ class NotificationWorkflowTest extends TestCase
         // Verify notification content
         $notification = Notification::where('user_id', $this->tenant->id)->first();
         $this->assertEquals('Payment Received', $notification->title);
-        $this->assertStringContainsString('Payment of $2,500.00 received', $notification->message);
+        $this->assertStringContainsString('Payment of GH₵ 2,500.00 received', $notification->message);
         $this->assertStringContainsString('Thank you', $notification->message);
     }
 
@@ -194,7 +194,7 @@ class NotificationWorkflowTest extends TestCase
         // Verify notification content
         $notification = Notification::where('user_id', $this->tenant->id)->first();
         $this->assertEquals('Payment Failed', $notification->title);
-        $this->assertStringContainsString('Payment of $2,500.00 failed', $notification->message);
+        $this->assertStringContainsString('Payment of GH₵ 2,500.00 failed', $notification->message);
         $this->assertStringContainsString('Insufficient funds', $notification->message);
     }
 

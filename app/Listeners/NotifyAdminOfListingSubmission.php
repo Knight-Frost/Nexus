@@ -19,7 +19,7 @@ class NotifyAdminOfListingSubmission implements ShouldQueue
         EmailLog::create([
             'recipient_type' => 'system',
             'recipient_id' => null,
-            'recipient_email' => 'admin@nexus.com',
+            'recipient_email' => config('mail.admin_address'),
             'subject' => 'New Listing Pending Review',
             'mailable_class' => 'ListingSubmissionNotification',
             'email_type' => 'notification',

@@ -2,10 +2,14 @@ import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router';
 import { AppShell } from '@/components/layout/AppShell';
 import { RequireAuth, RequireRole, RedirectIfAuthed } from '@/components/routing/guards';
+import { useAuth } from '@/context/auth';
 
 import { Landing } from '@/pages/Landing';
 import { Login } from '@/pages/auth/Login';
 import { Register } from '@/pages/auth/Register';
+import { ForgotPassword } from '@/pages/auth/ForgotPassword';
+import { ResetPassword } from '@/pages/auth/ResetPassword';
+import { VerifyEmail } from '@/pages/auth/VerifyEmail';
 import { NotFound } from '@/pages/NotFound';
 import { DashboardRouter } from '@/pages/DashboardRouter';
 
@@ -18,6 +22,9 @@ const SavedListings     = lazy(() => import('@/pages/tenant/SavedListings').then
 const ApplicationsPage  = lazy(() => import('@/pages/tenant/ApplicationsPage').then((m) => ({ default: m.ApplicationsPage })));
 const PaymentsPage      = lazy(() => import('@/pages/tenant/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
 const MaintenancePage   = lazy(() => import('@/pages/tenant/MaintenancePage').then((m) => ({ default: m.MaintenancePage })));
+const ComparePage       = lazy(() => import('@/pages/tenant/ComparePage').then((m) => ({ default: m.ComparePage })));
+const VerificationCenter = lazy(() => import('@/pages/tenant/VerificationCenter').then((m) => ({ default: m.VerificationCenter })));
+const MyReviews         = lazy(() => import('@/pages/tenant/MyReviews').then((m) => ({ default: m.MyReviews })));
 
 // Landlord
 const Properties        = lazy(() => import('@/pages/landlord/Properties').then((m) => ({ default: m.Properties })));
@@ -25,11 +32,18 @@ const PropertyDetail    = lazy(() => import('@/pages/landlord/PropertyDetail').t
 const LandlordListings  = lazy(() => import('@/pages/landlord/LandlordListings').then((m) => ({ default: m.LandlordListings })));
 const Applicants        = lazy(() => import('@/pages/landlord/Applicants').then((m) => ({ default: m.Applicants })));
 const TenantManagement  = lazy(() => import('@/pages/landlord/TenantManagement').then((m) => ({ default: m.TenantManagement })));
+const LandlordMaintenance = lazy(() => import('@/pages/landlord/LandlordMaintenance').then((m) => ({ default: m.LandlordMaintenance })));
+const LandlordLedger    = lazy(() => import('@/pages/landlord/LandlordLedger').then((m) => ({ default: m.LandlordLedger })));
+const LandlordAnalytics    = lazy(() => import('@/pages/landlord/LandlordAnalytics').then((m) => ({ default: m.LandlordAnalytics })));
+const LandlordVerification = lazy(() => import('@/pages/landlord/LandlordVerification').then((m) => ({ default: m.LandlordVerification })));
+const LandlordReviews      = lazy(() => import('@/pages/landlord/LandlordReviews').then((m) => ({ default: m.LandlordReviews })));
 
 // Admin
-const Moderation        = lazy(() => import('@/pages/admin/Moderation').then((m) => ({ default: m.Moderation })));
-const AuditLogs         = lazy(() => import('@/pages/admin/AuditLogs').then((m) => ({ default: m.AuditLogs })));
-const UsersPage         = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })));
+const Moderation              = lazy(() => import('@/pages/admin/Moderation').then((m) => ({ default: m.Moderation })));
+const AuditLogs               = lazy(() => import('@/pages/admin/AuditLogs').then((m) => ({ default: m.AuditLogs })));
+const UsersPage               = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })));
+const VerificationModeration  = lazy(() => import('@/pages/admin/VerificationModeration').then((m) => ({ default: m.VerificationModeration })));
+const ReviewModeration        = lazy(() => import('@/pages/admin/ReviewModeration').then((m) => ({ default: m.ReviewModeration })));
 
 // Shared
 const ContractsPage     = lazy(() => import('@/pages/shared/ContractsPage').then((m) => ({ default: m.ContractsPage })));
@@ -37,22 +51,30 @@ const ContractDetail    = lazy(() => import('@/pages/shared/ContractDetail').the
 const LedgerPage        = lazy(() => import('@/pages/shared/LedgerPage').then((m) => ({ default: m.LedgerPage })));
 const Notifications     = lazy(() => import('@/pages/shared/Notifications').then((m) => ({ default: m.Notifications })));
 const ProfilePage       = lazy(() => import('@/pages/shared/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const SettingsPage      = lazy(() => import('@/pages/shared/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const DocumentsPage     = lazy(() => import('@/pages/shared/DocumentsPage').then((m) => ({ default: m.DocumentsPage })));
+const MessagesPage      = lazy(() => import('@/pages/shared/MessagesPage').then((m) => ({ default: m.MessagesPage })));
 
-/* ---- Inline placeholder for routes not yet implemented ------------------- */
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-xl border border-brand-200 bg-brand-50 px-10 py-8 dark:border-brand-800 dark:bg-brand-950">
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand-600 dark:text-brand-400">
-          Coming soon
-        </p>
-        <h2 className="mt-2 text-2xl font-bold text-ink-900 dark:text-ink-50">{label}</h2>
-        <p className="mt-2 max-w-xs text-sm text-ink-500 dark:text-ink-400">
-          This feature is under development and will be available in a future update.
-        </p>
-      </div>
-    </div>
-  );
+/* ---- Role-aware maintenance view ----------------------------------------
+   Tenants raise/track requests; landlords triage/advance them. Same route,
+   role-specific page (the API enforces the real scoping). */
+function MaintenanceRouter() {
+  const { user } = useAuth();
+  if (user?.role === 'landlord') {
+    return <Lazy><LandlordMaintenance /></Lazy>;
+  }
+  return <Lazy><MaintenancePage /></Lazy>;
+}
+
+/* ---- Role-aware rent ledger ---------------------------------------------
+   Landlords get the operational Rent Ledger console; admins/tenants keep the
+   shared ledger view. The API enforces the real owner scoping either way. */
+function LedgerRouter() {
+  const { user } = useAuth();
+  if (user?.role === 'landlord') {
+    return <Lazy><LandlordLedger /></Lazy>;
+  }
+  return <Lazy><LedgerPage /></Lazy>;
 }
 
 /* ---- Suspense wrapper ---------------------------------------------------- */
@@ -93,6 +115,9 @@ export default function App() {
           </RedirectIfAuthed>
         }
       />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Authenticated app */}
       <Route
@@ -125,11 +150,24 @@ export default function App() {
         />
         <Route
           path="ledger"
-          element={<Lazy><LedgerPage /></Lazy>}
+          element={<LedgerRouter />}
         />
         <Route
           path="profile"
           element={<Lazy><ProfilePage /></Lazy>}
+        />
+        <Route
+          path="settings"
+          element={<Lazy><SettingsPage /></Lazy>}
+        />
+        <Route
+          path="documents"
+          element={<Lazy><DocumentsPage /></Lazy>}
+        />
+        {/* Messages — self-contained two-pane page (no child routes) */}
+        <Route
+          path="messages"
+          element={<Lazy><MessagesPage /></Lazy>}
         />
 
         {/* Tenant-only */}
@@ -169,7 +207,7 @@ export default function App() {
           path="maintenance"
           element={
             <RequireRole roles={['tenant', 'landlord']}>
-              <Lazy><MaintenancePage /></Lazy>
+              <MaintenanceRouter />
             </RequireRole>
           }
         />
@@ -177,7 +215,23 @@ export default function App() {
           path="compare"
           element={
             <RequireRole roles={['tenant']}>
-              <ComingSoon label="Compare Listings" />
+              <Lazy><ComparePage /></Lazy>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="verification"
+          element={
+            <RequireRole roles={['tenant']}>
+              <Lazy><VerificationCenter /></Lazy>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="reviews"
+          element={
+            <RequireRole roles={['tenant']}>
+              <Lazy><MyReviews /></Lazy>
             </RequireRole>
           }
         />
@@ -224,12 +278,32 @@ export default function App() {
           }
         />
 
-        {/* Landlord-or-admin */}
+        {/* Landlord analytics — real, scoped to the landlord's portfolio */}
         <Route
           path="analytics"
           element={
-            <RequireRole roles={['landlord', 'admin']}>
-              <ComingSoon label="Analytics" />
+            <RequireRole roles={['landlord']}>
+              <Lazy><LandlordAnalytics /></Lazy>
+            </RequireRole>
+          }
+        />
+
+        {/* Landlord verification — same lifecycle as tenant verification */}
+        <Route
+          path="landlord-verification"
+          element={
+            <RequireRole roles={['landlord']}>
+              <Lazy><LandlordVerification /></Lazy>
+            </RequireRole>
+          }
+        />
+
+        {/* Landlord reviews — approved reviews on their properties + respond */}
+        <Route
+          path="landlord-reviews"
+          element={
+            <RequireRole roles={['landlord']}>
+              <Lazy><LandlordReviews /></Lazy>
             </RequireRole>
           }
         />
@@ -260,18 +334,18 @@ export default function App() {
           }
         />
         <Route
-          path="disputes"
+          path="verifications"
           element={
             <RequireRole roles={['admin']}>
-              <ComingSoon label="Disputes" />
+              <Lazy><VerificationModeration /></Lazy>
             </RequireRole>
           }
         />
         <Route
-          path="risk"
+          path="review-moderation"
           element={
             <RequireRole roles={['admin']}>
-              <ComingSoon label="Risk Alerts" />
+              <Lazy><ReviewModeration /></Lazy>
             </RequireRole>
           }
         />

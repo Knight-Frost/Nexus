@@ -1,108 +1,196 @@
-import { useState } from 'react';
+/**
+ * TenantManagement — Tenant Roster Operations Console
+ *
+ * A landlord-facing command console showing all active tenancies, derived
+ * entirely from live contracts and ledger data. No occupant counts, auto-pay
+ * status, or trend deltas are shown (no backing data). Messaging is omitted
+ * because landlords cannot initiate conversations.
+ *
+ * Data sources:
+ *   - landlordApi.contracts()  — all contracts (active + pending_tenant etc.)
+ *   - landlordApi.ledger()     — full ledger for payment posture derivation
+ */
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { StatCard } from '@/components/ui/StatCard';
-import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
-import { EmptyState } from '@/components/ui/states';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '@/components/ui/states';
 import {
   IconUsers,
-  IconCheck,
-  IconAlertTriangle,
-  IconXCircle,
-  IconDoc,
+  IconWallet,
   IconClock,
+  IconAlertTriangle,
+  IconCheckCircle,
+  IconLedger,
+  IconDoc,
 } from '@/components/ui/icons';
-import { formatCedisDecimal, formatDate } from '@/lib/format';
-import { Link } from 'react-router';
+import {
+  CommandBar,
+  SearchInput,
+  FilterTabs,
+  SortSelect,
+  Pagination,
+  ActionMenu,
+  StatusChip,
+  Thumbnail,
+  type FilterTab as Tab,
+  type SelectOption,
+} from '@/components/landlord/primitives';
+import { paginate, rangeLabel } from '@/lib/paginate';
+import { useApi } from '@/hooks/useApi';
+import { landlordApi } from '@/lib/endpoints';
+import {
+  formatCents,
+  formatDate,
+  daysUntil,
+  humanize,
+  contractStatusTone,
+  storageUrl,
+} from '@/lib/format';
+import type { Contract, LedgerEntry } from '@/lib/types';
+import {
+  StatusCard,
+  SemanticBadge,
+  CommandCard,
+  DashboardSection,
+  DataCardGrid,
+  getContractVariant,
+} from '@/components/cards';
 
-/* ---- Types -------------------------------------------------------------- */
+/* ── Constants ─────────────────────────────────────────────────────────────── */
 
-type PaymentStatus = 'paid' | 'pending' | 'overdue';
+const PER_PAGE = 8;
 
-interface ActiveTenant {
-  id: string;
-  name: string;
-  email: string;
-  property: string;
-  unit: string;
-  contract_start: string;
-  lease_end: string;
-  monthly_rent: string; // GH₵ decimal string
-  payment_status: PaymentStatus;
-  next_payment: string;
-}
+/** Days before end_date at which a lease is considered "Ending soon". */
+const ENDING_SOON_DAYS = 60;
 
-/* ---- Mock data ---------------------------------------------------------- */
+type FilterKey = 'all' | 'active' | 'awaiting_signature' | 'overdue' | 'ending_soon';
+type SortKey = 'newest' | 'name_az' | 'rent_high';
 
-const MOCK_TENANTS: ActiveTenant[] = [
-  {
-    id: 'tenant-001',
-    name: 'Kwame Asante',
-    email: 'k.asante@gmail.com',
-    property: 'Labone Close Residences',
-    unit: 'B2',
-    contract_start: '2026-02-01',
-    lease_end: '2027-01-31',
-    monthly_rent: '5800.00',
-    payment_status: 'paid',
-    next_payment: '2026-07-01',
-  },
-  {
-    id: 'tenant-002',
-    name: 'Esi Boateng',
-    email: 'esi.b@yahoo.com',
-    property: 'East Legon Heights',
-    unit: 'A3',
-    contract_start: '2026-01-15',
-    lease_end: '2027-01-14',
-    monthly_rent: '8500.00',
-    payment_status: 'pending',
-    next_payment: '2026-07-01',
-  },
-  {
-    id: 'tenant-003',
-    name: 'Nana Oppong',
-    email: 'noppong@ug.edu.gh',
-    property: 'Adenta Housing',
-    unit: 'C2',
-    contract_start: '2025-09-01',
-    lease_end: '2026-08-31',
-    monthly_rent: '3200.00',
-    payment_status: 'overdue',
-    next_payment: '2026-06-01',
-  },
+const SORT_OPTIONS: SelectOption<SortKey>[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'name_az', label: 'Name A–Z' },
+  { value: 'rent_high', label: 'Rent high→low' },
 ];
 
-/* ---- Helpers ------------------------------------------------------------ */
+/* ── Derived view-model types ───────────────────────────────────────────────── */
 
-function paymentStatusTone(s: PaymentStatus) {
-  if (s === 'paid')    return 'success' as const;
-  if (s === 'overdue') return 'danger' as const;
-  return 'warning' as const;
+type PaymentStatusKey = 'paid' | 'upcoming' | 'overdue';
+
+interface NextPayment {
+  amount_cents: number;
+  due_date: string | null;
+  status: PaymentStatusKey;
+  label: string;
 }
 
-function paymentStatusLabel(s: PaymentStatus) {
-  if (s === 'paid')    return 'Paid';
-  if (s === 'overdue') return 'Overdue';
-  return 'Pending';
+interface ActiveTenancy {
+  contract: Contract;
+  tenantName: string;
+  tenantEmail: string | null;
+  isVerified: boolean;
+  property: string;
+  propertyCity: string | null;
+  unit: string | null;
+  listingPhotoPath: string | null;
+  listingTitle: string | null;
+  nextPayment: NextPayment | null;
+  paymentStatus: PaymentStatusKey;
+  isOverdue: boolean;
+  outstandingCents: number;
+  monthsLeft: number | null;
+  isEndingSoon: boolean;
 }
 
-function PaymentIcon({ status }: { status: PaymentStatus }) {
-  if (status === 'paid')    return <IconCheck size={14} />;
-  if (status === 'overdue') return <IconXCircle size={14} />;
-  return <IconClock size={14} />;
+/* ── Pure derivation helpers ────────────────────────────────────────────────── */
+
+function contractLocation(contract: Contract): {
+  property: string;
+  city: string | null;
+  unit: string | null;
+  photoPath: string | null;
+  listingTitle: string | null;
+} {
+  const unit = contract.listing?.unit;
+  const property = unit?.property;
+  const photo = contract.listing?.primary_photo ?? null;
+  return {
+    property: property?.name ?? 'Property unavailable',
+    city: property?.city ?? null,
+    unit: unit?.unit_number ?? null,
+    photoPath: photo?.path ?? null,
+    listingTitle: contract.listing?.title ?? null,
+  };
 }
+
+/**
+ * From the open ledger entries for a contract, derives:
+ *  - The earliest pending/overdue rent or late-fee entry (the "next payment")
+ *  - Overdue flag
+ *  - Sum of all outstanding (pending+overdue) amount_cents
+ */
+function derivePaymentPosture(entries: LedgerEntry[]): {
+  nextPayment: NextPayment | null;
+  isOverdue: boolean;
+  outstandingCents: number;
+} {
+  const open = entries.filter(
+    (e) =>
+      (e.type === 'rent' || e.type === 'late_fee') &&
+      (e.status === 'pending' || e.status === 'overdue'),
+  );
+
+  const outstandingCents = open.reduce((sum, e) => sum + e.amount_cents, 0);
+  const isOverdue = open.some((e) => e.status === 'overdue');
+
+  const sorted = [...open].sort((a, b) => {
+    const at = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+    const bt = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER;
+    return at - bt;
+  });
+
+  if (sorted.length === 0) {
+    return { nextPayment: null, isOverdue: false, outstandingCents: 0 };
+  }
+
+  // Prefer earliest overdue entry so overdue posture surfaces first.
+  const overdue = sorted.find((e) => e.status === 'overdue');
+  const target = overdue ?? sorted[0];
+
+  const nextPayment: NextPayment = {
+    amount_cents: target.amount_cents,
+    due_date: target.due_date,
+    status: target.status === 'overdue' ? 'overdue' : 'upcoming',
+    label: target.status === 'overdue' ? 'Overdue' : 'Upcoming',
+  };
+
+  return { nextPayment, isOverdue, outstandingCents };
+}
+
+function deriveMonthsLeft(endDate: string | null | undefined): number | null {
+  const days = daysUntil(endDate);
+  if (days === null) return null;
+  return Math.round(days / 30);
+}
+
+/* ── Avatar initials ────────────────────────────────────────────────────────── */
 
 function Initials({ name }: { name: string }) {
-  const parts = name.trim().split(' ');
+  const parts = name.trim().split(/\s+/).filter(Boolean);
   const letters =
-    parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2);
+    parts.length >= 2
+      ? parts[0][0] + parts[parts.length - 1][0]
+      : (parts[0]?.slice(0, 2) ?? '–');
   return (
     <span
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 font-mono text-xs font-semibold text-brand-700"
       aria-hidden="true"
     >
       {letters.toUpperCase()}
@@ -110,199 +198,781 @@ function Initials({ name }: { name: string }) {
   );
 }
 
-/* ---- Component ---------------------------------------------------------- */
+/* ── Payment status chip ────────────────────────────────────────────────────── */
+
+function PaymentChip({ status }: { status: PaymentStatusKey }) {
+  if (status === 'overdue') return <StatusChip tone="danger">Overdue</StatusChip>;
+  if (status === 'upcoming') return <StatusChip tone="warning">Upcoming</StatusChip>;
+  return <StatusChip tone="success">Paid</StatusChip>;
+}
+
+/* ── Balance cell ───────────────────────────────────────────────────────────── */
+
+function BalanceCell({ cents }: { cents: number }) {
+  if (cents === 0) {
+    return <span className="text-sm text-success-600 font-medium">Up to date</span>;
+  }
+  return (
+    <span className="text-sm font-semibold" style={{ color: 'var(--color-danger-600)' }}>
+      {formatCents(cents)}
+    </span>
+  );
+}
+
+/* ── Next-payment cell ───────────────────────────────────────────────────────── */
+
+function NextPaymentCell({ nextPayment }: { nextPayment: NextPayment | null }) {
+  if (!nextPayment) {
+    return <span className="text-sm text-ink-500">All settled</span>;
+  }
+  const days = daysUntil(nextPayment.due_date);
+  let daysLabel = '';
+  if (days !== null) {
+    if (days < 0) daysLabel = `Overdue ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
+    else if (days === 0) daysLabel = 'Due today';
+    else daysLabel = `in ${days} day${days !== 1 ? 's' : ''}`;
+  }
+  return (
+    <div>
+      <p
+        className="text-sm font-medium"
+        style={{
+          color:
+            nextPayment.status === 'overdue'
+              ? 'var(--color-danger-600)'
+              : 'var(--color-ink-900)',
+        }}
+      >
+        {nextPayment.due_date ? formatDate(nextPayment.due_date) : '—'}
+      </p>
+      {daysLabel && (
+        <p
+          className="text-xs"
+          style={{
+            color:
+              nextPayment.status === 'overdue'
+                ? 'var(--color-danger-500)'
+                : 'var(--color-ink-500)',
+          }}
+        >
+          {daysLabel}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Lease-detail modal row ─────────────────────────────────────────────────── */
+
+function Row({ label, value, money }: { label: string; value: string; money?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="shrink-0 text-ink-500">{label}</dt>
+      <dd
+        className="text-right font-medium text-ink-900"
+        style={money ? { color: 'var(--color-money)' } : undefined}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* Page                                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
 export function TenantManagement() {
-  const [leaseTarget, setLeaseTarget] = useState<ActiveTenant | null>(null);
+  const navigate = useNavigate();
+  const contractsQ = useApi(() => landlordApi.contracts(), []);
+  const ledgerQ = useApi(() => landlordApi.ledger(), []);
 
-  const totalRent = MOCK_TENANTS.reduce((s, t) => s + parseFloat(t.monthly_rent), 0);
-  const overdueCount = MOCK_TENANTS.filter((t) => t.payment_status === 'overdue').length;
-  const paidCount    = MOCK_TENANTS.filter((t) => t.payment_status === 'paid').length;
+  /* ── Filter / sort / pagination state ─────────────────────────────────── */
+  const [tab, setTab] = useState<FilterKey>('all');
+  const [search, setSearch] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState<string>('all');
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [page, setPage] = useState(1);
 
-  return (
-    <div className="animate-rise space-y-6">
-      <PageHeader
-        eyebrow="Operations"
-        title="Tenants"
-        description="Your current active tenants and lease status."
-        action={
+  /* ── Lease-detail modal ────────────────────────────────────────────────── */
+  const [leaseTarget, setLeaseTarget] = useState<ActiveTenancy | null>(null);
+
+  function reload() {
+    contractsQ.reload();
+    ledgerQ.reload();
+  }
+
+  function resetPage() {
+    setPage(1);
+  }
+
+  const contracts = useMemo(() => contractsQ.data ?? [], [contractsQ.data]);
+  const ledger = useMemo(() => ledgerQ.data ?? [], [ledgerQ.data]);
+
+  /* ── Group ledger by contract ─────────────────────────────────────────── */
+  const ledgerByContract = useMemo(() => {
+    const map = new Map<string, LedgerEntry[]>();
+    for (const entry of ledger) {
+      const list = map.get(entry.contract_id);
+      if (list) list.push(entry);
+      else map.set(entry.contract_id, [entry]);
+    }
+    return map;
+  }, [ledger]);
+
+  /* ── Derive active tenancies ──────────────────────────────────────────── */
+  const activeTenancies = useMemo<ActiveTenancy[]>(() => {
+    return contracts
+      .filter((c) => c.status === 'active')
+      .map((contract) => {
+        const { property, city, unit, photoPath, listingTitle } = contractLocation(contract);
+        const entries = ledgerByContract.get(contract.id) ?? [];
+        const { nextPayment, isOverdue, outstandingCents } = derivePaymentPosture(entries);
+
+        let paymentStatus: PaymentStatusKey = 'paid';
+        if (isOverdue) paymentStatus = 'overdue';
+        else if (nextPayment) paymentStatus = 'upcoming';
+
+        const monthsLeft = deriveMonthsLeft(contract.end_date);
+        const daysLeft = daysUntil(contract.end_date);
+        const isEndingSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= ENDING_SOON_DAYS;
+
+        return {
+          contract,
+          tenantName: contract.tenant?.full_name ?? 'Tenant unavailable',
+          tenantEmail: contract.tenant?.email ?? null,
+          isVerified: contract.tenant?.identity_verified ?? false,
+          property,
+          propertyCity: city,
+          unit,
+          listingPhotoPath: photoPath,
+          listingTitle,
+          nextPayment,
+          paymentStatus,
+          isOverdue,
+          outstandingCents,
+          monthsLeft,
+          isEndingSoon,
+        };
+      });
+  }, [contracts, ledgerByContract]);
+
+  /* ── Awaiting-signature contracts ─────────────────────────────────────── */
+  const awaitingSignature = useMemo(
+    () => contracts.filter((c) => c.status === 'pending_tenant'),
+    [contracts],
+  );
+
+  /* ── Distinct properties (for property filter dropdown) ────────────────── */
+  const propertyOptions = useMemo<SelectOption<string>[]>(() => {
+    const seen = new Map<string, string>();
+    for (const t of activeTenancies) {
+      if (!seen.has(t.property)) seen.set(t.property, t.property);
+    }
+    const opts: SelectOption<string>[] = [{ value: 'all', label: 'All properties' }];
+    for (const [key, label] of seen) opts.push({ value: key, label });
+    return opts;
+  }, [activeTenancies]);
+
+  /* ── KPI aggregates ───────────────────────────────────────────────────── */
+  const rentRollCents = activeTenancies.reduce((sum, t) => sum + (t.contract.rent_amount ?? 0), 0);
+  const overdueCount = activeTenancies.filter((t) => t.isOverdue).length;
+  const overdueTotalCents = activeTenancies
+    .filter((t) => t.isOverdue)
+    .reduce((sum, t) => sum + t.outstandingCents, 0);
+  const distinctPropertyCount = useMemo(
+    () => new Set(activeTenancies.map((t) => t.property)).size,
+    [activeTenancies],
+  );
+
+  /* ── Filter / sort pipeline ───────────────────────────────────────────── */
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = [...activeTenancies];
+
+    if (tab === 'active') {
+      rows = rows.filter((t) => !t.isOverdue && !t.isEndingSoon);
+    } else if (tab === 'awaiting_signature') {
+      rows = [];
+    } else if (tab === 'overdue') {
+      rows = rows.filter((t) => t.isOverdue);
+    } else if (tab === 'ending_soon') {
+      rows = rows.filter((t) => t.isEndingSoon);
+    }
+
+    if (propertyFilter !== 'all') {
+      rows = rows.filter((t) => t.property === propertyFilter);
+    }
+
+    if (q) {
+      rows = rows.filter((t) => {
+        const hay = [t.tenantName, t.property, t.unit ? `Unit ${t.unit}` : '', t.propertyCity]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    switch (sort) {
+      case 'name_az':
+        rows.sort((a, b) => a.tenantName.localeCompare(b.tenantName));
+        break;
+      case 'rent_high':
+        rows.sort((a, b) => (b.contract.rent_amount ?? 0) - (a.contract.rent_amount ?? 0));
+        break;
+      case 'newest':
+      default:
+        rows.sort(
+          (a, b) =>
+            new Date(b.contract.created_at).getTime() - new Date(a.contract.created_at).getTime(),
+        );
+        break;
+    }
+
+    return rows;
+  }, [activeTenancies, tab, propertyFilter, search, sort]);
+
+  const slice = paginate(filtered, page, PER_PAGE);
+
+  /* ── Filter tabs ──────────────────────────────────────────────────────── */
+  const tabs: Tab<FilterKey>[] = [
+    { key: 'all', label: 'All tenants', count: activeTenancies.length },
+    {
+      key: 'active',
+      label: 'Active',
+      count: activeTenancies.filter((t) => !t.isOverdue && !t.isEndingSoon).length,
+      tone: 'success',
+    },
+    {
+      key: 'awaiting_signature',
+      label: 'Awaiting signature',
+      count: awaitingSignature.length,
+      tone: 'warning',
+    },
+    {
+      key: 'overdue',
+      label: 'Overdue',
+      count: overdueCount,
+      tone: 'danger',
+    },
+    {
+      key: 'ending_soon',
+      label: 'Ending soon',
+      count: activeTenancies.filter((t) => t.isEndingSoon).length,
+      tone: 'warning',
+    },
+  ];
+
+  /* ── Gate states ──────────────────────────────────────────────────────── */
+  const isLoading = contractsQ.loading || ledgerQ.loading;
+  const primaryError = contractsQ.error ?? ledgerQ.error;
+
+  /* ── Page header ──────────────────────────────────────────────────────── */
+  const header = (
+    <PageHeader
+      eyebrow="Operations"
+      title="Tenants"
+      description="Manage active tenancies, contracts, and payment posture across your portfolio."
+      action={
+        <>
           <Link to="/app/ledger">
-            <Button variant="secondary" size="sm" leftIcon={<IconDoc size={15} />}>
-              View Rent Ledger
+            <Button variant="secondary" size="sm" leftIcon={<IconLedger size={15} />}>
+              View ledger
             </Button>
           </Link>
-        }
-      />
+          <Link to="/app/contracts">
+            <Button size="sm" leftIcon={<IconDoc size={15} />}>
+              Create contract
+            </Button>
+          </Link>
+        </>
+      }
+    />
+  );
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard
-          label="Active Tenants"
-          value={MOCK_TENANTS.length}
-          icon={<IconUsers size={17} />}
-        />
-        <StatCard
-          label="Rent Collected"
-          value={paidCount}
-          subtext={`of ${MOCK_TENANTS.length} due`}
-          tone="success"
-          icon={<IconCheck size={17} />}
-        />
-        <StatCard
-          label="Overdue"
-          value={overdueCount}
-          tone={overdueCount > 0 ? 'danger' : 'success'}
-          icon={<IconAlertTriangle size={17} />}
-        />
-        <StatCard
-          label="Monthly Rent Roll"
-          value={`GH₵ ${totalRent.toLocaleString('en-GH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-          tone="money"
-          icon={<IconDoc size={17} />}
+  if (!isLoading && primaryError?.status === 403) {
+    return (
+      <div className="animate-rise space-y-6">
+        {header}
+        <EmptyState
+          icon={<IconUsers />}
+          title="Access denied"
+          description="You don't have permission to manage tenants."
         />
       </div>
+    );
+  }
 
-      {/* Tenants table */}
-      <Card>
-        <CardHeader
-          title="Active Tenants"
-          description="All tenants with a currently active lease."
+  if (!isLoading && primaryError) {
+    return (
+      <div className="animate-rise space-y-6">
+        {header}
+        <ErrorState message={primaryError.message} onRetry={reload} />
+      </div>
+    );
+  }
+
+  /* ── Main render ──────────────────────────────────────────────────────── */
+  return (
+    <div className="animate-rise space-y-10">
+      {header}
+
+      {/* ── KPI row + featured overdue card ──────────────────────────────── */}
+      <DashboardSection eyebrow="TENANCY OVERVIEW">
+        <DataCardGrid cols={4}>
+          <StatusCard
+            label="Active tenants"
+            value={activeTenancies.length}
+            sub={`Across ${distinctPropertyCount} propert${distinctPropertyCount !== 1 ? 'ies' : 'y'}`}
+            icon={<IconUsers size={18} />}
+            role="neutral"
+            loading={isLoading}
+          />
+          <StatusCard
+            label="Monthly rent roll"
+            value={formatCents(rentRollCents)}
+            sub="Across active leases"
+            role="info"
+            icon={<IconWallet size={18} />}
+            loading={isLoading}
+          />
+          <StatusCard
+            label="Awaiting signature"
+            value={awaitingSignature.length}
+            sub={awaitingSignature.length > 0 ? 'Contracts sent to tenants' : 'None pending'}
+            role={awaitingSignature.length > 0 ? 'warning' : 'neutral'}
+            icon={<IconClock size={18} />}
+            loading={isLoading}
+          />
+          <CommandCard
+            label="Overdue accounts"
+            value={overdueCount > 0 ? formatCents(overdueTotalCents) : 'All clear'}
+            sub={
+              overdueCount > 0
+                ? `${overdueCount} account${overdueCount !== 1 ? 's' : ''} overdue`
+                : 'All accounts current'
+            }
+            icon={overdueCount > 0 ? <IconAlertTriangle size={20} /> : <IconCheckCircle size={20} />}
+            role={overdueCount > 0 ? 'danger' : 'success'}
+            loading={isLoading}
+          />
+        </DataCardGrid>
+      </DashboardSection>
+
+      {/* ── Awaiting-signature banner ────────────────────────────────────── */}
+      {!isLoading && awaitingSignature.length > 0 && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-warning-200 bg-warning-50 px-5 py-4">
+          <div className="flex items-start gap-3">
+            <IconClock size={18} className="mt-0.5 shrink-0 text-warning-600" />
+            <p className="text-sm text-warning-800">
+              <span className="font-semibold">
+                {awaitingSignature.length} contract
+                {awaitingSignature.length !== 1 ? 's' : ''}
+              </span>{' '}
+              awaiting signature — send reminders to help move contracts forward.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setTab('awaiting_signature');
+              resetPage();
+            }}
+          >
+            View awaiting signature
+          </Button>
+        </div>
+      )}
+
+      {/* ── Command bar ─────────────────────────────────────────────────── */}
+      <CommandBar>
+        <SearchInput
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            resetPage();
+          }}
+          placeholder="Search by tenant name, property or unit…"
+          label="Search tenants"
         />
-        <CardBody className="pt-2">
-          {MOCK_TENANTS.length === 0 ? (
-            <EmptyState
-              icon={<IconUsers />}
-              title="No active tenants"
-              description="Once a tenant accepts a contract, they will appear here."
-              action={
-                <Link to="/app/applicants">
-                  <Button>Review Applicants</Button>
-                </Link>
-              }
-            />
-          ) : (
-            <Table>
-              <THead>
-                <TH>Tenant</TH>
-                <TH>Property / Unit</TH>
-                <TH>Monthly Rent</TH>
-                <TH>Next Payment</TH>
-                <TH>Lease End</TH>
-                <TH>Status</TH>
-                <TH className="text-right">Action</TH>
-              </THead>
-              <TBody>
-                {MOCK_TENANTS.map((t) => (
-                  <TR key={t.id}>
-                    <TD>
-                      <div className="flex items-center gap-2">
-                        <Initials name={t.name} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-ink-900 truncate">{t.name}</p>
-                          <p className="text-xs text-ink-500 truncate">{t.email}</p>
-                        </div>
-                      </div>
-                    </TD>
-                    <TD>
-                      <p className="text-sm text-ink-900">{t.property}</p>
-                      <p className="text-xs text-ink-500">Unit {t.unit}</p>
-                    </TD>
-                    <TD>
-                      <span style={{ color: 'var(--color-money)' }} className="font-semibold text-sm">
-                        {formatCedisDecimal(t.monthly_rent)}
-                      </span>
-                    </TD>
-                    <TD>
-                      <span
-                        className={
-                          t.payment_status === 'overdue'
-                            ? 'text-sm text-danger-600 font-medium'
-                            : 'text-sm text-ink-700'
-                        }
-                      >
-                        {formatDate(t.next_payment)}
-                      </span>
-                    </TD>
-                    <TD className="text-sm text-ink-700">{formatDate(t.lease_end)}</TD>
-                    <TD>
-                      <Badge tone={paymentStatusTone(t.payment_status)}>
-                        <PaymentIcon status={t.payment_status} />
-                        <span className="ml-1">{paymentStatusLabel(t.payment_status)}</span>
-                      </Badge>
-                    </TD>
-                    <TD className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setLeaseTarget(t)}
-                      >
-                        View Lease
-                      </Button>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          )}
-        </CardBody>
-      </Card>
+        <FilterTabs
+          tabs={tabs}
+          value={tab}
+          onChange={(k) => {
+            setTab(k);
+            resetPage();
+          }}
+        />
+        <SortSelect
+          value={propertyFilter}
+          onChange={(v) => {
+            setPropertyFilter(v);
+            resetPage();
+          }}
+          options={propertyOptions}
+          label="Filter by property"
+          prefix=""
+        />
+        <SortSelect
+          value={sort}
+          onChange={(v) => {
+            setSort(v);
+            resetPage();
+          }}
+          options={SORT_OPTIONS}
+          label="Sort tenants"
+          prefix="Sort: "
+        />
+      </CommandBar>
 
-      {/* Lease detail modal */}
+      {/* ── Main table ──────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <LoadingState label="Loading tenancies…" />
+      ) : activeTenancies.length === 0 ? (
+        <EmptyState
+          icon={<IconUsers />}
+          title="No active tenants yet"
+          description="Tenants appear here after a contract becomes active. Start by reviewing applicants."
+          action={
+            <Link to="/app/applicants">
+              <Button>Review applicants</Button>
+            </Link>
+          }
+        />
+      ) : (
+        <Card>
+          <CardBody className="p-0">
+            {tab === 'awaiting_signature' ? (
+              /* ── Awaiting-signature sub-table ─────────────────────────── */
+              awaitingSignature.length === 0 ? (
+                <div className="px-5 py-12 text-center">
+                  <p className="text-sm text-ink-500">No contracts awaiting signature.</p>
+                </div>
+              ) : (
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Tenant</TH>
+                      <TH>Property &amp; Unit</TH>
+                      <TH>Monthly rent</TH>
+                      <TH>Lease period</TH>
+                      <TH className="text-right">Actions</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {awaitingSignature.map((c) => {
+                      const { property, city, unit, photoPath, listingTitle } =
+                        contractLocation(c);
+                      return (
+                        <TR key={c.id}>
+                          <TD>
+                            <div className="flex items-center gap-2.5">
+                              <Initials name={c.tenant?.full_name ?? 'Tenant'} />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-ink-900">
+                                  {c.tenant?.full_name ?? 'Tenant unavailable'}
+                                </p>
+                                {c.tenant?.email && (
+                                  <p className="truncate text-xs text-ink-500">{c.tenant.email}</p>
+                                )}
+                              </div>
+                            </div>
+                          </TD>
+                          <TD>
+                            <div className="flex items-center gap-2.5">
+                              <Thumbnail
+                                src={storageUrl(photoPath)}
+                                alt={listingTitle ?? property}
+                                seed={property}
+                                size={36}
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-ink-900">
+                                  {property}
+                                </p>
+                                <p className="truncate text-xs text-ink-500">
+                                  {unit ? `Unit ${unit}` : '—'}
+                                  {city ? ` · ${city}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                          </TD>
+                          <TD>
+                            <span
+                              className="text-sm font-semibold tabular-nums"
+                              style={{ color: 'var(--color-money)' }}
+                            >
+                              {formatCents(c.rent_amount)}
+                            </span>
+                          </TD>
+                          <TD className="text-sm text-ink-700">
+                            {formatDate(c.start_date)} – {formatDate(c.end_date)}
+                          </TD>
+                          <TD className="text-right">
+                            <Link to={`/app/contracts/${c.id}`}>
+                              <Button variant="secondary" size="sm">
+                                View contract
+                              </Button>
+                            </Link>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </Table>
+              )
+            ) : filtered.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <IconUsers size={32} className="mx-auto mb-3 text-ink-300" />
+                <p className="text-sm font-medium text-ink-700">No tenants match</p>
+                <p className="mt-1 text-xs text-ink-500">
+                  Try a different filter, property, or search term.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Tenant</TH>
+                      <TH>Property &amp; Unit</TH>
+                      <TH>Lease period</TH>
+                      <TH>Monthly rent</TH>
+                      <TH>Next payment due</TH>
+                      <TH>Payment status</TH>
+                      <TH>Contract</TH>
+                      <TH>Balance</TH>
+                      <TH className="text-right">Actions</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {slice.items.map((t) => {
+                      const daysLeft = daysUntil(t.contract.end_date);
+                      const monthsLeftLabel =
+                        daysLeft !== null && daysLeft >= 0
+                          ? `${t.monthsLeft ?? 0} month${t.monthsLeft !== 1 ? 's' : ''} left`
+                          : 'Expired';
+
+                      const menuItems = [
+                        {
+                          label: 'View contract',
+                          onClick: () => navigate(`/app/contracts/${t.contract.id}`),
+                        },
+                        {
+                          label: 'Open ledger',
+                          onClick: () => navigate('/app/ledger'),
+                        },
+                        {
+                          label: 'Lease summary',
+                          onClick: () => setLeaseTarget(t),
+                        },
+                      ];
+
+                      return (
+                        <TR key={t.contract.id}>
+                          {/* Tenant */}
+                          <TD>
+                            <div className="flex items-center gap-2.5">
+                              <Initials name={t.tenantName} />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="truncate text-sm font-medium text-ink-900">
+                                    {t.tenantName}
+                                  </p>
+                                  {t.isVerified && (
+                                    <SemanticBadge role="success" size="sm">Verified</SemanticBadge>
+                                  )}
+                                </div>
+                                {t.tenantEmail && (
+                                  <p className="truncate text-xs text-ink-500">{t.tenantEmail}</p>
+                                )}
+                              </div>
+                            </div>
+                          </TD>
+
+                          {/* Property & Unit */}
+                          <TD>
+                            <div className="flex items-center gap-2.5">
+                              <Thumbnail
+                                src={storageUrl(t.listingPhotoPath)}
+                                alt={t.listingTitle ?? t.property}
+                                seed={t.property}
+                                size={36}
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-ink-900">
+                                  {t.property}
+                                </p>
+                                <p className="truncate text-xs text-ink-500">
+                                  {t.unit ? `Unit ${t.unit}` : '—'}
+                                  {t.propertyCity ? ` · ${t.propertyCity}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                          </TD>
+
+                          {/* Lease period */}
+                          <TD>
+                            <p className="text-sm text-ink-700">
+                              {formatDate(t.contract.start_date)} –{' '}
+                              {formatDate(t.contract.end_date)}
+                            </p>
+                            <p
+                              className="text-xs"
+                              style={{
+                                color: t.isEndingSoon
+                                  ? 'var(--color-warning-600)'
+                                  : 'var(--color-ink-400)',
+                              }}
+                            >
+                              {monthsLeftLabel}
+                            </p>
+                          </TD>
+
+                          {/* Monthly rent */}
+                          <TD>
+                            <span
+                              className="text-sm font-semibold tabular-nums"
+                              style={{ color: 'var(--color-money)' }}
+                            >
+                              {formatCents(t.contract.rent_amount)}
+                            </span>
+                          </TD>
+
+                          {/* Next payment due */}
+                          <TD>
+                            <NextPaymentCell nextPayment={t.nextPayment} />
+                          </TD>
+
+                          {/* Payment status */}
+                          <TD>
+                            <PaymentChip status={t.paymentStatus} />
+                          </TD>
+
+                          {/* Contract status */}
+                          <TD>
+                            <SemanticBadge role={getContractVariant(t.contract.status)}>
+                              {humanize(t.contract.status)}
+                            </SemanticBadge>
+                          </TD>
+
+                          {/* Balance */}
+                          <TD>
+                            <BalanceCell cents={t.outstandingCents} />
+                          </TD>
+
+                          {/* Actions */}
+                          <TD className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Link to={`/app/contracts/${t.contract.id}`}>
+                                <Button variant="secondary" size="sm">
+                                  View profile
+                                </Button>
+                              </Link>
+                              <Link to="/app/ledger">
+                                <Button variant="ghost" size="sm">
+                                  Open ledger
+                                </Button>
+                              </Link>
+                              <ActionMenu items={menuItems} />
+                            </div>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </Table>
+
+                {/* Footer: range label + pagination */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
+                  <p className="text-xs text-ink-500">{rangeLabel(slice, 'tenant')}</p>
+                  <Pagination slice={slice} onPage={setPage} />
+                </div>
+              </>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
+      {/* ── Lease detail modal (preserved from original) ─────────────────── */}
       <Modal
         open={leaseTarget !== null}
         onClose={() => setLeaseTarget(null)}
         title="Lease Summary"
-        description={leaseTarget ? `${leaseTarget.name} · ${leaseTarget.property} · Unit ${leaseTarget.unit}` : undefined}
+        description={
+          leaseTarget
+            ? `${leaseTarget.tenantName} · ${leaseTarget.property}${
+                leaseTarget.unit ? ` · Unit ${leaseTarget.unit}` : ''
+              }`
+            : undefined
+        }
         size="sm"
         footer={
-          <Button variant="secondary" onClick={() => setLeaseTarget(null)}>
-            Close
-          </Button>
+          leaseTarget && (
+            <>
+              <Button variant="secondary" onClick={() => setLeaseTarget(null)}>
+                Close
+              </Button>
+              <Link to={`/app/contracts/${leaseTarget.contract.id}`}>
+                <Button>View full lease</Button>
+              </Link>
+            </>
+          )
         }
       >
         {leaseTarget && (
           <dl className="space-y-3 text-sm">
-            <Row label="Tenant"       value={leaseTarget.name} />
-            <Row label="Email"        value={leaseTarget.email} />
-            <Row label="Property"     value={leaseTarget.property} />
-            <Row label="Unit"         value={`Unit ${leaseTarget.unit}`} />
-            <Row label="Monthly Rent" value={formatCedisDecimal(leaseTarget.monthly_rent)} money />
-            <Row label="Lease Start"  value={formatDate(leaseTarget.contract_start)} />
-            <Row label="Lease End"    value={formatDate(leaseTarget.lease_end)} />
-            <Row label="Next Payment" value={formatDate(leaseTarget.next_payment)} />
-            <div className="flex items-center justify-between pt-1">
-              <dt className="text-ink-500">Payment Status</dt>
+            <Row label="Tenant" value={leaseTarget.tenantName} />
+            {leaseTarget.tenantEmail && <Row label="Email" value={leaseTarget.tenantEmail} />}
+            <Row label="Property" value={leaseTarget.property} />
+            {leaseTarget.unit && <Row label="Unit" value={`Unit ${leaseTarget.unit}`} />}
+            <Row
+              label="Monthly rent"
+              value={formatCents(leaseTarget.contract.rent_amount)}
+              money
+            />
+            <Row label="Payment day" value={`Day ${leaseTarget.contract.payment_day}`} />
+            <Row label="Lease start" value={formatDate(leaseTarget.contract.start_date)} />
+            <Row label="Lease end" value={formatDate(leaseTarget.contract.end_date)} />
+            <Row
+              label="Next payment"
+              value={
+                leaseTarget.nextPayment
+                  ? `${formatCents(leaseTarget.nextPayment.amount_cents)}${
+                      leaseTarget.nextPayment.due_date
+                        ? ` · ${formatDate(leaseTarget.nextPayment.due_date)}`
+                        : ''
+                    }`
+                  : 'All settled'
+              }
+            />
+            <div className="flex items-start justify-between gap-2 pt-1">
+              <dt className="text-ink-500">Payment status</dt>
               <dd>
-                <Badge tone={paymentStatusTone(leaseTarget.payment_status)}>
-                  {paymentStatusLabel(leaseTarget.payment_status)}
-                </Badge>
+                <PaymentChip status={leaseTarget.paymentStatus} />
+              </dd>
+            </div>
+            {leaseTarget.outstandingCents > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-ink-500">Outstanding balance</dt>
+                <dd>
+                  <BalanceCell cents={leaseTarget.outstandingCents} />
+                </dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <dt className="text-ink-500">Contract status</dt>
+              <dd>
+                <StatusChip tone={contractStatusTone(leaseTarget.contract.status)}>
+                  {humanize(leaseTarget.contract.status)}
+                </StatusChip>
               </dd>
             </div>
           </dl>
         )}
       </Modal>
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  money,
-}: {
-  label: string;
-  value: string;
-  money?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <dt className="text-ink-500">{label}</dt>
-      <dd
-        className="font-medium text-ink-900"
-        style={money ? { color: 'var(--color-money)' } : undefined}
-      >
-        {value}
-      </dd>
     </div>
   );
 }

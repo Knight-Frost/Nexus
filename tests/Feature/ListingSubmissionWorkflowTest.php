@@ -41,11 +41,12 @@ class ListingSubmissionWorkflowTest extends TestCase
     {
         parent::setUp();
 
-        // Create landlord
+        // Create landlord — must be identity-verified (Phase 4) to submit listings
         $this->landlord = User::factory()->create([
             'user_type' => UserType::LANDLORD,
             'identity_verified' => true,
             'email_verified_at' => now(),
+            'verification_status' => 'verified',
         ]);
 
         // Create admin

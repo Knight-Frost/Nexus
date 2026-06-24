@@ -4,17 +4,19 @@ import { useAuth } from '@/context/auth';
 import { fieldErrors } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import type { ApiError, UserType } from '@/lib/types';
+import { brand } from '@/config/brand';
 import {
-  AuthInput,
-  AuthScene,
-  Eyebrow,
-  FeatureItem,
-  FieldLabel,
-  FormCard,
-  Icons,
+  AuthShell,
+  AuthVisualPanel,
+  AuthCard,
+  AuthIcons,
+  AuthTextField,
+  AuthPasswordField,
+  AuthFieldLabel,
+  AuthFieldError,
+  AuthErrorBanner,
   PasswordChecklist,
-  PasswordInput,
-} from './authParts';
+} from '@/components/auth';
 
 const DIAL_CODES = [
   { code: '+233', label: 'GH' },
@@ -24,57 +26,6 @@ const DIAL_CODES = [
   { code: '+44', label: 'UK' },
   { code: '+1', label: 'US' },
 ];
-
-const FOOTER = [
-  { icon: <Icons.lock width={18} height={18} />, title: 'Your data is protected.', sub: 'We never share your information.' },
-  { icon: <Icons.globe width={18} height={18} />, title: 'Built for scale.', sub: 'Available globally, 24/7.' },
-  { icon: <Icons.shieldCheck width={18} height={18} />, title: 'Trusted by thousands.', sub: 'Secure. Reliable. Proven.' },
-];
-
-function LeftPanel() {
-  return (
-    <div className="max-w-xl">
-      <Eyebrow>Built for trust. Designed for life.</Eyebrow>
-      <h1 className="mt-6 font-display text-5xl font-medium leading-[1.05] tracking-tight text-ink-950">
-        The unified home for property <span className="italic text-brand-400">rentals.</span>
-      </h1>
-      <p className="mt-5 max-w-md text-base leading-relaxed text-ink-500">
-        Everything you need to find, manage, and grow property rentals in one secure, intelligent
-        platform.
-      </p>
-
-      <div className="mt-10 space-y-6">
-        <FeatureItem
-          icon={<Icons.lock />}
-          title="Secure by design"
-          desc="End-to-end encryption and bank-level security."
-        />
-        <FeatureItem
-          icon={<Icons.badgeCheck />}
-          title="Verified & trusted"
-          desc="Every listing, every user, thoroughly verified."
-        />
-        <FeatureItem
-          icon={<Icons.person />}
-          title="Role-aware access"
-          desc="Secure experiences for tenants, landlords, and admins."
-        />
-      </div>
-
-      <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 rounded-2xl border border-ink-200/50 bg-canvas/40 px-6 py-4 text-sm text-ink-600">
-        <span className="inline-flex items-center gap-2">
-          <Icons.shieldCheck width={16} height={16} className="text-brand-400" /> Bank-level Security
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <Icons.doc width={16} height={16} className="text-brand-400" /> Immutable Ledger
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <Icons.badgeCheck width={16} height={16} className="text-brand-400" /> Verified Listings
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export function Register() {
   const { register } = useAuth();
@@ -119,32 +70,45 @@ export function Register() {
     }
   }
 
+  // Roles limited to tenant | landlord — admin accounts are not self-registered
+  // (confirmed: backend RegisterRequest validates user_type in ['tenant','landlord'])
   const roles: { value: UserType; title: string; desc: string }[] = [
     { value: 'tenant', title: 'Tenant', desc: 'Find & rent a home' },
     { value: 'landlord', title: 'Landlord', desc: 'List & manage rentals' },
   ];
 
   return (
-    <AuthScene left={<LeftPanel />} footer={FOOTER} form={
-      <FormCard label="Create your account">
-        <h1 className="font-display text-3xl font-medium text-ink-950">Create your account</h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-500">
-          Join Nexus as a tenant or a landlord and manage everything with confidence.
-        </p>
+    <AuthShell
+      panel={<AuthVisualPanel mode="register" />}
+    >
+      <AuthCard
+        label="Create your account"
+        title="Create your account"
+        subtitle={`Set up ${brand.appName} access with the details your workspace needs.`}
+      >
+        <form
+          onSubmit={onSubmit}
+          noValidate
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
+          {formError && <AuthErrorBanner message={formError} />}
 
-        <form onSubmit={onSubmit} className="mt-7 space-y-5" noValidate>
-          {formError && (
-            <div className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-500" role="alert">
-              {formError}
-            </div>
-          )}
-
-          {/* Role */}
+          {/* Role selector — tenant | landlord only (no admin registration) */}
           <div>
-            <span className="mb-2.5 block text-xs font-semibold uppercase tracking-[0.12em] text-ink-600">
-              I am a…
+            <span
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: 'var(--auth-text-muted)',
+              }}
+            >
+              I am a&hellip;
             </span>
-            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Account type">
+            <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Account type">
               {roles.map((r) => {
                 const on = userType === r.value;
                 return (
@@ -154,19 +118,47 @@ export function Register() {
                     role="radio"
                     aria-checked={on}
                     onClick={() => setUserType(r.value)}
-                    className={cn(
-                      'flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition',
-                      on
-                        ? 'border-brand-600 bg-brand-500/[0.08] ring-1 ring-brand-600'
-                        : 'border-ink-200 hover:border-ink-300',
-                    )}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.625rem',
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: '0.75rem',
+                      border: on
+                        ? '1.5px solid var(--auth-focus)'
+                        : '1.5px solid var(--auth-input-border)',
+                      background: on ? 'var(--auth-focus-ring)' : 'var(--auth-input-bg)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      textAlign: 'left',
+                    }}
+                    className={cn(!on && 'hover:border-[var(--auth-focus)]')}
                   >
-                    <Icons.person width={20} height={20} className={on ? 'text-brand-400' : 'text-ink-500'} />
+                    <AuthIcons.person
+                      width={18}
+                      height={18}
+                      style={{ color: on ? 'var(--auth-focus)' : 'var(--auth-text-muted)', flexShrink: 0 }}
+                    />
                     <span>
-                      <span className={cn('block text-sm font-semibold', on ? 'text-brand-400' : 'text-ink-900')}>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          color: on ? 'var(--auth-focus)' : 'var(--auth-text-primary)',
+                        }}
+                      >
                         {r.title}
                       </span>
-                      <span className="block text-xs text-ink-500">{r.desc}</span>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: '0.75rem',
+                          color: 'var(--auth-text-muted)',
+                        }}
+                      >
+                        {r.desc}
+                      </span>
                     </span>
                   </button>
                 );
@@ -174,37 +166,59 @@ export function Register() {
             </div>
           </div>
 
-          {/* Names */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* First + last name — side by side */}
+          <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <FieldLabel>First name</FieldLabel>
-              <AuthInput value={form.first_name} onChange={set('first_name')} invalid={!!errors.first_name} placeholder="First name" autoComplete="given-name" required />
-              {errors.first_name && <span className="mt-1 block text-xs text-danger-500">{errors.first_name}</span>}
+              <AuthFieldLabel>First name</AuthFieldLabel>
+              <AuthTextField
+                value={form.first_name}
+                onChange={set('first_name')}
+                invalid={!!errors.first_name}
+                placeholder="First"
+                autoComplete="given-name"
+                required
+              />
+              <AuthFieldError message={errors.first_name} />
             </label>
             <label className="block">
-              <FieldLabel>Last name</FieldLabel>
-              <AuthInput value={form.last_name} onChange={set('last_name')} invalid={!!errors.last_name} placeholder="Last name" autoComplete="family-name" required />
-              {errors.last_name && <span className="mt-1 block text-xs text-danger-500">{errors.last_name}</span>}
+              <AuthFieldLabel>Last name</AuthFieldLabel>
+              <AuthTextField
+                value={form.last_name}
+                onChange={set('last_name')}
+                invalid={!!errors.last_name}
+                placeholder="Last"
+                autoComplete="family-name"
+                required
+              />
+              <AuthFieldError message={errors.last_name} />
             </label>
           </div>
 
           {/* Email */}
           <label className="block">
-            <FieldLabel>Email</FieldLabel>
-            <AuthInput type="email" value={form.email} onChange={set('email')} invalid={!!errors.email} placeholder="you@example.com" autoComplete="email" required />
-            {errors.email && <span className="mt-1 block text-xs text-danger-500">{errors.email}</span>}
+            <AuthFieldLabel>Email</AuthFieldLabel>
+            <AuthTextField
+              type="email"
+              value={form.email}
+              onChange={set('email')}
+              invalid={!!errors.email}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+            <AuthFieldError message={errors.email} />
           </label>
 
-          {/* Phone */}
+          {/* Phone (optional) */}
           <label className="block">
-            <FieldLabel hint="Optional">Phone</FieldLabel>
-            <div className="flex gap-3">
+            <AuthFieldLabel hint="Optional">Phone</AuthFieldLabel>
+            <div className="flex gap-2.5">
               <div className="relative">
                 <select
                   value={dial}
                   onChange={(e) => setDial(e.target.value)}
                   aria-label="Country code"
-                  className="h-12 appearance-none rounded-xl border border-ink-200 bg-surface/70 pl-3.5 pr-9 text-sm text-ink-900 transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                  className="auth-select"
                 >
                   {DIAL_CODES.map((d) => (
                     <option key={d.code} value={d.code}>
@@ -212,45 +226,114 @@ export function Register() {
                     </option>
                   ))}
                 </select>
-                <Icons.chevron width={16} height={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-500" />
+                <AuthIcons.chevron
+                  width={14}
+                  height={14}
+                  style={{
+                    pointerEvents: 'none',
+                    position: 'absolute',
+                    right: '0.5rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--auth-text-muted)',
+                  }}
+                />
               </div>
-              <AuthInput type="tel" value={form.phone} onChange={set('phone')} invalid={!!errors.phone} placeholder="55 123 4567" autoComplete="tel" className="flex-1" />
+              <AuthTextField
+                type="tel"
+                value={form.phone}
+                onChange={set('phone')}
+                invalid={!!errors.phone}
+                placeholder="55 123 4567"
+                autoComplete="tel"
+                className="flex-1"
+              />
             </div>
-            {errors.phone && <span className="mt-1 block text-xs text-danger-500">{errors.phone}</span>}
+            <AuthFieldError message={errors.phone} />
           </label>
 
           {/* Password */}
           <label className="block">
-            <FieldLabel>Password</FieldLabel>
-            <PasswordInput value={form.password} onChange={set('password')} invalid={!!errors.password} placeholder="Create a strong password" autoComplete="new-password" />
-            {errors.password && <span className="mt-1 block text-xs text-danger-500">{errors.password}</span>}
+            <AuthFieldLabel>Password</AuthFieldLabel>
+            <AuthPasswordField
+              value={form.password}
+              onChange={set('password')}
+              invalid={!!errors.password}
+              placeholder="Create a strong password"
+              autoComplete="new-password"
+            />
+            <AuthFieldError message={errors.password} />
             <PasswordChecklist value={form.password} />
           </label>
 
-          {/* Confirm */}
+          {/* Confirm password */}
           <label className="block">
-            <FieldLabel>Confirm password</FieldLabel>
-            <PasswordInput value={form.password_confirmation} onChange={set('password_confirmation')} invalid={!!errors.password_confirmation} placeholder="Confirm your password" autoComplete="new-password" />
-            {errors.password_confirmation && <span className="mt-1 block text-xs text-danger-500">{errors.password_confirmation}</span>}
+            <AuthFieldLabel>Confirm password</AuthFieldLabel>
+            <AuthPasswordField
+              value={form.password_confirmation}
+              onChange={set('password_confirmation')}
+              invalid={!!errors.password_confirmation}
+              placeholder="Confirm your password"
+              autoComplete="new-password"
+            />
+            <AuthFieldError message={errors.password_confirmation} />
           </label>
 
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-400 to-brand-600 py-4 text-sm font-semibold text-on-brand shadow-[0_12px_30px_-12px_rgba(201,164,91,0.8)] transition hover:brightness-105 disabled:opacity-60"
+            className="auth-btn-primary"
+            style={{ marginTop: '0.25rem' }}
           >
-            {submitting ? 'Creating account…' : 'Create account'}
-            {!submitting && <Icons.arrow width={18} height={18} />}
+            {submitting ? (
+              <>
+                <span
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.35)',
+                    borderTopColor: '#fff',
+                    display: 'inline-block',
+                    animation: 'spin 0.7s linear infinite',
+                  }}
+                />
+                Creating account&hellip;
+              </>
+            ) : (
+              <>
+                Create account
+                <AuthIcons.arrow />
+              </>
+            )}
           </button>
 
-          <p className="text-center text-sm text-ink-500">
+          <p
+            className="text-center"
+            style={{ fontSize: '0.875rem', color: 'var(--auth-text-muted)' }}
+          >
             Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-brand-400 hover:text-brand-800">
+            <Link
+              to="/login"
+              style={{ fontWeight: 700, color: 'var(--auth-focus)', textDecoration: 'none' }}
+            >
               Sign in
             </Link>
           </p>
+
+          {/* Role hint */}
+          <p
+            className="text-center"
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--auth-text-muted)',
+              marginTop: '0.25rem',
+            }}
+          >
+            Your dashboard and permissions are created from your verified account role.
+          </p>
         </form>
-      </FormCard>
-    } />
+      </AuthCard>
+    </AuthShell>
   );
 }

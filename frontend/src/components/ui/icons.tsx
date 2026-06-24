@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
- * Nexus icon library — SVG stroke components.
+ * Homecrest icon library — SVG stroke components.
  * strokeWidth 1.75, viewBox "0 0 24 24", fill none, stroke currentColor.
  */
 import type { SVGProps } from 'react';
@@ -106,6 +106,13 @@ export const IconUsers = mkIcon(
 
 export const IconActivity = mkIcon(
   <path d="M3 12h4l3 8 4-16 3 8h4" />,
+);
+
+export const IconUser = mkIcon(
+  <>
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+  </>,
 );
 
 export const IconLogout = mkIcon(
@@ -507,5 +514,12 @@ export const IconCircleCheck = mkIcon(
   <>
     <circle cx="12" cy="12" r="9" />
     <path d="m9 12 2 2 4-4" />
+  </>,
+);
+export const IconImage = mkIcon(
+  <>
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <polyline points="21 15 16 10 5 21" />
   </>,
 );

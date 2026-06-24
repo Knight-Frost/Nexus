@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Landlord;
 
 use App\Enums\ContractStatus;
+use App\Enums\NotificationType;
 use App\Enums\TerminatedBy;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreContractRequest;
@@ -10,6 +11,7 @@ use App\Http\Requests\TerminateContractRequest;
 use App\Models\Contract;
 use App\Models\Listing;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,7 +23,8 @@ use Illuminate\Http\Request;
 class LandlordContractController extends Controller
 {
     public function __construct(
-        protected AuditService $auditService
+        protected AuditService $auditService,
+        protected NotificationService $notificationService
     ) {}
 
     /**
@@ -127,6 +130,10 @@ class LandlordContractController extends Controller
      */
     public function terminate(TerminateContractRequest $request, Contract $contract): JsonResponse
     {
+        // TerminateContractRequest@authorize() already delegates to ContractPolicy@terminate,
+        // but we repeat it here for defense-in-depth visibility.
+        $this->authorize('terminate', $contract);
+
         $contract->update([
             'status' => ContractStatus::TERMINATED,
             'terminated_by' => TerminatedBy::LANDLORD,
@@ -141,6 +148,24 @@ class LandlordContractController extends Controller
             description: 'Landlord terminated contract',
             severity: 'warning'
         );
+
+        // Notify the tenant that the landlord terminated
+        $landlord = $request->user();
+        $eventId = "contract-terminated:{$contract->id}:tenant";
+        if (! $this->notificationService->exists($contract->tenant, $eventId)) {
+            $this->notificationService->create(
+                user: $contract->tenant,
+                type: NotificationType::CONTRACT_TERMINATED,
+                title: 'Contract Terminated',
+                message: "{$landlord->full_name} has terminated your contract for \"{$contract->listing->title}\". Reason: {$request->reason}",
+                data: [
+                    'event_id' => $eventId,
+                    'contract_id' => $contract->id,
+                    'terminated_by' => 'landlord',
+                    'reason' => $request->reason,
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Contract terminated',

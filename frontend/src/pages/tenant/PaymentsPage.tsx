@@ -1,349 +1,461 @@
 import { useState } from 'react';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { StatCard } from '@/components/ui/StatCard';
-import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
-import {
-  IconWallet,
-  IconClock,
-  IconAlertTriangle,
-  IconCheckCircle,
-  IconRefresh,
-} from '@/components/ui/icons';
 import { useApi } from '@/hooks/useApi';
 import { tenantApi } from '@/lib/endpoints';
 import {
   formatCents,
   formatDate,
+  daysUntil,
   humanize,
-  ledgerStatusTone,
 } from '@/lib/format';
-import type { LedgerEntry, LedgerType, LedgerStatus } from '@/lib/types';
-import type { Tone } from '@/components/ui/Badge';
+import {
+  EmptyState,
+  ErrorState,
+  ForbiddenState,
+  LoadingState,
+  SkeletonCard,
+} from '@/components/ui/states';
+import { Button } from '@/components/ui/Button';
+import {
+  CommandCard,
+  StatusCard,
+  SemanticBadge,
+  DashboardSection,
+  DataCardGrid,
+  NexusCard,
+  getPaymentBalanceVariant,
+  getPaymentHealthVariant,
+  getNextDueVariant,
+  getLedgerVariant,
+} from '@/components/cards';
+import {
+  IconWallet,
+  IconCalendar,
+  IconShield,
+  IconCheckCircle,
+  IconRefresh,
+  IconChevronDown,
+  IconInfo,
+  IconClock,
+} from '@/components/ui/icons';
+import type { LedgerEntry, LedgerType } from '@/lib/types';
+import './payments.css';
 
-/* ---- Mock fallback data -------------------------------------------------- */
-const MOCK_LEDGER: LedgerEntry[] = [
-  {
-    id: 'le-001',
-    contract_id: 'ctr-001',
-    tenant_id: 1,
-    landlord_id: 2,
-    type: 'rent',
-    amount_cents: 1200000,
-    currency: 'GHS',
-    billing_period_start: '2026-06-01',
-    billing_period_end: '2026-06-30',
-    due_date: '2026-06-05',
-    status: 'pending',
-    related_rent_entry_id: null,
-    stripe_payment_intent_id: null,
-    created_at: '2026-06-01T00:00:00Z',
-  },
-  {
-    id: 'le-002',
-    contract_id: 'ctr-001',
-    tenant_id: 1,
-    landlord_id: 2,
-    type: 'rent',
-    amount_cents: 1200000,
-    currency: 'GHS',
-    billing_period_start: '2026-05-01',
-    billing_period_end: '2026-05-31',
-    due_date: '2026-05-05',
-    status: 'paid',
-    related_rent_entry_id: null,
-    stripe_payment_intent_id: 'pi_abc123',
-    created_at: '2026-05-01T00:00:00Z',
-  },
-  {
-    id: 'le-003',
-    contract_id: 'ctr-001',
-    tenant_id: 1,
-    landlord_id: 2,
-    type: 'rent',
-    amount_cents: 1200000,
-    currency: 'GHS',
-    billing_period_start: '2026-04-01',
-    billing_period_end: '2026-04-30',
-    due_date: '2026-04-05',
-    status: 'paid',
-    related_rent_entry_id: null,
-    stripe_payment_intent_id: 'pi_def456',
-    created_at: '2026-04-01T00:00:00Z',
-  },
-  {
-    id: 'le-004',
-    contract_id: 'ctr-001',
-    tenant_id: 1,
-    landlord_id: 2,
-    type: 'late_fee',
-    amount_cents: 60000,
-    currency: 'GHS',
-    billing_period_start: '2026-03-01',
-    billing_period_end: '2026-03-31',
-    due_date: '2026-03-20',
-    status: 'paid',
-    related_rent_entry_id: 'le-005',
-    stripe_payment_intent_id: 'pi_ghi789',
-    created_at: '2026-03-15T00:00:00Z',
-  },
-  {
-    id: 'le-005',
-    contract_id: 'ctr-001',
-    tenant_id: 1,
-    landlord_id: 2,
-    type: 'rent',
-    amount_cents: 1200000,
-    currency: 'GHS',
-    billing_period_start: '2026-03-01',
-    billing_period_end: '2026-03-31',
-    due_date: '2026-03-05',
-    status: 'paid',
-    related_rent_entry_id: null,
-    stripe_payment_intent_id: 'pi_jkl012',
-    created_at: '2026-03-01T00:00:00Z',
-  },
-];
+/* ---- Helpers --------------------------------------------------------------- */
 
-/* ---- Helpers ------------------------------------------------------------- */
-function typeLabel(type: LedgerType): string {
+function entryLabel(type: LedgerType, periodStart: string | null): string {
   switch (type) {
-    case 'rent':      return 'Rent';
-    case 'late_fee':  return 'Late Fee';
-    case 'payment':   return 'Payment';
-    case 'refund':    return 'Refund';
-    default:          return humanize(type);
+    case 'rent':     return 'Rent' + (periodStart ? ` – ${formatMonthYear(periodStart)}` : '');
+    case 'late_fee': return 'Late fee';
+    case 'payment':  return 'Payment received';
+    case 'refund':   return 'Refund';
+    default:         return humanize(type);
   }
 }
 
-function typeIconTone(type: LedgerType): Tone {
-  switch (type) {
-    case 'late_fee':  return 'danger';
-    case 'payment':   return 'success';
-    case 'refund':    return 'info';
-    default:          return 'neutral';
-  }
+function formatMonthYear(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GH', { month: 'long', year: 'numeric' });
 }
 
-function isActionable(status: LedgerStatus): boolean {
-  return status === 'pending' || status === 'overdue';
+function isPayable(entry: LedgerEntry): boolean {
+  return (entry.type === 'rent' || entry.type === 'late_fee') &&
+    (entry.status === 'pending' || entry.status === 'overdue');
 }
 
-/* ---- PayNowButton -------------------------------------------------------- */
-function PayNowButton({ entry, onSuccess }: { entry: LedgerEntry; onSuccess: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+/* ---- Pay state ------------------------------------------------------------ */
 
-  async function handlePay() {
-    setLoading(true);
-    try {
-      await tenantApi.initiatePayment(entry.id);
-      setDone(true);
-      onSuccess();
-    } catch {
-      // Payment flow would redirect to Stripe; for now show optimistic state
-      setDone(true);
-      onSuccess();
-    } finally {
-      setLoading(false);
-    }
+interface PayState {
+  entryId: string;
+  loading: boolean;
+  done: boolean;
+  error: string | null;
+}
+
+/* ---- Inline pay button ---------------------------------------------------- */
+
+function PayButton({
+  entry,
+  payState,
+  onPay,
+}: {
+  entry: LedgerEntry;
+  payState: PayState | null;
+  onPay: (entry: LedgerEntry) => void;
+}) {
+  if (!isPayable(entry)) return null;
+  const mine = payState?.entryId === entry.id;
+
+  if (mine && payState?.done) {
+    return <span className="pm2-pay-note">Payment initiated</span>;
   }
-
-  if (done) {
-    return (
-      <span className="flex items-center gap-1 text-xs text-success-600">
-        <IconCheckCircle size={13} /> Initiated
-      </span>
-    );
+  if (mine && payState?.error) {
+    return <span className="pm2-pay-error">{payState.error}</span>;
   }
 
   return (
-    <Button
-      size="sm"
-      variant={entry.status === 'overdue' ? 'danger' : 'primary'}
-      loading={loading}
-      onClick={handlePay}
+    <button
+      className="pm2-btn-pay"
+      disabled={mine && !!payState?.loading}
+      onClick={() => onPay(entry)}
+      type="button"
     >
-      Pay Now
-    </Button>
+      {mine && payState?.loading ? 'Initiating…' : 'Pay'}
+    </button>
   );
 }
 
-/* ---- Page ---------------------------------------------------------------- */
+/* ---- Skeletons ------------------------------------------------------------ */
+
+function StatsSkeleton() {
+  return (
+    <DataCardGrid cols={4}>
+      {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+    </DataCardGrid>
+  );
+}
+
+/* ============================================================================
+   PaymentsPage
+   ============================================================================ */
+
 export function PaymentsPage() {
-  const [paidIds, setPaidIds] = useState<Set<string>>(new Set());
-  const { data, loading, error, reload } = useApi(() => tenantApi.ledger(), []);
+  const ledgerQ  = useApi(() => tenantApi.ledger(), []);
+  const balanceQ = useApi(() => tenantApi.balance(), []);
 
-  const entries: LedgerEntry[] = data ?? MOCK_LEDGER;
+  const [filter, setFilter]     = useState<'all' | 'rent' | 'fees'>('all');
+  const [payState, setPayState] = useState<PayState | null>(null);
 
-  // Compute stats
-  const now = new Date().getFullYear();
-  const totalPaidCents = entries
-    .filter(
-      (e) =>
-        e.status === 'paid' &&
-        new Date(e.created_at).getFullYear() === now,
-    )
+  function reload() { ledgerQ.reload(); balanceQ.reload(); }
+
+  /* ---- Derived data -------------------------------------------------------- */
+  const ledger  = ledgerQ.data ?? [];
+  const balance = balanceQ.data;
+
+  const filteredEntries = ledger.filter((e) => {
+    if (filter === 'rent')  return e.type === 'rent';
+    if (filter === 'fees')  return e.type === 'late_fee';
+    return true;
+  });
+
+  /* Earliest pending/overdue entry with a due_date */
+  const nextDue = ledger
+    .filter((e) => (e.status === 'pending' || e.status === 'overdue') && e.due_date)
+    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0] ?? null;
+
+  const hasOverdue   = ledger.some((e) => e.status === 'overdue');
+  /* Only count payment-type entries with status paid — truthful "confirmed" sum */
+  const lifetimePaid = ledger
+    .filter((e) => e.type === 'payment' && e.status === 'paid')
     .reduce((sum, e) => sum + e.amount_cents, 0);
+  /* Only show lifetime-paid if we have any paid payment entries at all */
+  const hasConfirmedPayments = ledger.some(
+    (e) => e.type === 'payment' && e.status === 'paid',
+  );
 
-  const upcomingEntry = [...entries]
-    .filter((e) => e.status === 'pending' && e.type === 'rent')
-    .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0];
+  const outstandingCents  = balance?.balance_cents ?? 0;
+  const hasLedgerData     = ledger.length > 0;
 
-  const overdueCents = entries
-    .filter((e) => e.status === 'overdue')
-    .reduce((sum, e) => sum + e.amount_cents, 0);
+  /* days until next due — null when no nextDue */
+  const daysToNextDue = nextDue?.due_date ? daysUntil(nextDue.due_date) : null;
 
-  function handlePaySuccess() {
-    reload();
+  /* Semantic roles — driven by real data, not ad-hoc conditionals */
+  const balanceRole      = getPaymentBalanceVariant(outstandingCents, hasOverdue);
+  const nextDueRole      = getNextDueVariant(daysToNextDue);
+  const healthRole       = getPaymentHealthVariant(hasOverdue, hasLedgerData);
+
+  /* ---- Pay action --------------------------------------------------------- */
+
+  async function handlePay(entry: LedgerEntry) {
+    setPayState({ entryId: entry.id, loading: true, done: false, error: null });
+    try {
+      await tenantApi.initiatePayment(entry.id);
+      setPayState({ entryId: entry.id, loading: false, done: true, error: null });
+    } catch {
+      setPayState({
+        entryId: entry.id,
+        loading: false,
+        done: false,
+        error: 'Could not initiate payment. Try again or contact your landlord.',
+      });
+    }
   }
 
-  return (
-    <div className="animate-rise space-y-6">
-      <PageHeader
-        eyebrow="My Rental"
-        title="Payments"
-        description="Your rent history, upcoming payments, and outstanding balances."
-        action={
-          <Button
-            variant="ghost"
-            size="sm"
-            leftIcon={<IconRefresh size={15} />}
-            onClick={reload}
-          >
-            Refresh
-          </Button>
-        }
-      />
+  /* ---- Error / forbidden gate --------------------------------------------- */
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Total Paid (this year)"
-          value={formatCents(totalPaidCents)}
-          icon={<IconWallet size={18} />}
-          tone="money"
-          subtext={`${now} rent payments`}
-        />
-        <StatCard
-          label="Upcoming Rent"
-          value={upcomingEntry ? formatCents(upcomingEntry.amount_cents) : '—'}
-          icon={<IconClock size={18} />}
-          tone={upcomingEntry ? 'info' : 'default'}
-          subtext={upcomingEntry?.due_date ? `Due ${formatDate(upcomingEntry.due_date)}` : 'No pending payments'}
-        />
-        <StatCard
-          label="Overdue"
-          value={overdueCents > 0 ? formatCents(overdueCents) : 'None'}
-          icon={<IconAlertTriangle size={18} />}
-          tone={overdueCents > 0 ? 'danger' : 'success'}
-          subtext={overdueCents > 0 ? 'Pay immediately to avoid late fees' : 'All clear'}
-        />
+  const isLoading    = ledgerQ.loading || balanceQ.loading;
+  const primaryError = ledgerQ.error ?? balanceQ.error;
+
+  if (!isLoading && primaryError?.status === 403) {
+    return (
+      <div className="pm2-page">
+        <PageHeader onRefresh={reload} />
+        <ForbiddenState />
       </div>
+    );
+  }
 
-      {/* Ledger table */}
-      <Card>
-        <CardHeader
-          title="Payment Ledger"
-          description="All rent charges, late fees, and payments on your account."
-        />
+  if (!isLoading && primaryError) {
+    return (
+      <div className="pm2-page">
+        <PageHeader onRefresh={reload} />
+        <ErrorState message={primaryError.message} onRetry={reload} />
+      </div>
+    );
+  }
 
-        {loading ? (
-          <CardBody>
-            <LoadingState label="Loading your payment history..." />
-          </CardBody>
-        ) : error && !data ? (
-          <CardBody>
-            <ErrorState
-              message={error.message}
-              onRetry={reload}
-            />
-          </CardBody>
-        ) : entries.length === 0 ? (
-          <CardBody>
-            <EmptyState
-              icon={<IconWallet size={28} />}
-              title="No payment records yet"
-              description="Your rent charges and payment history will appear here once a lease is active."
-            />
-          </CardBody>
-        ) : (
-          <>
-            <Table>
-              <THead>
-                <tr>
-                  <TH>Date</TH>
-                  <TH>Type</TH>
-                  <TH>Period</TH>
-                  <TH>Amount</TH>
-                  <TH>Status</TH>
-                  <TH className="text-right">Action</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {entries.map((entry) => {
-                  const isPaid = paidIds.has(entry.id) || entry.status === 'paid';
-                  const effectiveStatus: LedgerStatus = isPaid ? 'paid' : entry.status;
+  /* ---- Render -------------------------------------------------------------- */
 
-                  return (
-                    <TR key={entry.id}>
-                      <TD className="whitespace-nowrap text-ink-500">
-                        {formatDate(entry.created_at)}
-                      </TD>
-                      <TD first>
-                        <span className={typeIconTone(entry.type) !== 'neutral' ? `text-${typeIconTone(entry.type)}-600` : ''}>
-                          {typeLabel(entry.type)}
-                        </span>
-                      </TD>
-                      <TD className="font-mono text-xs text-ink-500">
-                        {entry.billing_period_start
-                          ? `${formatDate(entry.billing_period_start)}${entry.billing_period_end ? ' – ' + formatDate(entry.billing_period_end) : ''}`
-                          : '—'}
-                      </TD>
-                      <TD>
-                        <span
-                          className="font-display font-semibold"
-                          style={{ color: 'var(--color-money)' }}
-                        >
-                          {formatCents(entry.amount_cents)}
-                        </span>
-                      </TD>
-                      <TD>
-                        <Badge tone={ledgerStatusTone(effectiveStatus)}>
-                          {humanize(effectiveStatus)}
-                        </Badge>
-                      </TD>
-                      <TD className="text-right">
-                        {!isPaid && isActionable(entry.status) ? (
-                          <PayNowButton
-                            entry={entry}
-                            onSuccess={() => {
-                              setPaidIds((prev) => new Set([...prev, entry.id]));
-                              handlePaySuccess();
-                            }}
-                          />
-                        ) : (
-                          <span className="text-xs text-ink-400">—</span>
-                        )}
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </Table>
+  return (
+    <div className="pm2-page">
+      <PageHeader onRefresh={reload} />
 
-            <CardFooter>
-              <p className="text-xs text-ink-400">
-                Showing {entries.length} entr{entries.length !== 1 ? 'ies' : 'y'}.
-                Contact support if you see any discrepancies.
+      {/* ── Summary cards ─────────────────────────────────────────────── */}
+      {isLoading ? (
+        <StatsSkeleton />
+      ) : (
+        <DataCardGrid cols={4}>
+          {/* Outstanding balance — Level 3 command card (most important) */}
+          <CommandCard
+            label="Outstanding balance"
+            value={formatCents(outstandingCents)}
+            sub={
+              outstandingCents <= 0
+                ? 'All clear — nothing owed'
+                : hasOverdue
+                  ? 'Overdue charges present'
+                  : 'Amount currently due'
+            }
+            icon={<IconWallet size={20} />}
+            role={balanceRole}
+            loading={isLoading}
+          />
+
+          {/* Next payment due */}
+          <StatusCard
+            label="Next payment due"
+            value={nextDue ? formatCents(nextDue.amount_cents) : '—'}
+            sub={
+              nextDue
+                ? daysToNextDue !== null
+                  ? daysToNextDue < 0
+                    ? `Overdue by ${Math.abs(daysToNextDue)} day${Math.abs(daysToNextDue) === 1 ? '' : 's'}`
+                    : daysToNextDue === 0
+                      ? 'Due today'
+                      : `Due in ${daysToNextDue} day${daysToNextDue === 1 ? '' : 's'}`
+                  : `Due ${formatDate(nextDue.due_date)}`
+                : 'No upcoming charges'
+            }
+            icon={<IconCalendar size={18} />}
+            role={nextDueRole}
+            loading={isLoading}
+          />
+
+          {/* Payment health */}
+          <StatusCard
+            label="Payment health"
+            value={
+              !hasLedgerData
+                ? 'No data yet'
+                : hasOverdue
+                  ? 'Overdue'
+                  : 'On time'
+            }
+            sub={
+              !hasLedgerData
+                ? 'Ledger will appear once you have a lease'
+                : hasOverdue
+                  ? 'You have overdue charges'
+                  : 'No overdue charges'
+            }
+            icon={<IconShield size={18} />}
+            role={healthRole}
+            loading={isLoading}
+          />
+
+          {/* Lifetime paid — only shown when real confirmed payments exist */}
+          <StatusCard
+            label="Lifetime paid"
+            value={hasConfirmedPayments ? formatCents(lifetimePaid) : '—'}
+            sub={
+              hasConfirmedPayments
+                ? 'Confirmed payment total'
+                : 'No confirmed payments yet'
+            }
+            icon={<IconCheckCircle size={18} />}
+            role={hasConfirmedPayments ? 'info' : 'neutral'}
+            loading={isLoading}
+          />
+        </DataCardGrid>
+      )}
+
+      {/* ── Next-due action band ──────────────────────────────────────── */}
+      {!isLoading && nextDue && (
+        <NexusCard
+          role={nextDueRole === 'neutral' ? 'neutral' : nextDueRole}
+          className="pm2-next"
+        >
+          <div className="pm2-next-left">
+            <span className="eyebrow">Next payment</span>
+            <p className="pm2-next-label">
+              {entryLabel(nextDue.type, nextDue.billing_period_start)}
+            </p>
+            {nextDue.due_date && (
+              <p className="pm2-next-meta">
+                <IconClock size={13} className="pm2-next-meta-icon" />
+                Due {formatDate(nextDue.due_date)}
               </p>
-            </CardFooter>
-          </>
-        )}
-      </Card>
+            )}
+          </div>
+          <div className="pm2-next-right">
+            <span className="pm2-next-amount font-display num-old">
+              {formatCents(nextDue.amount_cents)}
+            </span>
+            {isPayable(nextDue) && (
+              payState?.entryId === nextDue.id && payState.done ? (
+                <p className="pm2-next-initiated">
+                  Payment initiated. In-app card checkout is not yet available — your
+                  landlord will confirm receipt once payment completes.
+                </p>
+              ) : (
+                <button
+                  className="pm2-btn-primary"
+                  disabled={payState?.entryId === nextDue.id && !!payState?.loading}
+                  onClick={() => handlePay(nextDue)}
+                  type="button"
+                >
+                  {payState?.entryId === nextDue.id && payState?.loading
+                    ? 'Initiating…'
+                    : 'Pay now'}
+                </button>
+              )
+            )}
+          </div>
+        </NexusCard>
+      )}
+
+      {/* ── Stripe notice — honest about card flow ────────────────────── */}
+      {!isLoading && (
+        <NexusCard role="info" className="pm2-notice">
+          <IconInfo size={16} className="pm2-notice-icon" aria-hidden="true" />
+          <p className="pm2-notice-text">
+            <strong>Online card payment via Stripe is being set up.</strong>{' '}
+            Pressing "Pay" initiates a payment intent; completing the card charge
+            requires a payment flow that is not yet available in-app. Contact your
+            landlord to arrange payment in the meantime.
+          </p>
+        </NexusCard>
+      )}
+
+      {/* ── Ledger table ─────────────────────────────────────────────── */}
+      <DashboardSection
+        eyebrow="Transaction history"
+        title="Payment Ledger"
+        description="All rent charges, fees, and payments on your account."
+        action={
+          <span className="pm2-select">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as typeof filter)}
+              aria-label="Filter transactions"
+            >
+              <option value="all">All transactions</option>
+              <option value="rent">Rent only</option>
+              <option value="fees">Fees only</option>
+            </select>
+            <IconChevronDown size={14} className="pm2-select-chev" aria-hidden="true" />
+          </span>
+        }
+      >
+        <NexusCard role="neutral" className="pm2-ledger-card">
+          {ledgerQ.loading ? (
+            <LoadingState label="Loading ledger…" />
+          ) : filteredEntries.length === 0 ? (
+            <EmptyState
+              icon={<IconWallet size={26} />}
+              title="No payments yet"
+              description="Once you have an active lease, your rent schedule and history appear here."
+            />
+          ) : (
+            <div className="pm2-table-wrap">
+              <table className="pm2-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Description</th>
+                    <th scope="col" className="pm2-hide-sm">Period</th>
+                    <th scope="col" className="pm2-hide-md">Method</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" className="r">Amount</th>
+                    <th scope="col" aria-label="Actions"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntries.map((entry) => {
+                    const isCredit = entry.type === 'payment' || entry.type === 'refund';
+                    const entryRole = getLedgerVariant(entry.status);
+                    return (
+                      <tr key={entry.id}>
+                        <td className="pm2-date">{formatDate(entry.created_at)}</td>
+                        <td className="pm2-desc">
+                          {entryLabel(entry.type, entry.billing_period_start)}
+                        </td>
+                        <td className="pm2-period pm2-hide-sm">
+                          {entry.billing_period_start && entry.billing_period_end
+                            ? `${formatDate(entry.billing_period_start)} – ${formatDate(entry.billing_period_end)}`
+                            : '—'}
+                        </td>
+                        <td className="pm2-hide-md">
+                          {entry.stripe_payment_intent_id ? (
+                            <span className="pm2-method">
+                              <span className="pm2-card-chip" aria-hidden="true">💳</span>
+                              Card
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          <SemanticBadge role={entryRole} status={entry.status} />
+                        </td>
+                        <td className={`r pm2-amount${isCredit ? ' credit' : ''}`}>
+                          {isCredit ? '–' : ''}{formatCents(entry.amount_cents)}
+                        </td>
+                        <td className="pm2-action-col">
+                          <PayButton entry={entry} payState={payState} onPay={handlePay} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </NexusCard>
+      </DashboardSection>
+    </div>
+  );
+}
+
+/* ---- Page header ---------------------------------------------------------- */
+
+function PageHeader({ onRefresh }: { onRefresh: () => void }) {
+  return (
+    <div className="pm2-header">
+      <div>
+        <span className="eyebrow">My Rental</span>
+        <h1 className="pm2-title">Payments</h1>
+        <p className="pm2-sub">Track rent, charges, and your payment history.</p>
+      </div>
+      <div className="pm2-head-actions">
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<IconRefresh size={15} />}
+          onClick={onRefresh}
+          aria-label="Refresh payments data"
+        >
+          Refresh
+        </Button>
+      </div>
     </div>
   );
 }

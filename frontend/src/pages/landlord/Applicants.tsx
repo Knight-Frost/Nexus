@@ -1,288 +1,785 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import { useApi } from '@/hooks/useApi';
+import { landlordApi } from '@/lib/endpoints';
+import { fieldErrors } from '@/lib/api';
+import type { ApiError, Application, ApplicationStatus } from '@/lib/types';
+import { formatDate, timeAgo, storageUrl } from '@/lib/format';
+import { paginate, rangeLabel } from '@/lib/paginate';
+import { applicationStatusLabel, applicationStatusTone } from '@/lib/statusMaps';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { StatCard } from '@/components/ui/StatCard';
-import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { Field, Input } from '@/components/ui/Field';
+import { Field, Textarea } from '@/components/ui/Field';
+import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
+import {
+  CommandBar,
+  SearchInput,
+  FilterTabs,
+  SortSelect,
+  Pagination,
+  ActionMenu,
+  Thumbnail,
+  type FilterTab,
+  type SelectOption,
+} from '@/components/landlord/primitives';
 import {
   IconUsers,
-  IconCheck,
-  IconX,
   IconCheckCircle,
   IconXCircle,
-  IconShield,
   IconAlertCircle,
+  IconShield,
+  IconMail,
+  IconPhone,
+  IconCheck,
+  IconX,
 } from '@/components/ui/icons';
-import { formatDate } from '@/lib/format';
-import * as MOCK from '@/lib/mockData';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
+import {
+  StatusCard,
+  SemanticBadge,
+  DashboardSection,
+  DataCardGrid,
+  getApplicationVariant,
+  getReviewQueueVariant,
+} from '@/components/cards';
 
-type ApplicantStatus = 'pending' | 'approved' | 'rejected';
-type FilterTab = 'all' | ApplicantStatus;
+/* ---- Constants ----------------------------------------------------------- */
+const PER_PAGE = 10;
 
-interface Applicant {
-  id: string;
-  name: string;
-  email: string;
-  property: string;
-  unit: string;
-  applied_at: string;
-  status: ApplicantStatus;
-  verified: boolean;
+type FilterKey = 'all' | ApplicationStatus;
+type SortKey = 'newest' | 'oldest' | 'readiness_high';
+
+const SORT_OPTIONS: SelectOption<SortKey>[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'readiness_high', label: 'Readiness (high → low)' },
+];
+
+const DECIDABLE_STATUSES: ApplicationStatus[] = ['submitted', 'in_review', 'landlord_review'];
+
+function isDecidable(status: ApplicationStatus): boolean {
+  return (DECIDABLE_STATUSES as string[]).includes(status);
 }
 
-function statusTone(s: ApplicantStatus) {
-  if (s === 'approved') return 'success' as const;
-  if (s === 'rejected') return 'danger' as const;
-  return 'warning' as const;
-}
-
-function Initials({ name }: { name: string }) {
-  const parts = name.trim().split(' ');
+/* ---- Avatar initials ----------------------------------------------------- */
+function AvatarCircle({ name }: { name: string }) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
   const letters =
-    parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2);
+    parts.length >= 2
+      ? parts[0][0] + parts[parts.length - 1][0]
+      : (parts[0] ?? '#').slice(0, 2);
   return (
-    <span
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white"
+    <div
       aria-hidden="true"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 select-none"
     >
       {letters.toUpperCase()}
-    </span>
+    </div>
   );
 }
 
-export function Applicants() {
-  const [applicants, setApplicants] = useState<Applicant[]>(MOCK.MOCK_APPLICANTS);
-  const [tab, setTab] = useState<FilterTab>('all');
+/* ---- Readiness column ---------------------------------------------------- */
+function ReadinessCell({
+  readiness,
+}: {
+  readiness?: Application['readiness'];
+}) {
+  if (!readiness) return <span className="text-xs text-ink-400">—</span>;
 
-  // Reject modal state
-  const [rejectTarget, setRejectTarget] = useState<Applicant | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [reasonError, setReasonError] = useState('');
-
-  const filtered =
-    tab === 'all' ? applicants : applicants.filter((a) => a.status === tab);
-
-  const counts = applicants.reduce<Record<string, number>>((acc, a) => {
-    acc[a.status] = (acc[a.status] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const TABS: { key: FilterTab; label: string }[] = [
-    { key: 'all',      label: 'All' },
-    { key: 'pending',  label: 'Pending' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'rejected', label: 'Rejected' },
-  ];
-
-  function handleApprove(id: string) {
-    setApplicants((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'approved' as const } : a)),
-    );
-  }
-
-  function openReject(a: Applicant) {
-    setRejectTarget(a);
-    setRejectReason('');
-    setReasonError('');
-  }
-
-  function handleRejectConfirm() {
-    if (!rejectReason.trim()) {
-      setReasonError('Please provide a reason for rejection.');
-      return;
-    }
-    setApplicants((prev) =>
-      prev.map((a) =>
-        a.id === rejectTarget!.id ? { ...a, status: 'rejected' as const } : a,
-      ),
-    );
-    setRejectTarget(null);
-  }
+  const { percentage, items } = readiness;
+  const scoreColor =
+    percentage >= 80
+      ? 'text-success-600'
+      : percentage >= 50
+      ? 'text-warning-600'
+      : 'text-danger-600';
 
   return (
-    <div className="animate-rise space-y-6">
+    <div className="flex flex-col gap-1.5">
+      <span className={cn('font-display text-sm font-semibold tabular-nums', scoreColor)}>
+        Ready {percentage}%
+      </span>
+      <ul className="flex flex-col gap-0.5">
+        {items.map((item) => (
+          <li
+            key={item.key}
+            title={item.label}
+            className="flex items-center gap-1 text-xs text-ink-500 leading-tight"
+          >
+            {item.complete ? (
+              <IconCheckCircle size={12} className="shrink-0 text-success-500" />
+            ) : (
+              <IconXCircle size={12} className="shrink-0 text-ink-300" />
+            )}
+            <span className="truncate max-w-[9rem]">{item.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ========================================================================= */
+export function Applicants() {
+  const { data, loading, error, reload } = useApi(() => landlordApi.applications(), []);
+  const { toast } = useToast();
+
+  /* ---- State ------------------------------------------------------------ */
+  const [apps, setApps] = useState<Application[] | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<FilterKey>('all');
+  const [listingFilter, setListingFilter] = useState('all');
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
+
+  // Review / decision modal
+  const [reviewTarget, setReviewTarget] = useState<Application | null>(null);
+  const [modalDecision, setModalDecision] = useState<'approve' | 'reject' | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectError, setRejectError] = useState('');
+  const [decidingId, setDecidingId] = useState<number | null>(null);
+
+  /* ---- Derived list (server data + local optimistic updates) ------------ */
+  const list = useMemo<Application[]>(() => apps ?? data ?? [], [apps, data]);
+
+  function applyDecision(updated: Application) {
+    setApps((prev) => {
+      const base = prev ?? data ?? [];
+      return base.map((a) => (a.id === updated.id ? updated : a));
+    });
+  }
+
+  /* ---- KPIs (all real) -------------------------------------------------- */
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const kpi = useMemo(() => {
+    const total = list.length;
+    const readyToReview = list.filter((a) => a.status === 'landlord_review').length;
+    const pendingDecision = list.filter((a) =>
+      (['submitted', 'in_review', 'landlord_review'] as ApplicationStatus[]).includes(a.status),
+    ).length;
+    const approvedThisMonth = list.filter(
+      (a) =>
+        a.status === 'approved' &&
+        a.decided_at != null &&
+        new Date(a.decided_at).getTime() >= startOfMonth,
+    ).length;
+    return { total, readyToReview, pendingDecision, approvedThisMonth };
+  }, [list, startOfMonth]);
+
+  /* ---- Listing filter options ------------------------------------------ */
+  const listingOptions = useMemo<SelectOption<string>[]>(() => {
+    const seen = new Map<string, string>();
+    for (const a of list) {
+      const key = String(a.listing_id);
+      if (!seen.has(key)) {
+        seen.set(key, a.listing?.title ?? `Listing #${a.listing_id}`);
+      }
+    }
+    const opts: SelectOption<string>[] = [{ value: 'all', label: 'All listings' }];
+    for (const [value, label] of seen) opts.push({ value, label });
+    return opts;
+  }, [list]);
+
+  /* ---- Status tab counts ------------------------------------------------ */
+  const tabCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const a of list) c[a.status] = (c[a.status] ?? 0) + 1;
+    return c;
+  }, [list]);
+
+  const filterTabs: FilterTab<FilterKey>[] = [
+    { key: 'all', label: 'All', count: list.length },
+    {
+      key: 'submitted',
+      label: applicationStatusLabel.submitted,
+      count: tabCounts.submitted ?? 0,
+      tone: applicationStatusTone.submitted,
+    },
+    {
+      key: 'landlord_review',
+      label: applicationStatusLabel.landlord_review,
+      count: tabCounts.landlord_review ?? 0,
+      tone: applicationStatusTone.landlord_review,
+    },
+    {
+      key: 'approved',
+      label: applicationStatusLabel.approved,
+      count: tabCounts.approved ?? 0,
+      tone: applicationStatusTone.approved,
+    },
+    {
+      key: 'rejected',
+      label: applicationStatusLabel.rejected,
+      count: tabCounts.rejected ?? 0,
+      tone: applicationStatusTone.rejected,
+    },
+    {
+      key: 'withdrawn',
+      label: applicationStatusLabel.withdrawn,
+      count: tabCounts.withdrawn ?? 0,
+      tone: applicationStatusTone.withdrawn,
+    },
+  ];
+
+  /* ---- Filter + sort pipeline ------------------------------------------ */
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let rows = list.filter((a) => {
+      if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+      if (listingFilter !== 'all' && String(a.listing_id) !== listingFilter) return false;
+      if (q) {
+        const hay = [
+          a.tenant?.full_name ?? '',
+          a.tenant?.email ?? '',
+          a.tenant?.phone ?? '',
+          a.listing?.title ?? '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    rows = [...rows].sort((a, b) => {
+      switch (sort) {
+        case 'oldest':
+          return (
+            new Date(a.submitted_at ?? a.created_at).getTime() -
+            new Date(b.submitted_at ?? b.created_at).getTime()
+          );
+        case 'readiness_high':
+          return (b.readiness?.percentage ?? 0) - (a.readiness?.percentage ?? 0);
+        case 'newest':
+        default:
+          return (
+            new Date(b.submitted_at ?? b.created_at).getTime() -
+            new Date(a.submitted_at ?? a.created_at).getTime()
+          );
+      }
+    });
+    return rows;
+  }, [list, search, statusFilter, listingFilter, sort]);
+
+  const slice = paginate(filtered, page, PER_PAGE);
+
+  function resetPage() {
+    setPage(1);
+  }
+
+  /* ---- Decision handlers ------------------------------------------------ */
+  async function decide(
+    app: Application,
+    decision: 'approved' | 'rejected',
+    reason?: string,
+  ): Promise<boolean> {
+    setDecidingId(app.id);
+    try {
+      const updated = await landlordApi.decideApplication(app.id, decision, reason);
+      applyDecision(updated);
+      toast(decision === 'approved' ? 'Application approved.' : 'Application rejected.', 'success');
+      return true;
+    } catch (err) {
+      const apiErr = err as ApiError;
+      const flat = fieldErrors(apiErr);
+      const message =
+        flat.decision_reason ||
+        flat.decision ||
+        apiErr.message ||
+        'Could not record the decision. Please try again.';
+      if (decision === 'rejected') setRejectError(message);
+      else toast(message, 'error');
+      reload();
+      return false;
+    } finally {
+      setDecidingId(null);
+    }
+  }
+
+  function openReview(app: Application, preset?: 'approve' | 'reject') {
+    setReviewTarget(app);
+    setModalDecision(preset ?? null);
+    setRejectReason('');
+    setRejectError('');
+  }
+
+  function closeReview() {
+    if (decidingId !== null) return;
+    setReviewTarget(null);
+    setModalDecision(null);
+    setRejectReason('');
+    setRejectError('');
+  }
+
+  async function handleModalApprove() {
+    if (!reviewTarget) return;
+    const ok = await decide(reviewTarget, 'approved');
+    if (ok) closeReview();
+  }
+
+  async function handleModalReject() {
+    if (!reviewTarget) return;
+    const ok = await decide(reviewTarget, 'rejected', rejectReason.trim() || undefined);
+    if (ok) closeReview();
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await landlordApi.exportApplications();
+      toast('Applicants exported', 'success');
+    } catch {
+      toast('Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  /* ---- Loading / error states ------------------------------------------ */
+  if (loading) return <LoadingState label="Loading applicants…" />;
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Couldn't load applicants"
+        message={error.message}
+        onRetry={reload}
+      />
+    );
+  }
+
+  /* ---- Empty (zero data) ------------------------------------------------ */
+  if (list.length === 0) {
+    return (
+      <div className="animate-rise space-y-6">
+        <PageHeader
+          eyebrow="Operations"
+          title="Applicants"
+          description="Review and decide on tenant applications for your listings."
+          action={
+            <Button variant="secondary" onClick={handleExport} loading={exporting} disabled>
+              Export
+            </Button>
+          }
+        />
+        <EmptyState
+          icon={<IconUsers size={26} />}
+          title="No applicants yet"
+          description="When tenants apply to your active listings, they'll appear here for review."
+          action={
+            <Link to="/app/listings">
+              <Button variant="secondary">View listings</Button>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  /* ---- Main render ------------------------------------------------------ */
+  return (
+    <div className="animate-rise space-y-10">
+      {/* Page header */}
       <PageHeader
         eyebrow="Operations"
         title="Applicants"
-        description="Review and action rental applications for your listings."
+        description="Review and decide on tenant applications for your listings."
+        action={
+          <>
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              loading={exporting}
+              disabled={list.length === 0}
+            >
+              Export
+            </Button>
+            <Button
+              onClick={() => {
+                setStatusFilter('landlord_review');
+                resetPage();
+              }}
+            >
+              Review queue
+            </Button>
+          </>
+        }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard
-          label="Total"
-          value={applicants.length}
-          icon={<IconUsers size={17} />}
+      {/* KPI row — semantic roles from real data */}
+      <DashboardSection eyebrow="APPLICANT OVERVIEW">
+        <DataCardGrid cols={4}>
+          <StatusCard
+            label="Total applicants"
+            value={kpi.total}
+            sub="Across all listings"
+            icon={<IconUsers size={18} />}
+            role="neutral"
+          />
+          <StatusCard
+            label="Ready to review"
+            value={kpi.readyToReview}
+            sub="Status: landlord review"
+            role={getReviewQueueVariant(kpi.readyToReview)}
+            icon={<IconAlertCircle size={18} />}
+          />
+          <StatusCard
+            label="Pending decision"
+            value={kpi.pendingDecision}
+            sub="Submitted + in review"
+            role={kpi.pendingDecision > 0 ? 'warning' : 'neutral'}
+            icon={<IconAlertCircle size={18} />}
+          />
+          <StatusCard
+            label="Approved this month"
+            value={kpi.approvedThisMonth}
+            sub="Successful applications"
+            role={kpi.approvedThisMonth > 0 ? 'success' : 'neutral'}
+            icon={<IconCheckCircle size={18} />}
+          />
+        </DataCardGrid>
+      </DashboardSection>
+
+      {/* Command bar */}
+      <CommandBar>
+        <SearchInput
+          value={search}
+          onChange={(v) => { setSearch(v); resetPage(); }}
+          placeholder="Search by name, email, phone or listing…"
+          label="Search applicants"
         />
-        <StatCard
-          label="Pending Review"
-          value={counts['pending'] ?? 0}
-          tone={(counts['pending'] ?? 0) > 0 ? 'warning' : 'default'}
-          icon={<IconAlertCircle size={17} />}
+        <SortSelect
+          value={listingFilter}
+          onChange={(v) => { setListingFilter(v); resetPage(); }}
+          options={listingOptions}
+          label="Filter by listing"
+          prefix=""
         />
-        <StatCard
-          label="Approved"
-          value={counts['approved'] ?? 0}
-          tone="success"
-          icon={<IconCheckCircle size={17} />}
+        <FilterTabs
+          tabs={filterTabs}
+          value={statusFilter}
+          onChange={(k) => { setStatusFilter(k); resetPage(); }}
         />
-        <StatCard
-          label="Rejected"
-          value={counts['rejected'] ?? 0}
-          tone="danger"
-          icon={<IconXCircle size={17} />}
+        <SortSelect
+          value={sort}
+          onChange={setSort}
+          options={SORT_OPTIONS}
+          label="Sort applicants"
         />
-      </div>
+      </CommandBar>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-ink-200 pb-0">
-        {TABS.map((t) => {
-          const count = t.key === 'all' ? applicants.length : (counts[t.key] ?? 0);
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                'flex shrink-0 items-center gap-1.5 border-b-2 px-3 pb-3 pt-1 text-sm font-medium transition-colors',
-                tab === t.key
-                  ? 'border-brand-600 text-brand-700'
-                  : 'border-transparent text-ink-500 hover:text-ink-800',
-              )}
-            >
-              {t.label}
-              {count > 0 && (
-                <span
-                  className={cn(
-                    'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
-                    tab === t.key
-                      ? 'bg-brand-100 text-brand-700'
-                      : 'bg-ink-100 text-ink-500',
-                  )}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Table */}
+      {slice.total === 0 ? (
+        <EmptyState
+          icon={<IconUsers size={26} />}
+          title="No applicants match"
+          description="Try adjusting the search term or filter."
+        />
+      ) : (
+        <Card>
+          <CardBody className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-ink-200 bg-ink-50/50">
+                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500">
+                      Applicant
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500 hidden sm:table-cell">
+                      Listing &amp; Unit
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500 hidden md:table-cell">
+                      Readiness
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500 hidden lg:table-cell">
+                      Submitted
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-ink-500">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-200">
+                  {slice.items.map((app) => {
+                    const tenant = app.tenant;
+                    const name = tenant?.full_name ?? `Applicant #${app.id}`;
+                    const listing = app.listing;
+                    const unit = listing?.unit;
+                    const property = unit?.property;
+                    const decidable = isDecidable(app.status);
+                    const isBusy = decidingId === app.id;
 
-      {/* Applicant list */}
-      <Card>
-        <CardHeader title={`${filtered.length} applicant${filtered.length !== 1 ? 's' : ''}`} />
-        <CardBody className="pt-2">
-          {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-ink-500">
-              No applicants in this category yet.
-            </p>
-          ) : (
-            <ul className="divide-y divide-ink-100">
-              {filtered.map((a) => (
-                <li key={a.id} className="flex flex-wrap items-center gap-4 py-4">
-                  {/* Avatar */}
-                  <Initials name={a.name} />
+                    const menuItems = [
+                      ...(decidable
+                        ? [
+                            {
+                              label: 'Approve',
+                              icon: <IconCheck size={14} />,
+                              onClick: () => openReview(app, 'approve'),
+                            },
+                            {
+                              label: 'Decline',
+                              icon: <IconX size={14} />,
+                              danger: true,
+                              onClick: () => openReview(app, 'reject'),
+                            },
+                          ]
+                        : []),
+                    ];
 
-                  {/* Details */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-ink-900">{a.name}</p>
-                      <Badge tone={statusTone(a.status)}>{a.status.charAt(0).toUpperCase() + a.status.slice(1)}</Badge>
-                      {a.verified ? (
-                        <Badge tone="success">
-                          <IconShield size={11} className="mr-0.5 inline" />
-                          Verified
-                        </Badge>
-                      ) : (
-                        <Badge tone="warning">Unverified</Badge>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-sm text-ink-500">{a.email}</p>
-                    <p className="mt-0.5 text-xs text-ink-400">
-                      {a.property} · Unit {a.unit} · Applied {formatDate(a.applied_at)}
-                    </p>
-                  </div>
+                    return (
+                      <tr
+                        key={app.id}
+                        className="transition-colors hover:bg-ink-50/60"
+                      >
+                        {/* Applicant */}
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <AvatarCircle name={name} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-medium text-ink-900 leading-snug">{name}</p>
+                                {tenant?.identity_verified && (
+                                  <IconShield
+                                    size={13}
+                                    className="shrink-0 text-success-500"
+                                    title="Identity verified"
+                                  />
+                                )}
+                              </div>
+                              {tenant?.email && (
+                                <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-500 truncate">
+                                  <IconMail size={11} className="shrink-0" />
+                                  {tenant.email}
+                                </p>
+                              )}
+                              {tenant?.phone && (
+                                <p className="flex items-center gap-1 text-xs text-ink-400 truncate">
+                                  <IconPhone size={11} className="shrink-0" />
+                                  {tenant.phone}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
 
-                  {/* Actions */}
-                  <div className="flex shrink-0 gap-2">
-                    {a.status === 'pending' && (
-                      <>
-                        <Button
-                          size="sm"
-                          leftIcon={<IconCheck size={13} />}
-                          onClick={() => handleApprove(a.id)}
-                          className="bg-success-600 text-white hover:bg-success-500"
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<IconX size={13} />}
-                          onClick={() => openReject(a)}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    {a.status === 'approved' && (
-                      <span className="inline-flex items-center gap-1 text-sm text-success-600 font-medium">
-                        <IconCheckCircle size={15} />
-                        Approved
-                      </span>
-                    )}
-                    {a.status === 'rejected' && (
-                      <span className="inline-flex items-center gap-1 text-sm text-danger-600 font-medium">
-                        <IconXCircle size={15} />
-                        Rejected
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
+                        {/* Listing & Unit */}
+                        <td className="px-4 py-4 hidden sm:table-cell">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Thumbnail
+                              src={storageUrl(listing?.primary_photo?.path)}
+                              alt={listing?.title ?? 'Listing'}
+                              seed={listing?.title ?? ''}
+                              size={48}
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium text-ink-900 leading-snug truncate max-w-[12rem]">
+                                {listing?.title ?? `Listing #${app.listing_id}`}
+                              </p>
+                              <p className="mt-0.5 text-xs text-ink-500 truncate max-w-[12rem]">
+                                {unit ? `Unit ${unit.unit_number}` : ''}
+                                {property ? ` · ${property.name}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
 
-      {/* Reject reason modal */}
+                        {/* Readiness */}
+                        <td className="px-4 py-4 hidden md:table-cell">
+                          <ReadinessCell readiness={app.readiness} />
+                        </td>
+
+                        {/* Status — SemanticBadge driven by getApplicationVariant */}
+                        <td className="px-4 py-4">
+                          <SemanticBadge role={getApplicationVariant(app.status)}>
+                            {applicationStatusLabel[app.status]}
+                          </SemanticBadge>
+                        </td>
+
+                        {/* Submitted */}
+                        <td className="px-4 py-4 hidden lg:table-cell">
+                          <p className="text-sm text-ink-700">
+                            {formatDate(app.submitted_at ?? app.created_at)}
+                          </p>
+                          <p className="text-xs text-ink-400">
+                            {timeAgo(app.submitted_at ?? app.created_at)}
+                          </p>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            {decidable ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                loading={isBusy}
+                                disabled={decidingId !== null}
+                                onClick={() => openReview(app)}
+                              >
+                                Review
+                              </Button>
+                            ) : (
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-1 text-xs font-medium',
+                                  app.status === 'approved'
+                                    ? 'text-success-600'
+                                    : app.status === 'rejected'
+                                    ? 'text-danger-600'
+                                    : 'text-ink-400',
+                                )}
+                              >
+                                {app.status === 'approved' && <IconCheckCircle size={13} />}
+                                {app.status === 'rejected' && <IconXCircle size={13} />}
+                                {applicationStatusLabel[app.status]}
+                              </span>
+                            )}
+                            {menuItems.length > 0 && <ActionMenu items={menuItems} />}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer: range + pagination */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
+              <p className="text-xs text-ink-500">{rangeLabel(slice, 'applicant')}</p>
+              <Pagination slice={slice} onPage={setPage} />
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Review / decision modal */}
       <Modal
-        open={rejectTarget !== null}
-        onClose={() => setRejectTarget(null)}
-        title="Reject Application"
+        open={reviewTarget !== null}
+        onClose={closeReview}
+        title={
+          reviewTarget
+            ? `Review — ${reviewTarget.tenant?.full_name ?? `Applicant #${reviewTarget.id}`}`
+            : 'Review application'
+        }
         description={
-          rejectTarget
-            ? `Rejecting application from ${rejectTarget.name} for ${rejectTarget.property} · Unit ${rejectTarget.unit}.`
+          reviewTarget
+            ? `Application for ${reviewTarget.listing?.title ?? `Listing #${reviewTarget.listing_id}`}`
             : undefined
         }
         size="sm"
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setRejectTarget(null)}>
-              Cancel
+          reviewTarget && isDecidable(reviewTarget.status) ? (
+            <>
+              <Button variant="secondary" onClick={closeReview} disabled={decidingId !== null}>
+                Cancel
+              </Button>
+              {modalDecision !== 'reject' && (
+                <Button
+                  leftIcon={<IconCheck size={14} />}
+                  onClick={handleModalApprove}
+                  loading={decidingId === reviewTarget?.id}
+                  disabled={decidingId !== null}
+                  className="bg-success-600 text-white hover:bg-success-500"
+                >
+                  Approve
+                </Button>
+              )}
+              {modalDecision !== 'approve' && (
+                <Button
+                  variant="danger"
+                  leftIcon={<IconX size={14} />}
+                  onClick={handleModalReject}
+                  loading={decidingId === reviewTarget?.id}
+                  disabled={decidingId !== null}
+                >
+                  {modalDecision === 'reject' ? 'Confirm rejection' : 'Decline'}
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button variant="secondary" onClick={closeReview}>
+              Close
             </Button>
-            <Button variant="danger" onClick={handleRejectConfirm}>
-              Confirm Rejection
-            </Button>
-          </>
+          )
         }
       >
-        <Field label="Reason for rejection" error={reasonError} required>
-          {(id, invalid) => (
-            <Input
-              id={id}
-              invalid={invalid}
-              placeholder="e.g. Income requirements not met"
-              value={rejectReason}
-              onChange={(e) => {
-                setRejectReason(e.target.value);
-                if (e.target.value.trim()) setReasonError('');
-              }}
-            />
-          )}
-        </Field>
+        {reviewTarget && (
+          <div className="space-y-4">
+            {/* Tenant summary */}
+            <div className="rounded-xl bg-ink-50 p-4 text-sm space-y-1">
+              <p className="font-medium text-ink-900">{reviewTarget.tenant?.full_name ?? '—'}</p>
+              {reviewTarget.tenant?.email && (
+                <p className="flex items-center gap-1.5 text-ink-600">
+                  <IconMail size={13} /> {reviewTarget.tenant.email}
+                </p>
+              )}
+              {reviewTarget.tenant?.phone && (
+                <p className="flex items-center gap-1.5 text-ink-600">
+                  <IconPhone size={13} /> {reviewTarget.tenant.phone}
+                </p>
+              )}
+              {reviewTarget.tenant?.identity_verified && (
+                <p className="flex items-center gap-1.5 text-success-600 text-xs">
+                  <IconShield size={12} /> Identity verified
+                </p>
+              )}
+            </div>
+
+            {/* Readiness in modal */}
+            {reviewTarget.readiness && (
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-500">
+                  Profile readiness
+                </p>
+                <ReadinessCell readiness={reviewTarget.readiness} />
+              </div>
+            )}
+
+            {/* Cover note */}
+            {reviewTarget.cover_note && (
+              <div>
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-500">
+                  Cover note
+                </p>
+                <p className="text-sm text-ink-700 whitespace-pre-line">{reviewTarget.cover_note}</p>
+              </div>
+            )}
+
+            {/* Rejection reason input — shown when declining */}
+            {isDecidable(reviewTarget.status) && modalDecision !== 'approve' && (
+              <Field
+                label="Reason for declining (optional)"
+                hint="Shared with the applicant. Leave blank to decline without a note."
+                error={rejectError}
+              >
+                {(id, invalid) => (
+                  <Textarea
+                    id={id}
+                    invalid={invalid}
+                    rows={3}
+                    placeholder="e.g. The unit has been let to another applicant."
+                    value={rejectReason}
+                    onChange={(e) => {
+                      setRejectReason(e.target.value);
+                      if (rejectError) setRejectError('');
+                    }}
+                  />
+                )}
+              </Field>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

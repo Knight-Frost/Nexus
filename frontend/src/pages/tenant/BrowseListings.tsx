@@ -1,422 +1,409 @@
-import { useState } from 'react';
-import { useApi } from '@/hooks/useApi';
-import { publicApi, tenantApi } from '@/lib/endpoints';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { EmptyState, ErrorState, Skeleton } from '@/components/ui/states';
-import { ListingCard } from '@/components/listings/ListingCard';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import {
-  IconSearch,
-  IconFilter,
-  IconBed,
-  IconMapPin,
-  IconHeart,
-  IconShield,
-  IconChevronRight,
-  IconChevronLeft,
-  IconX,
-} from '@/components/ui/icons';
-import { cn } from '@/lib/cn';
-import type { Listing } from '@/lib/types';
+  Search, MapPin, ChevronDown, Bell, Mail, Sun, Cloud, CloudRain,
+  Check, Bookmark, SlidersHorizontal, LayoutGrid, List as ListIcon, Map as MapIcon,
+  Heart, BedDouble, Bath, Maximize2, Building2, ShieldCheck, ArrowRight,
+  ChevronLeft, ChevronRight,
+} from 'lucide-react';
+import { useApi } from '@/hooks/useApi';
+import { publicApi, tenantApi, weatherApi, notificationApi } from '@/lib/endpoints';
+import { useAuth } from '@/context/auth';
+import { formatCedisDecimal } from '@/lib/format';
+import {
+  SemanticBadge,
+  SectionHeader,
+} from '@/components/cards';
+import { ErrorState, EmptyState, Skeleton } from '@/components/ui/states';
+import type { Listing, TenantProfileResponse } from '@/lib/types';
+import './browse-listings.css';
 
-/* ---- Filter types -------------------------------------------------------- */
+import fb1 from '@/assets/dashboard/home-2.jpg';
+import fb2 from '@/assets/dashboard/home-5.jpg';
+import fb3 from '@/assets/dashboard/home-7.jpg';
+const FALLBACKS = [fb1, fb2, fb3];
+
+/* ---- filters ------------------------------------------------------------- */
 interface Filters {
   city: string;
+  neighborhood: string;
   max_price: string;
   bedrooms: string;
   property_type: string;
   verified_only: boolean;
 }
+const EMPTY: Filters = { city: '', neighborhood: '', max_price: '', bedrooms: '', property_type: '', verified_only: false };
 
-const EMPTY_FILTERS: Filters = {
-  city: '',
-  max_price: '',
-  bedrooms: '',
-  property_type: '',
-  verified_only: false,
+const CITIES = ['All cities', 'Accra', 'Tema', 'Kumasi', 'Takoradi', 'Cape Coast'];
+const NEIGHBOURHOODS = ['All neighborhoods', 'East Legon', 'Cantonments', 'Osu', 'Airport Residential', 'Labone', 'Spintex', 'Dzorwulu'];
+const MAX_PRICES: { v: string; l: string }[] = [
+  { v: '', l: 'Any price' }, { v: '300000', l: 'Up to GH₵ 3,000' }, { v: '600000', l: 'Up to GH₵ 6,000' },
+  { v: '1000000', l: 'Up to GH₵ 10,000' }, { v: '1500000', l: 'Up to GH₵ 15,000' },
+];
+const BEDS = [{ v: '', l: 'Any' }, { v: '1', l: '1+' }, { v: '2', l: '2+' }, { v: '3', l: '3+' }, { v: '4', l: '4+' }];
+const TYPES: { v: string; l: string }[] = [
+  { v: '', l: 'Any' }, { v: 'apartment', l: 'Apartment' }, { v: 'townhouse', l: 'Townhouse' },
+  { v: 'single_family', l: 'House' }, { v: 'condo', l: 'Condo' }, { v: 'multi_family', l: 'Multi-family' },
+];
+const SORTS = [
+  { v: 'recommended', l: 'Recommended' }, { v: 'price_asc', l: 'Price: low to high' },
+  { v: 'price_desc', l: 'Price: high to low' }, { v: 'beds', l: 'Most bedrooms' },
+];
+
+const TYPE_LABEL: Record<string, string> = {
+  single_family: 'House', multi_family: 'Multi-family', apartment: 'Apartment',
+  condo: 'Condo', townhouse: 'Townhouse', duplex: 'Duplex', studio: 'Studio',
 };
+const typeLabel = (t?: string) => (t ? TYPE_LABEL[t] ?? t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Home');
+const rent = (l: Listing) => l.unit?.rent_amount ?? null;
+const beds = (l: Listing) => (l.unit?.bedrooms ? parseInt(l.unit.bedrooms, 10) : 0);
+const imgFor = (l: Listing, i: number) =>
+  l.primary_photo?.path ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}` : FALLBACKS[i % FALLBACKS.length];
 
-const CITIES = [
-  { value: '',          label: 'All cities' },
-  { value: 'Accra',    label: 'Accra' },
-  { value: 'Tema',     label: 'Tema' },
-  { value: 'Kumasi',   label: 'Kumasi' },
-  { value: 'Takoradi', label: 'Takoradi' },
-  { value: 'Cape Coast', label: 'Cape Coast' },
-];
-
-const MAX_PRICES = [
-  { value: '',      label: 'Any price' },
-  { value: '300000',  label: 'GH₵ 3,000' },
-  { value: '600000',  label: 'GH₵ 6,000' },
-  { value: '1000000', label: 'GH₵ 10,000' },
-  { value: '1500000', label: 'GH₵ 15,000' },
-];
-
-const BEDROOMS = [
-  { value: '',  label: 'Any' },
-  { value: '1', label: '1+' },
-  { value: '2', label: '2+' },
-  { value: '3', label: '3+' },
-];
-
-function toParams(filters: Filters, page: number) {
-  return {
-    city:       filters.city     || undefined,
-    max_price:  filters.max_price ? Number(filters.max_price) : undefined,
-    bedrooms:   filters.bedrooms  ? Number(filters.bedrooms)  : undefined,
-    page,
-  };
+/** Returns true when the listing is available now (no future available_from date). */
+function isAvailableNow(l: Listing): boolean {
+  const from = l.unit?.available_from;
+  if (!from) return true;
+  return new Date(from).getTime() <= Date.now();
 }
 
-function hasActiveFilters(filters: Filters): boolean {
-  return !!(filters.city || filters.max_price || filters.bedrooms || filters.property_type || filters.verified_only);
-}
-
-/* ---- Filter chip --------------------------------------------------------- */
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+/* ---- reusable select ----------------------------------------------------- */
+function Field({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors',
-        active
-          ? 'border-brand-500 bg-brand-50 text-brand-700'
-          : 'border-ink-200 bg-surface text-ink-600 hover:border-ink-300 hover:bg-ink-50',
-      )}
-    >
-      {label}
-    </button>
+    <label className="bz-field">
+      <span className="bz-field-label">{label}</span>
+      <span className="bz-select">
+        <select value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
+        <ChevronDown size={16} className="bz-select-chev" />
+      </span>
+    </label>
   );
 }
 
-/* ---- Skeleton grid ------------------------------------------------------- */
-function ListingSkeletonGrid() {
+/* ---- weather chip -------------------------------------------------------- */
+function WeatherChip({ city }: { city: string }) {
+  const { data } = useApi(() => weatherApi.current(city), [city]);
+  if (!data || !data.available) return null;
+  const c = data.condition.toLowerCase();
+  const Icon = c.includes('rain') || c.includes('drizzle') ? CloudRain : c.includes('cloud') || c.includes('overcast') ? Cloud : Sun;
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }, (_, i) => (
-        <div
-          key={i}
-          className="bg-surface rounded-2xl border border-ink-200 overflow-hidden"
-        >
-          <Skeleton className="h-48 w-full rounded-none" />
-          <div className="p-4 space-y-2.5">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3.5 w-1/2" />
-            <Skeleton className="h-3 w-1/3" />
-          </div>
-        </div>
-      ))}
+    <div className="bz-weather">
+      <Icon size={18} className="bz-weather-ico" />
+      <span>
+        <span className="bz-weather-temp">{Math.round(data.temperature)}°{data.unit}</span>{' '}
+        <span className="bz-weather-cond">{data.condition}</span>
+      </span>
     </div>
   );
 }
 
-/* ---- SaveButton ---------------------------------------------------------- */
-function SaveButton({
-  listing,
-  saved,
-  onToggle,
-}: {
+/* ---- card ---------------------------------------------------------------- */
+function PropertyCard({ listing, index, saved, onToggle }: {
   listing: Listing;
+  index: number;
   saved: boolean;
-  onToggle: (id: number, saved: boolean) => void;
+  onToggle: (id: number, next: boolean) => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const unit = listing.unit;
+  const prop = unit?.property;
+  const availableNow = isAvailableNow(listing);
+  const loc = prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : '—';
+  const rentDisplay = rent(listing);
 
-  async function handleClick(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (loading) return;
-    setLoading(true);
+  const toggle = async (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const next = !saved;
+    onToggle(listing.id, next);
     try {
-      if (saved) {
-        await tenantApi.unsaveListing(listing.id);
-      } else {
-        await tenantApi.saveListing(listing.id);
-      }
-      onToggle(listing.id, !saved);
-    } catch {
-      // Silent fallback — optimistic update was already applied
-    } finally {
-      setLoading(false);
-    }
-  }
+      if (next) await tenantApi.saveListing(listing.id);
+      else await tenantApi.unsaveListing(listing.id);
+    } catch { onToggle(listing.id, saved); }
+  };
 
   return (
-    <button
-      type="button"
-      aria-label={saved ? 'Remove from saved' : 'Save listing'}
-      className={cn(
-        'absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-all',
-        saved
-          ? 'border-danger-300 bg-danger-50 text-danger-500'
-          : 'border-white/40 bg-black/20 text-white hover:bg-black/40',
-        loading && 'opacity-60 cursor-wait',
-      )}
-      onClick={handleClick}
-    >
-      <IconHeart size={14} />
-    </button>
+    <Link to={`/app/listing/${listing.id}`} className="bz-card">
+      <div className="bz-card-img">
+        <img src={imgFor(listing, index)} alt={listing.title} loading="lazy"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = FALLBACKS[index % FALLBACKS.length]; }} />
+        <span className="bz-verified"><ShieldCheck size={14} /> Verified</span>
+        <button className={`bz-heart${saved ? ' on' : ''}`} onClick={toggle} aria-label={saved ? 'Remove from saved' : 'Save listing'}>
+          <Heart size={16} fill={saved ? 'currentColor' : 'none'} />
+        </button>
+      </div>
+      <div className="bz-card-body">
+        {/* Availability badge — semantic (success = now, warning = soon) */}
+        <div className="bz-avail-wrap">
+          <SemanticBadge
+            role={availableNow ? 'success' : 'warning'}
+            dot
+          >
+            {availableNow ? 'Available now' : 'Available soon'}
+          </SemanticBadge>
+        </div>
+        <h3 className="bz-card-name">{listing.title}</h3>
+        <p className="bz-card-loc"><MapPin size={14} /> {loc}</p>
+        <div className="bz-specs">
+          {beds(listing) > 0 && <span className="bz-spec"><BedDouble size={15} /> {beds(listing)} bed</span>}
+          {unit?.bathrooms && <span className="bz-spec"><Bath size={15} /> {parseInt(unit.bathrooms, 10)} bath</span>}
+          {unit?.square_feet && <span className="bz-spec"><Maximize2 size={15} /> {unit.square_feet.toLocaleString()} sqft</span>}
+          <span className="bz-spec"><Building2 size={15} /> {typeLabel(prop?.property_type)}</span>
+        </div>
+        <div className="bz-card-foot">
+          <span className="bz-price">
+            {rentDisplay != null ? formatCedisDecimal(rentDisplay) : '—'}
+            <small> /mo</small>
+          </span>
+          <span className="bz-details">View details <ArrowRight size={15} /></span>
+        </div>
+      </div>
+    </Link>
   );
 }
 
-/* ---- Page ---------------------------------------------------------------- */
+/* ---- skeleton card ------------------------------------------------------- */
+function ListingSkeleton() {
+  return (
+    <div className="bz-sk-card">
+      <div className="bz-sk-img"><Skeleton className="h-full w-full" /></div>
+      <div className="bz-sk-body">
+        <Skeleton className="h-5 w-24 mb-3" />
+        <Skeleton className="h-6 w-3/4 mb-2" />
+        <Skeleton className="h-4 w-1/2 mb-4" />
+        <div style={{ display: 'flex', gap: 16 }}>
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================== */
 export function BrowseListings() {
-  const [draft, setDraft] = useState<Filters>(EMPTY_FILTERS);
-  const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
+  const { user } = useAuth();
+  const [draft, setDraft] = useState<Filters>(EMPTY);
+  const [applied, setApplied] = useState<Filters>(EMPTY);
+  const [query, setQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const [sort, setSort] = useState('recommended');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
   const [savedMap, setSavedMap] = useState<Map<number, boolean>>(new Map());
 
+  // Fetch profile to get the tenant's actual city (may be null)
+  const { data: profileData } = useApi<TenantProfileResponse>(() => tenantApi.profile(), []);
+  const tenantCity = profileData?.user.city ?? null;
+
   const { data, loading, error, reload } = useApi(
-    () => publicApi.listings(toParams(applied, page)),
-    [applied, page],
+    () => publicApi.listings({
+      city: applied.city || undefined,
+      max_price: applied.max_price ? Number(applied.max_price) : undefined,
+      bedrooms: applied.bedrooms ? Number(applied.bedrooms) : undefined,
+      page,
+    }),
+    [applied.city, applied.max_price, applied.bedrooms, page],
   );
 
-  // Pre-fill saved state from server
-  useApi<Listing[]>(
-    async () => {
-      const saved = await tenantApi.savedListings().catch(() => [] as Listing[]);
-      setSavedMap(new Map(saved.map((l) => [l.id, true])));
-      return saved;
-    },
-    [],
-  );
+  useApi<Listing[]>(async () => {
+    const saved = await tenantApi.savedListings().catch(() => [] as Listing[]);
+    setSavedMap(new Map(saved.map((l) => [l.id, true])));
+    return saved;
+  }, []);
 
-  function set<K extends keyof Filters>(key: K, value: Filters[K]) {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-  }
+  const { data: unread } = useApi(() => notificationApi.unreadCount(), []);
+  const name = user && 'full_name' in user ? user.full_name : 'You';
+  const initials = name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase();
 
-  function handleApply() {
-    setPage(1);
-    setApplied(draft);
-  }
+  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setDraft((p) => ({ ...p, [k]: v }));
+  const apply = () => { setApplied(draft); setAppliedQuery(query); setPage(1); };
+  const clear = () => { setDraft(EMPTY); setApplied(EMPTY); setQuery(''); setAppliedQuery(''); setPage(1); };
 
-  function handleReset() {
-    setDraft(EMPTY_FILTERS);
-    setApplied(EMPTY_FILTERS);
-    setPage(1);
-  }
+  const lastPage = data?.last_page ?? 1;
 
-  function handleSaveToggle(id: number, saved: boolean) {
-    setSavedMap((prev) => new Map(prev).set(id, saved));
-  }
+  const listings = useMemo(() => {
+    let arr = [...(data?.data ?? [])];
+    const q = appliedQuery.trim().toLowerCase();
+    const hood = applied.neighborhood && applied.neighborhood !== 'All neighborhoods' ? applied.neighborhood.toLowerCase() : '';
+    if (q || hood) {
+      arr = arr.filter((l) => {
+        const hay = `${l.title} ${l.unit?.property?.city ?? ''} ${l.unit?.property?.street_address ?? ''} ${l.unit?.property?.name ?? ''}`.toLowerCase();
+        return (!q || hay.includes(q)) && (!hood || hay.includes(hood));
+      });
+    }
+    if (applied.property_type) arr = arr.filter((l) => l.unit?.property?.property_type === applied.property_type);
+    if (applied.verified_only) arr = arr.filter((l) => l.status === 'active');
+    switch (sort) {
+      case 'price_asc': arr.sort((a, b) => (parseFloat(a.unit?.rent_amount ?? '0')) - (parseFloat(b.unit?.rent_amount ?? '0'))); break;
+      case 'price_desc': arr.sort((a, b) => (parseFloat(b.unit?.rent_amount ?? '0')) - (parseFloat(a.unit?.rent_amount ?? '0'))); break;
+      case 'beds': arr.sort((a, b) => beds(b) - beds(a)); break;
+    }
+    return arr;
+  }, [data, appliedQuery, applied.neighborhood, applied.property_type, applied.verified_only, sort]);
 
-  const listings      = data?.data ?? [];
-  const currentPage   = data?.current_page ?? 1;
-  const lastPage      = data?.last_page ?? 1;
-  const total         = data?.total ?? 0;
-  const filtersActive = hasActiveFilters(applied);
+  const onToggleSave = (id: number, next: boolean) => setSavedMap((p) => new Map(p).set(id, next));
 
   return (
-    <div className="animate-rise space-y-6">
-      <PageHeader
+    <div className="bz-page">
+      {/* top utility bar */}
+      <div className="bz-topbar">
+        <div className="bz-meta">
+          {tenantCity && (
+            <div className="bz-loc"><MapPin size={16} /> {tenantCity} <ChevronDown size={15} className="bz-loc-chev" /></div>
+          )}
+          {tenantCity && <WeatherChip city={tenantCity} />}
+        </div>
+        <Link to="/app/notifications" className="bz-tb-btn" aria-label="Notifications">
+          <Bell size={18} />
+          {!!unread && unread > 0 && <span className="bz-tb-badge">{unread > 9 ? '9+' : unread}</span>}
+        </Link>
+        <Link to="/app/messages" className="bz-tb-btn" aria-label="Messages"><Mail size={18} /></Link>
+        <Link to="/app/profile" className="bz-avatar" aria-label="Profile">
+          <span className="bz-avatar-circle">{initials}</span>
+          <ChevronDown size={15} />
+        </Link>
+      </div>
+
+      {/* header — editorial SectionHeader */}
+      <SectionHeader
         eyebrow="Find a Home"
-        title="Find a home in Ghana"
-        description="Verified rentals across Accra, Tema, Kumasi and beyond."
+        title="Find verified homes in Ghana"
+        description="Browse trusted rentals across Accra, Tema, Kumasi, Takoradi, Cape Coast and beyond."
       />
 
-      {/* Filters bar */}
-      <Card>
-        <CardBody className="space-y-4">
-          {/* City chips */}
+      {/* hero search */}
+      <div className="bz-search">
+        <Search size={20} className="bz-search-ico" />
+        <input
+          className="bz-search-input"
+          placeholder="Search East Legon, Cantonments, Osu, 2 bedroom…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') apply(); }}
+          aria-label="Search listings"
+        />
+        <button type="button" className="bz-search-check" onClick={() => set('verified_only', !draft.verified_only)}>
+          <span className={`bz-cb${draft.verified_only ? ' on' : ''}`} aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
+          Verified listings only
+        </button>
+        <button className="bz-btn-primary bz-search-btn" onClick={apply}>Search</button>
+      </div>
+
+      {/* filter panel */}
+      <div className="bz-filters">
+        <div className="bz-filter-grid">
+          <Field label="City" value={draft.city} onChange={(v) => set('city', v === 'All cities' ? '' : v)}>
+            {CITIES.map((c) => <option key={c} value={c === 'All cities' ? '' : c}>{c}</option>)}
+          </Field>
+          <Field label="Neighborhood" value={draft.neighborhood} onChange={(v) => set('neighborhood', v)}>
+            {NEIGHBOURHOODS.map((n) => <option key={n} value={n === 'All neighborhoods' ? '' : n}>{n}</option>)}
+          </Field>
+          <Field label="Max price" value={draft.max_price} onChange={(v) => set('max_price', v)}>
+            {MAX_PRICES.map((p) => <option key={p.v} value={p.v}>{p.l}</option>)}
+          </Field>
+          <Field label="Bedrooms" value={draft.bedrooms} onChange={(v) => set('bedrooms', v)}>
+            {BEDS.map((b) => <option key={b.v} value={b.v}>{b.l}</option>)}
+          </Field>
+          <Field label="Property type" value={draft.property_type} onChange={(v) => set('property_type', v)}>
+            {TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
+          </Field>
+          <label className="bz-field">
+            <span className="bz-field-label">Verification</span>
+            <button type="button" className="bz-verif" onClick={() => set('verified_only', !draft.verified_only)}
+              aria-pressed={draft.verified_only}>
+              <span className={`bz-cb${draft.verified_only ? ' on' : ''}`} aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
+              Verified only
+            </button>
+          </label>
+        </div>
+
+        <div className="bz-filter-actions">
+          <button className="bz-btn-ghost" onClick={clear}>Clear filters</button>
+          <button className="bz-btn-ghost accent"><Bookmark size={15} /> Save search</button>
+          <span className="bz-spacer" />
+          <div className="bz-sort">
+            <span className="bz-sort-label">Sort by</span>
+            <span className="bz-select">
+              <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                {SORTS.map((s) => <option key={s.v} value={s.v}>{s.l}</option>)}
+              </select>
+              <ChevronDown size={16} className="bz-select-chev" />
+            </span>
+          </div>
+          <button className="bz-btn-primary" onClick={apply}>Apply filters</button>
+        </div>
+      </div>
+
+      {/* results toolbar */}
+      <div className="bz-results">
+        <div className="bz-results-info">
+          <span className="bz-results-ico" aria-hidden="true"><SlidersHorizontal size={18} /></span>
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
-              City
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {CITIES.map((c) => (
-                <FilterChip
-                  key={c.value}
-                  label={c.label}
-                  active={draft.city === c.value}
-                  onClick={() => set('city', c.value)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Secondary filters */}
-          <div className="flex flex-wrap items-end gap-3 border-t border-ink-100 pt-4">
-            {/* Max price */}
-            <div className="min-w-0">
-              <p className="mb-1.5 text-xs font-medium text-ink-500">Max price</p>
-              <div className="flex gap-1.5 flex-wrap">
-                {MAX_PRICES.map((p) => (
-                  <FilterChip
-                    key={p.value}
-                    label={p.label}
-                    active={draft.max_price === p.value}
-                    onClick={() => set('max_price', p.value)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Bedrooms */}
-            <div className="min-w-0">
-              <p className="mb-1.5 text-xs font-medium text-ink-500">
-                <IconBed size={12} className="mr-1 inline" />
-                Bedrooms
-              </p>
-              <div className="flex gap-1.5">
-                {BEDROOMS.map((b) => (
-                  <FilterChip
-                    key={b.value}
-                    label={b.label}
-                    active={draft.bedrooms === b.value}
-                    onClick={() => set('bedrooms', b.value)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Verified only toggle */}
-            <FilterChip
-              label="Verified only"
-              active={draft.verified_only}
-              onClick={() => set('verified_only', !draft.verified_only)}
-            />
-
-            {/* Actions */}
-            <div className="ml-auto flex items-center gap-2">
-              {hasActiveFilters(draft) && (
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="flex items-center gap-1 text-xs text-ink-400 hover:text-ink-700 transition-colors"
-                >
-                  <IconX size={12} /> Clear
-                </button>
-              )}
-              <Button
-                leftIcon={<IconSearch size={15} />}
-                onClick={handleApply}
-                size="sm"
-              >
-                Search
-              </Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* Results header */}
-      {!loading && !error && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-ink-500">
-            {filtersActive ? (
+            {loading ? (
               <>
-                <span className="font-medium text-ink-900">{total}</span> home
-                {total !== 1 ? 's' : ''} match your filters
-                {applied.city && (
-                  <>
-                    {' '}in{' '}
-                    <span className="font-medium text-ink-900 flex-inline items-center gap-1">
-                      <IconMapPin size={11} className="inline mr-0.5" />
-                      {applied.city}
-                    </span>
-                  </>
-                )}
+                <div className="bz-results-count"><Skeleton className="h-4 w-32 inline-block" /></div>
+                <p className="bz-results-where">{applied.city || 'Ghana'} and nearby</p>
               </>
             ) : (
               <>
-                Showing <span className="font-medium text-ink-900">{total}</span> verified listings
+                <p className="bz-results-count">Showing {listings.length} verified home{listings.length === 1 ? '' : 's'}</p>
+                <p className="bz-results-where">{applied.city || 'Ghana'} and nearby</p>
               </>
             )}
-          </p>
-          {filtersActive && (
-            <Badge tone="brand" dot={false}>
-              <IconFilter size={11} />
-              Filters active
-            </Badge>
-          )}
+          </div>
         </div>
-      )}
+        <div className="bz-views" role="group" aria-label="View mode">
+          <button className={`bz-view-btn${view === 'grid' ? ' on' : ''}`} onClick={() => setView('grid')}
+            aria-pressed={view === 'grid'}>
+            <LayoutGrid size={16} /> Grid
+          </button>
+          <button className={`bz-view-btn${view === 'list' ? ' on' : ''}`} onClick={() => setView('list')}
+            aria-pressed={view === 'list'}>
+            <ListIcon size={16} /> List
+          </button>
+          <button className="bz-view-btn" disabled aria-disabled="true">
+            <MapIcon size={16} /> Map <span className="bz-coming">Coming soon</span>
+          </button>
+        </div>
+      </div>
 
-      {/* Content */}
+      {/* content */}
       {loading ? (
-        <ListingSkeletonGrid />
+        <div className={`bz-grid${view === 'list' ? ' is-list' : ''}`}>
+          {Array.from({ length: 6 }, (_, i) => <ListingSkeleton key={i} />)}
+        </div>
       ) : error ? (
-        <ErrorState message={error.message} onRetry={reload} />
+        <ErrorState
+          title="Couldn't load listings"
+          message="Something went wrong. Please try again."
+          onRetry={reload}
+        />
       ) : listings.length === 0 ? (
         <EmptyState
-          icon={<IconSearch size={28} />}
-          title="No homes match your filters"
-          description="Try widening your search or adjusting the price range."
+          icon={<Search size={28} />}
+          title="No homes match your search"
+          description="Try widening your filters or clearing the search."
           action={
-            <Button variant="secondary" onClick={handleReset} leftIcon={<IconX size={15} />}>
-              Reset filters
-            </Button>
+            <button className="bz-btn-ghost" onClick={clear}>Clear filters</button>
           }
         />
       ) : (
         <>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {listings.map((listing) => (
-              <div key={listing.id} className="relative">
-                <ListingCard
-                  listing={listing}
-                  to={'/app/listing/' + listing.id}
-                />
-                <SaveButton
-                  listing={listing}
-                  saved={savedMap.get(listing.id) ?? false}
-                  onToggle={handleSaveToggle}
-                />
-                {listing.featured && (
-                  <div className="absolute left-3 top-3">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-                      Featured
-                    </span>
-                  </div>
-                )}
-                {listing.status === 'active' && !listing.featured && (
-                  <div className="absolute left-3 top-3">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-                      <IconShield size={10} /> Verified
-                    </span>
-                  </div>
-                )}
-              </div>
+          <div className={`bz-grid${view === 'list' ? ' is-list' : ''}`}>
+            {listings.map((l, i) => (
+              <PropertyCard key={l.id} listing={l} index={i} saved={savedMap.get(l.id) ?? false} onToggle={onToggleSave} />
             ))}
           </div>
 
-          {/* Pagination */}
           {lastPage > 1 && (
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                leftIcon={<IconChevronLeft size={15} />}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-ink-500">
-                Page <span className="font-medium text-ink-900">{currentPage}</span> of{' '}
-                <span className="font-medium text-ink-900">{lastPage}</span>
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={currentPage >= lastPage}
-                onClick={() => setPage((p) => p + 1)}
-                leftIcon={<IconChevronRight size={15} />}
-              >
-                Next
-              </Button>
+            <div className="bz-pager">
+              <button className="bz-btn-ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                <ChevronLeft size={15} /> Previous
+              </button>
+              <span>Page {data?.current_page ?? 1} of {lastPage}</span>
+              <button className="bz-btn-ghost" disabled={page >= lastPage} onClick={() => setPage((p) => p + 1)}>
+                Next <ChevronRight size={15} />
+              </button>
             </div>
           )}
         </>

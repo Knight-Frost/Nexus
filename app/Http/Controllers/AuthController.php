@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserType;
+use App\Events\UserCreated;
 use App\Models\Admin;
 use App\Models\User;
 use App\Services\AuditService;
@@ -56,6 +57,9 @@ class AuthController extends Controller
         // Audit log
         $this->auditService->logUserCreated($user);
 
+        // Fire UserCreated event → triggers SendWelcomeEmail listener
+        event(new UserCreated($user));
+
         return response()->json([
             'user' => $this->formatUser($user),
             'token' => $token,
@@ -98,40 +102,37 @@ class AuthController extends Controller
             ]);
         }
 
-        // Resolve the account by email (admins take precedence over users).
-        // Note: differentiating "unknown email" from "wrong password" is a product
-        // choice for clearer UX. It trades a small user-enumeration risk, which is
-        // mitigated by the per-email+IP login throttle above and audit logging.
+        // Check if this is an admin login
         $admin = Admin::where('email', $validated['email'])->first();
-        $user = $admin ? null : User::where('email', $validated['email'])->first();
-
-        // No account exists with this email at all.
-        if (! $admin && ! $user) {
-            RateLimiter::hit($throttleKey, 60);
-            throw ValidationException::withMessages([
-                'email' => ['No account was found with this email address.'],
-            ]);
-        }
-
-        // Admin login path.
         if ($admin) {
             if (! Hash::check($validated['password'], $admin->password)) {
+                // Email matched an admin but password is wrong
                 RateLimiter::hit($throttleKey, 60);
                 throw ValidationException::withMessages([
-                    'password' => ['The password you entered is incorrect.'],
+                    'password' => ['The provided credentials are incorrect.'],
                 ]);
             }
-
             RateLimiter::clear($throttleKey);
 
             return $this->handleAdminLogin($admin);
         }
 
-        // Regular user: email exists, so a failure here is specifically the password.
-        if (! Hash::check($validated['password'], $user->password)) {
+        // Check regular user
+        $user = User::where('email', $validated['email'])->first();
+
+        if (! $user) {
+            // No account with this email
             RateLimiter::hit($throttleKey, 60);
             throw ValidationException::withMessages([
-                'password' => ['The password you entered is incorrect.'],
+                'email' => ['No account found with this email address.'],
+            ]);
+        }
+
+        if (! Hash::check($validated['password'], $user->password)) {
+            // Email found but password is wrong
+            RateLimiter::hit($throttleKey, 60);
+            throw ValidationException::withMessages([
+                'password' => ['The provided credentials are incorrect.'],
             ]);
         }
 
@@ -253,6 +254,12 @@ class AuthController extends Controller
             'user_type' => $user->user_type->value,
             'is_active' => $user->is_active,
             'identity_verified' => $user->identity_verified,
+            'verification_status' => $user->verification_status instanceof \App\Enums\VerificationStatus
+                ? $user->verification_status->value
+                : ($user->verification_status ?? 'unverified'),
+            'account_status' => $user->account_status instanceof \App\Enums\AccountStatus
+                ? $user->account_status->value
+                : ($user->account_status ?? 'active'),
             'created_at' => $user->created_at->toISOString(),
         ];
     }

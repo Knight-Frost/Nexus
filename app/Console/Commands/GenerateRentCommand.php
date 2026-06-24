@@ -34,7 +34,7 @@ class GenerateRentCommand extends Command
      */
     public function handle(LedgerAutomationService $automationService): int
     {
-        $this->info('🏠 Nexus - Automated Rent Generation');
+        $this->info('🏠 '.config('brand.display_name').' - Automated Rent Generation');
         $this->info('=====================================');
         $this->newLine();
 

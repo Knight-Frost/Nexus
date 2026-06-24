@@ -1,47 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/context/auth';
 import { fieldErrors } from '@/lib/api';
+import { authApi, type AuthProviders } from '@/lib/endpoints';
 import type { ApiError } from '@/lib/types';
 import {
-  AuthInput,
-  AuthScene,
-  Eyebrow,
-  FeatureItem,
-  FieldLabel,
-  FormCard,
+  AuthShell,
+  AuthVisualPanel,
+  AuthCard,
+  AuthIcons,
   GoogleIcon,
-  Icons,
-  PasswordInput,
-} from './authParts';
-
-const FOOTER = [
-  { icon: <Icons.lock width={18} height={18} />, title: 'Your data is protected with', sub: 'enterprise-grade security.' },
-  { icon: <Icons.globe width={18} height={18} />, title: 'Built for trust. Designed for scale.', sub: 'Available globally, 24/7.' },
-  { icon: <Icons.shieldCheck width={18} height={18} />, title: 'SOC 2 Type II Compliant', sub: '256-bit Encryption' },
-];
-
-function LeftPanel() {
-  return (
-    <div className="max-w-xl">
-      <Eyebrow>Secure. Seamless. Connected.</Eyebrow>
-      <h1 className="mt-6 font-display text-5xl font-medium leading-[1.05] tracking-tight text-ink-950">
-        The unified home for property rentals.
-      </h1>
-      <p className="mt-5 max-w-md text-base leading-relaxed text-ink-500">
-        Manage properties, tenants, contracts, and payments, all in one secure platform built for
-        trust.
-      </p>
-
-      <div className="mt-10 space-y-6">
-        <FeatureItem icon={<Icons.shieldCheck />} title="Secure ledger" desc="Immutable records and bank-grade encryption." />
-        <FeatureItem icon={<Icons.badgeCheck />} title="Verified listings" desc="Every property and user thoroughly verified." />
-        <FeatureItem icon={<Icons.person />} title="Role-aware access" desc="Secure experiences for tenants, landlords, and admins." />
-        <FeatureItem icon={<Icons.doc />} title="Complete audit trail" desc="Every action tracked. Every record immutable." />
-      </div>
-    </div>
-  );
-}
+  AuthTextField,
+  AuthPasswordField,
+  AuthFieldLabel,
+  AuthFieldError,
+  AuthErrorBanner,
+  AuthDivider,
+} from '@/components/auth';
 
 export function Login() {
   const { login } = useAuth();
@@ -55,8 +30,17 @@ export function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  /* Inline notice for unavailable SSO options — no toast dependency */
+  /* Notice for unavailable SSO options — state-driven, no toast dependency */
   const [ssoNotice, setSsoNotice] = useState<string | null>(null);
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Fetch which social providers are available on mount.
+  useEffect(() => {
+    authApi.authProviders().then(setProviders).catch(() => {
+      setProviders({ google: false });
+    });
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,62 +61,69 @@ export function Login() {
     }
   }
 
-  function notAvailable(what: string) {
-    return () => {
-      setSsoNotice(`${what} isn't available yet. Use email and password for now.`);
-      setTimeout(() => setSsoNotice(null), 4000);
-    };
+  async function handleGoogleLogin() {
+    setGoogleLoading(true);
+    setSsoNotice(null);
+    try {
+      const url = await authApi.googleRedirect();
+      window.location.href = url;
+    } catch {
+      setSsoNotice('Could not initiate Google sign-in. Please try again.');
+      setGoogleLoading(false);
+    }
   }
 
   return (
-    <AuthScene left={<LeftPanel />} footer={FOOTER} form={
-      <FormCard label="Welcome back">
-        <h1 className="text-center font-display text-4xl font-medium text-ink-950">Sign in to Nexus</h1>
-        <p className="mx-auto mt-2 max-w-xs text-center text-sm leading-relaxed text-ink-500">
-          Welcome back
-        </p>
+    <AuthShell
+      panel={<AuthVisualPanel mode="login" />}
+    >
+      <AuthCard
+        label="Welcome back"
+        title="Welcome back"
+        subtitle="Continue to your secure rental workspace."
+      >
+        <form
+          onSubmit={onSubmit}
+          noValidate
+          style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}
+        >
+          {formError && <AuthErrorBanner message={formError} />}
 
-        <div className="my-7 flex items-center gap-4">
-          <span className="h-px flex-1 bg-ink-200" />
-          <span className="font-display text-lg font-semibold text-brand-400">N</span>
-          <span className="h-px flex-1 bg-ink-200" />
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-5" noValidate>
-          {/* General API error (e.g. wrong email or wrong password) */}
-          {formError && (
-            <div className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-500" role="alert">
-              {formError}
-            </div>
-          )}
-
-          {/* SSO unavailability notice — state-driven, no toast */}
+          {/* SSO unavailability notice */}
           {ssoNotice && (
-            <div className="rounded-xl border border-info-500/30 bg-info-50 px-4 py-3 text-sm text-info-600" role="status">
+            <div
+              role="status"
+              style={{
+                borderRadius: '0.75rem',
+                border: '1px solid rgba(32,89,192,0.20)',
+                background: 'rgba(32,89,192,0.06)',
+                padding: '0.75rem 1rem',
+                fontSize: '0.875rem',
+                color: 'var(--auth-focus)',
+              }}
+            >
               {ssoNotice}
             </div>
           )}
 
           <label className="block">
-            <FieldLabel>Email</FieldLabel>
-            <AuthInput
+            <AuthFieldLabel>Email</AuthFieldLabel>
+            <AuthTextField
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               invalid={!!errors.email}
               placeholder="you@example.com"
               autoComplete="email"
-              leftIcon={<Icons.mail width={18} height={18} />}
+              leftIcon={<AuthIcons.mail />}
               required
             />
-            {errors.email && (
-              <span className="mt-1 block text-xs text-danger-500">{errors.email}</span>
-            )}
+            <AuthFieldError message={errors.email} />
           </label>
 
           <label className="block">
-            <FieldLabel>Password</FieldLabel>
-            <PasswordInput
+            <AuthFieldLabel>Password</AuthFieldLabel>
+            <AuthPasswordField
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               invalid={!!errors.password}
@@ -140,80 +131,150 @@ export function Login() {
               autoComplete="current-password"
               withIcon
             />
-            {errors.password && (
-              <span className="mt-1 block text-xs text-danger-500">{errors.password}</span>
-            )}
+            <AuthFieldError message={errors.password} />
           </label>
 
+          {/* Remember me + Forgot password */}
           <div className="flex items-center justify-between">
-            <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink-700">
+            <label
+              className="flex cursor-pointer items-center gap-2"
+              style={{ fontSize: '0.875rem', color: 'var(--auth-text-primary)' }}
+            >
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-ink-300 bg-surface text-brand-600 accent-brand-600"
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 4,
+                  accentColor: 'var(--auth-focus)',
+                  cursor: 'pointer',
+                }}
               />
               Remember me
             </label>
-            <button
-              type="button"
-              onClick={notAvailable('Password reset')}
-              className="text-sm font-medium text-brand-400 hover:text-brand-800"
+            <Link
+              to="/forgot-password"
+              style={{
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                color: 'var(--auth-focus)',
+                textDecoration: 'none',
+              }}
             >
               Forgot password?
-            </button>
+            </Link>
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-brand-400 to-brand-600 py-4 text-sm font-semibold text-on-brand shadow-[0_12px_30px_-12px_rgba(201,164,91,0.8)] transition hover:brightness-105 disabled:opacity-60"
+            className="auth-btn-primary"
+            style={{ marginTop: '0.125rem' }}
           >
-            {submitting ? 'Signing in…' : 'Sign in'}
-            {!submitting && <Icons.arrow width={18} height={18} />}
+            {submitting ? (
+              <>
+                <span
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.35)',
+                    borderTopColor: '#fff',
+                    display: 'inline-block',
+                    animation: 'spin 0.7s linear infinite',
+                  }}
+                />
+                Signing in&hellip;
+              </>
+            ) : (
+              <>
+                Sign in
+                <AuthIcons.arrow />
+              </>
+            )}
           </button>
         </form>
 
-        <div className="my-6 flex items-center gap-4">
-          <span className="h-px flex-1 bg-ink-200" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Or continue with</span>
-          <span className="h-px flex-1 bg-ink-200" />
-        </div>
+        {/* Social sign-in — shown ONLY when Google is configured server-side */}
+        {providers?.google && (
+          <div style={{ marginTop: '1.25rem' }}>
+            <AuthDivider />
+            <div style={{ marginTop: '1rem' }}>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={googleLoading}
+                aria-label="Continue with Google"
+                className="auth-btn-social"
+              >
+                {googleLoading ? (
+                  <span
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      border: '2px solid var(--auth-border)',
+                      borderTopColor: 'var(--auth-focus)',
+                      display: 'inline-block',
+                      animation: 'spin 0.7s linear infinite',
+                    }}
+                  />
+                ) : (
+                  <GoogleIcon size={18} />
+                )}
+                Continue with Google
+              </button>
+            </div>
+          </div>
+        )}
 
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={notAvailable('Google sign-in')}
-            aria-label="Continue with Google"
-            className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 transition hover:border-ink-300 hover:bg-ink-100"
-          >
-            <GoogleIcon />
-          </button>
-          <button
-            type="button"
-            onClick={notAvailable('Apple sign-in')}
-            aria-label="Continue with Apple"
-            className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 text-ink-900 transition hover:border-ink-300 hover:bg-ink-100"
-          >
-            <Icons.apple width={20} height={20} />
-          </button>
-          <button
-            type="button"
-            onClick={notAvailable('Passkey sign-in')}
-            aria-label="Continue with a passkey"
-            className="flex h-12 items-center justify-center rounded-xl border border-ink-200 bg-surface/70 text-ink-700 transition hover:border-ink-300 hover:bg-ink-100"
-          >
-            <Icons.passkey width={20} height={20} />
-          </button>
-        </div>
-
-        <p className="mt-6 text-center text-sm text-ink-500">
+        <p
+          className="text-center"
+          style={{
+            fontSize: '0.875rem',
+            color: 'var(--auth-text-muted)',
+            marginTop: '1.25rem',
+          }}
+        >
           Don&rsquo;t have an account?{' '}
-          <Link to="/register" className="font-semibold text-brand-400 hover:text-brand-800">
+          <Link
+            to="/register"
+            style={{ fontWeight: 700, color: 'var(--auth-focus)', textDecoration: 'none' }}
+          >
             Register
           </Link>
         </p>
-      </FormCard>
-    } />
+
+        {/* Role hint */}
+        <div
+          style={{
+            marginTop: '1.25rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.625rem',
+            padding: '0.75rem',
+            borderRadius: '0.75rem',
+            background: 'var(--auth-surface)',
+            border: '1px solid var(--auth-border)',
+          }}
+        >
+          <span style={{ color: 'var(--auth-text-muted)', flexShrink: 0, marginTop: 1 }}>
+            <AuthIcons.people width={15} height={15} />
+          </span>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--auth-text-muted)',
+              lineHeight: 1.55,
+              margin: 0,
+            }}
+          >
+            Your workspace opens according to your verified account access.
+          </p>
+        </div>
+      </AuthCard>
+    </AuthShell>
   );
 }

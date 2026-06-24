@@ -32,7 +32,7 @@ class DailyDigestNotificationsCommand extends Command
      */
     public function handle(NotificationDigestService $digestService): int
     {
-        $this->info('📬 Nexus - Daily Notification Digest');
+        $this->info('📬 '.config('brand.display_name').' - Daily Notification Digest');
         $this->info('===================================');
         $this->newLine();
 

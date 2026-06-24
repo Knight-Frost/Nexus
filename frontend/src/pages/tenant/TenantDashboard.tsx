@@ -5,14 +5,33 @@ import {
   Search, Bell, MessageSquare, MapPin, BedDouble, Bath, Heart,
   ArrowUpRight, ArrowRight, Check,
 } from 'lucide-react';
-import { useAuth } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
-import { tenantApi, publicApi } from '@/lib/endpoints';
-import { formatDate } from '@/lib/format';
-import type { Contract, LedgerEntry, Listing } from '@/lib/types';
+import { tenantApi } from '@/lib/endpoints';
+import { formatDate, formatCents, formatCedisDecimal } from '@/lib/format';
+import type { Application, Contract, ConversationSummary, LedgerStatus, LedgerType, Listing, ReadinessItem } from '@/lib/types';
 import { Donut } from '@/components/ui/charts';
 import { fadeRise, staggerContainer, staggerItem, DUR, EASE_OUT_SOFT } from '@/lib/motion';
-import * as MOCK from '@/lib/mockData';
+import { ErrorState, ForbiddenState, SkeletonCard } from '@/components/ui/states';
+import {
+  CommandCard,
+  StatusCard,
+  DashboardSection,
+  DataCardGrid,
+  SemanticBadge,
+  getPaymentBalanceVariant,
+  getPaymentHealthVariant,
+  getNextDueVariant,
+  getApplicationVariant,
+} from '@/components/cards';
+import {
+  IconWallet,
+  IconCalendar,
+  IconShield,
+  IconCheck,
+  IconHome,
+  IconHeart,
+  IconDoc,
+} from '@/components/ui/icons';
 import './tenant-dashboard.css';
 
 /* ── imagery ─────────────────────────────────────────────────────────────── */
@@ -30,49 +49,40 @@ import h13 from '@/assets/dashboard/home-13.png';
 
 const CARD_IMGS = [h8, h9, h10, h11, h12, h3, h4, h5, h6, h13];
 
-/* Hero slides pair a photo with the property it depicts, so the masthead can
-   caption the home you're looking at — like a magazine cover credit. */
-const HERO_SLIDES: { img: string; name: string; loc: string }[] = [
-  { img: heroImg, name: 'Casa del Mar', loc: 'Labadi, Accra' },
-  { img: h9, name: 'The Indigo Loft', loc: 'Osu, Accra' },
-  { img: h11, name: 'Aburi Ridge House', loc: 'Aburi, Eastern Region' },
-  { img: h4, name: 'Maplewood Residence', loc: 'East Legon, Accra' },
-  { img: h12, name: 'Phantom Court', loc: 'Cantonments, Accra' },
-];
+/* Static hero slides — decorative photography only (no implied listing name/location). */
+const HERO_SLIDES = [heroImg, h9, h11, h4, h12];
 
-/* ── helpers (data layer unchanged) ──────────────────────────────────────── */
+/* ── helpers ─────────────────────────────────────────────────────────────── */
 function daysUntil(dateStr: string): number {
   const target = new Date(dateStr);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / 86_400_000);
 }
 
-function calcHealth(entries: LedgerEntry[]): number {
-  const rent = entries.filter(e => e.type === 'rent');
-  if (!rent.length) return 88;
-  const paid = rent.filter(e => e.status === 'paid').length;
-  const overdue = rent.filter(e => e.status === 'overdue').length;
-  return Math.min(100, Math.max(10, Math.round((paid / rent.length) * 100) - overdue * 8));
-}
-
 type DashState = 'no_lease_no_apps' | 'apps_in_progress' | 'active_lease';
 
-function resolveDashState(contracts: Contract[]): DashState {
-  const active = contracts.find(c => c.status === 'active');
-  if (active) return 'active_lease';
-  const pending = contracts.find(c => c.status === 'pending_tenant' || c.status === 'draft');
-  if (pending) return 'apps_in_progress';
+function resolveDashState(activeContract: Contract | null, appsCount: number): DashState {
+  if (activeContract) return 'active_lease';
+  if (appsCount > 0) return 'apps_in_progress';
   return 'no_lease_no_apps';
 }
 
+function stepFromStatus(status: Application['status']): number {
+  switch (status) {
+    case 'submitted':       return 1;
+    case 'in_review':       return 2;
+    case 'landlord_review': return 3;
+    case 'approved':
+    case 'rejected':
+    case 'withdrawn':       return 4;
+    default:                return 0;
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
-   HERO — full-bleed editorial masthead.
-   • Interpolating home photos (cross-fade + slow ken-burns).
-   • State-aware greeting + rotating "intelligence" lines.
-   • Live location/date kicker, photo credit, contextual CTAs, slide dots.
+   NOW HOOK — re-renders once a minute so greeting/date stay honest.
    ════════════════════════════════════════════════════════════════════════ */
 function useNow() {
-  // Re-render once a minute so the greeting/date stay honest across a session.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -81,14 +91,25 @@ function useNow() {
   return now;
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   HERO — full-bleed editorial masthead.
+   ════════════════════════════════════════════════════════════════════════ */
 function DashHero({
-  firstName, state, contract, ledger, unread,
+  firstName,
+  state,
+  activeContract,
+  nextDueDate,
+  daysLeft,
+  unread,
+  city,
 }: {
   firstName: string;
   state: DashState;
-  contract: Contract | null;
-  ledger: LedgerEntry[];
+  activeContract: Contract | null;
+  nextDueDate: string | null;
+  daysLeft: number | null;
   unread: number;
+  city: string | null;
 }) {
   const navigate = useNavigate();
   const reduce = useReducedMotion();
@@ -100,38 +121,26 @@ function DashHero({
   const hour = now.getHours();
   const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 
-  const nextDue = contract
-    ? [...ledger]
-        .filter(e => e.type === 'rent' && (e.status === 'pending' || e.status === 'overdue') && e.due_date)
-        .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0] ?? null
-    : null;
-  const daysLeft = nextDue?.due_date ? daysUntil(nextDue.due_date) : null;
-
-  /* Context-aware micro-copy. The hero rotates through these, so it feels like
-     the product is *telling you something*, not greeting you with one line. */
+  /* Context-aware micro-copy — only truthful claims */
   const intel: Record<DashState, string[]> = {
     no_lease_no_apps: [
-      'Let’s find your next home in Accra.',
-      '128 verified homes match your budget right now.',
-      'Save a home to start tracking it here.',
+      'Find your next home.',
+      'Save a listing to start tracking it here.',
+      'Browse verified homes to get started.',
     ],
     apps_in_progress: [
-      'Two applications are moving forward.',
-      'A landlord reviewed your profile today.',
+      'Your applications are in progress.',
       'Keep your documents ready — decisions come fast.',
+      'Check the status of each application below.',
     ],
     active_lease: [
       daysLeft != null && daysLeft <= 7
         ? `Rent is due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`
-        : 'You’re all settled in.',
+        : 'You\'re all settled in.',
       'Your tenancy is in good standing.',
-      'Need a repair? Maintenance replies within a day.',
+      'Need a repair? Submit a maintenance request anytime.',
     ],
   };
-
-  const chip = state === 'active_lease' ? 'Active lease'
-    : state === 'apps_in_progress' ? '2 applications in progress'
-    : null;
 
   const cta = state === 'active_lease'
     ? (daysLeft != null && daysLeft <= 7
@@ -158,27 +167,35 @@ function DashHero({
   const kicker = useMemo(() => {
     const day = now.toLocaleDateString('en-GB', { weekday: 'long' });
     const date = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
-    return `Accra · ${day}, ${date}`;
-  }, [now]);
+    return city ? `${city} · ${day}, ${date}` : `${day}, ${date}`;
+  }, [now, city]);
 
-  const credit = HERO_SLIDES[slide];
+  /* Chip — truthful label only */
+  const chip = state === 'active_lease'
+    ? 'Active lease'
+    : state === 'apps_in_progress'
+      ? 'Application in progress'
+      : null;
+
+  /* Hero aside: show real next-due date when on active lease, else hide credit */
+  const showLeaseAside = state === 'active_lease' && activeContract;
 
   return (
     <header className="td-hero">
-      {/* interpolating photography */}
+      {/* interpolating photography — decorative only */}
       <div className="td-hero-stage" aria-hidden="true">
-        {HERO_SLIDES.map((s, i) => (
+        {HERO_SLIDES.map((src, i) => (
           <div
             key={i}
             className={`td-hero-slide${i === slide ? ' on' : ''}`}
-            style={{ backgroundImage: `url(${s.img})` }}
+            style={{ backgroundImage: `url(${src})` }}
           />
         ))}
         <div className="td-hero-scrim" />
         <div className="td-hero-grain u-grain" />
       </div>
 
-      {/* top utility line — subtle glass chips, nothing heavy over the greeting */}
+      {/* top utility line */}
       <div className="td-hero-top">
         <span className="td-kicker">{kicker}</span>
         <div className="td-hero-tools">
@@ -187,7 +204,7 @@ function DashHero({
           </button>
           <button className="td-tool" aria-label="Notifications" onClick={() => navigate('/app/notifications')}>
             <Bell size={15} strokeWidth={1.75} />
-            {unread > 0 && <span className="td-tool-dot" />}
+            {unread > 0 && <span className="td-tool-dot" aria-hidden="true" />}
           </button>
           <button className="td-tool" aria-label="Messages" onClick={() => navigate('/app/messages')}>
             <MessageSquare size={15} strokeWidth={1.75} />
@@ -195,12 +212,14 @@ function DashHero({
         </div>
       </div>
 
-      {/* bottom region: greeting (left, wide) + credit & dots (right) */}
+      {/* bottom region */}
       <div className="td-hero-bottom">
         <div className="td-hero-body">
           {chip && <span className="td-hero-chip">{chip}</span>}
           <h1 className="td-hero-greet">
-            Good {timeOfDay}, <span className="td-hero-name">{firstName}.</span>
+            {firstName
+              ? <>Good {timeOfDay}, <span className="td-hero-name">{firstName}.</span></>
+              : `Good ${timeOfDay}.`}
           </h1>
           <div className="td-hero-sub-wrap">
             <AnimatePresence mode="wait">
@@ -227,11 +246,17 @@ function DashHero({
         </div>
 
         <div className="td-hero-aside">
-          <div className="td-credit">
-            <span className="td-credit-lab">Featured</span>
-            <span className="td-credit-nm">{credit.name}</span>
-            <span className="td-credit-lo">{credit.loc}</span>
-          </div>
+          {showLeaseAside ? (
+            <div className="td-credit">
+              <span className="td-credit-lab">Next due</span>
+              <span className="td-credit-nm">{nextDueDate ? formatDate(nextDueDate) : '—'}</span>
+              {daysLeft != null && (
+                <span className="td-credit-lo">
+                  {daysLeft <= 0 ? 'Overdue' : `in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`}
+                </span>
+              )}
+            </div>
+          ) : null}
           <div className="td-dots">
             {HERO_SLIDES.map((_, i) => (
               <button
@@ -249,13 +274,20 @@ function DashHero({
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   INDEX STRIP — editorial "figures" bar (replaces boxy stat cards).
-   mono label + big serif numeral, separated by hairlines.
+   INDEX STRIP — editorial "figures" bar.
    ════════════════════════════════════════════════════════════════════════ */
 function IndexStrip({
-  appsCount, savedCount, readinessPct, pendingRent,
+  appsCount,
+  savedCount,
+  readinessPct,
+  verifiedCount,
+  pendingRent,
 }: {
-  appsCount: number; savedCount: number; readinessPct: number; pendingRent: string | null;
+  appsCount: number;
+  savedCount: number;
+  readinessPct: number;
+  verifiedCount: number;
+  pendingRent: string | null;
 }) {
   const figures = [
     { lab: 'Applications', val: String(appsCount).padStart(2, '0'), to: '/app/applications' },
@@ -263,7 +295,7 @@ function IndexStrip({
     { lab: 'Tenant readiness', val: `${readinessPct}%`, to: '/app/profile' },
     pendingRent
       ? { lab: 'Rent due', val: pendingRent, to: '/app/ledger' }
-      : { lab: 'Verified homes', val: '128', to: '/app/browse' },
+      : { lab: 'Verified homes', val: String(verifiedCount).padStart(2, '0'), to: '/app/browse' },
   ];
   return (
     <motion.div
@@ -284,26 +316,108 @@ function IndexStrip({
   );
 }
 
-/* ── section heading: mono label + hairline rule ─────────────────────────── */
-function RuleHeading({ label, action }: { label: string; action?: React.ReactNode }) {
+/* ════════════════════════════════════════════════════════════════════════════
+   PAYMENT SUMMARY ROW — CommandCard + StatusCards via semantic variants.
+   Spec: ONE CommandCard for outstanding balance, StatusCards for next due,
+   payment health, and lifetime paid (honest: only if confirmed paid data exists).
+   ════════════════════════════════════════════════════════════════════════ */
+function PaymentSummaryRow({
+  balanceCents,
+  nextDue,
+  daysLeft,
+}: {
+  balanceCents: number;
+  nextDue: {
+    amount_cents: number;
+    due_date: string | null;
+    status: LedgerStatus;
+    type: LedgerType;
+  } | null;
+  daysLeft: number | null;
+}) {
+  const navigate = useNavigate();
+
+  const hasOverdue = daysLeft != null && daysLeft < 0 && balanceCents > 0;
+  const balanceVariant = getPaymentBalanceVariant(balanceCents, hasOverdue);
+  const nextDueVariant = getNextDueVariant(daysLeft);
+  // hasData: we have at least a rent_summary, so there is ledger data
+  const healthVariant = getPaymentHealthVariant(hasOverdue, nextDue !== null || balanceCents >= 0);
+
+  const balanceSub =
+    balanceCents <= 0
+      ? 'All clear — nothing owed'
+      : hasOverdue
+        ? 'Rent is overdue — action needed'
+        : `Balance outstanding`;
+
+  const nextDueSub = nextDue?.due_date
+    ? (daysLeft != null && daysLeft < 0
+        ? `Overdue ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'}`
+        : daysLeft != null && daysLeft === 0
+          ? 'Due today'
+          : daysLeft != null
+            ? `Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+            : formatDate(nextDue.due_date))
+    : 'No upcoming entry';
+
+  const healthLabel =
+    !nextDue
+      ? 'No ledger data yet'
+      : hasOverdue
+        ? 'Overdue'
+        : 'On time';
+
   return (
-    <div className="td-sec-hd">
-      <span className="eyebrow">{label}</span>
-      <span className="td-sec-rule" />
-      {action}
-    </div>
+    <DataCardGrid cols={4}>
+      {/* Level 3 Command Card — the featured item */}
+      <CommandCard
+        label="Outstanding balance"
+        value={formatCents(balanceCents)}
+        sub={balanceSub}
+        icon={<IconWallet size={18} />}
+        role={balanceVariant}
+        onClick={() => navigate('/app/ledger')}
+      />
+
+      {/* Level 2 Status Card — next payment */}
+      <StatusCard
+        label="Next payment"
+        value={nextDue ? formatCents(nextDue.amount_cents) : '—'}
+        sub={nextDueSub}
+        icon={<IconCalendar size={18} />}
+        role={nextDueVariant}
+        onClick={() => navigate('/app/ledger')}
+      />
+
+      {/* Level 2 Status Card — payment health */}
+      <StatusCard
+        label="Payment standing"
+        value={healthLabel}
+        sub={nextDue ? `Based on ledger activity` : 'No payments recorded yet'}
+        icon={<IconShield size={18} />}
+        role={healthVariant}
+      />
+
+      {/* Level 2 Status Card — lifetime paid.
+          NOTE: The dashboard endpoint does NOT return a lifetime_paid_cents field.
+          The backend only exposes unpaid (outstanding) balance. We show an honest
+          "View history" prompt rather than fabricate a figure. */}
+      <StatusCard
+        label="Lifetime paid"
+        value="—"
+        sub="View your full payment history"
+        icon={<IconCheck size={18} />}
+        role="info"
+        onClick={() => navigate('/app/ledger')}
+      />
+    </DataCardGrid>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   APPLICATION PROGRESS — vertical editorial timeline (not a stepper grid).
+   APPLICATION PROGRESS — vertical editorial timeline.
    ════════════════════════════════════════════════════════════════════════ */
 const STEP_LABELS = ['Submitted', 'In review', 'Landlord review', 'Decision'] as const;
-
-const MOCK_APPS = [
-  { id: 1, property: 'Executive 2BR Apartment', location: 'East Legon, Accra', appliedDate: '16 Jun 2026', status: 'In review', step: 2, img: CARD_IMGS[1] },
-  { id: 2, property: 'Cozy 1BR Studio', location: 'Cantonments, Accra', appliedDate: '14 Jun 2026', status: 'Landlord review', step: 3, img: CARD_IMGS[3] },
-] as const;
 
 function VerticalSteps({ step }: { step: number }) {
   return (
@@ -322,66 +436,117 @@ function VerticalSteps({ step }: { step: number }) {
   );
 }
 
-function ApplicationProgress() {
+function ApplicationProgress({ applications }: { applications: Application[] }) {
+  const navigate = useNavigate();
+  const display = applications.slice(0, 3);
+
   return (
-    <section className="td-feature">
-      <RuleHeading label="Applications" action={<Link to="/app/applications" className="td-link">All <ArrowRight size={13} /></Link>} />
-      <div className="td-apps">
-        {MOCK_APPS.map((app) => (
-          <article key={app.id} className="td-app">
-            <div className="u-zoom td-app-img"><img src={app.img} alt="" loading="lazy" /></div>
-            <div className="td-app-main">
-              <div className="td-app-top">
-                <div>
-                  <h3 className="td-app-name">{app.property}</h3>
-                  <p className="td-app-meta"><MapPin size={12} /> {app.location} · Applied {app.appliedDate}</p>
+    <DashboardSection
+      eyebrow="Applications"
+      action={<Link to="/app/applications" className="td-link">All <ArrowRight size={13} /></Link>}
+    >
+      {display.length === 0 ? (
+        <div className="td-saved-empty">
+          <IconDoc size={22} />
+          <p>No applications yet. Homes you apply for will appear here.</p>
+          <button className="td-btn-ghost td-ghost-ink" onClick={() => navigate('/app/browse')}>Browse homes</button>
+        </div>
+      ) : (
+        <div className="td-apps">
+          {display.map((app, i) => {
+            const listing = app.listing;
+            const unit = listing?.unit;
+            const prop = unit?.property;
+            const title = listing?.title ?? 'Listing';
+            const loc = prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : null;
+            const img = listing?.primary_photo?.path
+              ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${listing.primary_photo.path}`
+              : CARD_IMGS[i % CARD_IMGS.length];
+            const step = stepFromStatus(app.status);
+            const appRole = getApplicationVariant(app.status);
+            return (
+              <article key={app.id} className="td-app">
+                <div className="u-zoom td-app-img">
+                  <img src={img} alt="" loading="lazy" onError={e => { (e.currentTarget as HTMLImageElement).src = CARD_IMGS[0]; }} />
                 </div>
-                <span className="td-tag">{app.status}</span>
-              </div>
-              <VerticalSteps step={app.step} />
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+                <div className="td-app-main">
+                  <div className="td-app-top">
+                    <div>
+                      <h3 className="td-app-name">{title}</h3>
+                      <p className="td-app-meta">
+                        {loc && <><MapPin size={12} /> {loc} · </>}
+                        Applied {app.submitted_at ? formatDate(app.submitted_at) : formatDate(app.created_at)}
+                      </p>
+                    </div>
+                    <SemanticBadge role={appRole} status={app.status} />
+                  </div>
+                  <VerticalSteps step={step} />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </DashboardSection>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
    ACTIVE LEASE — feature panel shown when the tenant holds a lease.
+   Shows property identity + honest standing indicator only (no payment figures
+   duplicated from the PaymentSummaryRow that sits above this panel).
    ════════════════════════════════════════════════════════════════════════ */
-function ActiveLeaseSummary({ contract, ledger }: { contract: Contract; ledger: LedgerEntry[] }) {
+function ActiveLeaseSummary({
+  contract,
+  nextDueDate,
+  daysLeft,
+  balanceCents,
+}: {
+  contract: Contract;
+  nextDueDate: string | null;
+  daysLeft: number | null;
+  balanceCents: number;
+}) {
   const navigate = useNavigate();
-  const health = calcHealth(ledger);
   const unit = contract.listing?.unit;
   const prop = unit?.property;
-  const location = prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : 'Accra, Ghana';
+  const location = prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : null;
   const beds = unit?.bedrooms ? parseInt(unit.bedrooms, 10) : null;
   const label = beds === 1 ? '1 Bed Studio' : beds ? `${beds} Bed Apartment` : (prop?.name ?? 'Your Property');
-  const rentDisp = (contract.rent_amount / 100).toLocaleString('en-GH');
 
-  const nextDue = [...ledger]
-    .filter(e => e.type === 'rent' && (e.status === 'pending' || e.status === 'overdue') && e.due_date)
-    .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))[0] ?? null;
-  const days = nextDue?.due_date ? daysUntil(nextDue.due_date) : null;
-  const nextDate = nextDue?.due_date ? formatDate(nextDue.due_date) : null;
+  /* Payment standing — an HONEST state from real data, not a fabricated score.
+     (Previously rendered a fake 95/72/55 "Health %" donut; there is no such
+     metric in the backend, so we show the true cleared/due/overdue posture.) */
+  const hasOverdue = balanceCents > 0 && daysLeft != null && daysLeft < 0;
+  const standing =
+    balanceCents <= 0
+      ? { label: 'In good standing', detail: 'No balance due', color: 'var(--color-success-600)', tint: 'var(--color-success-50)' }
+      : hasOverdue
+        ? { label: 'Action needed', detail: 'Rent overdue', color: 'var(--color-danger-600)', tint: 'var(--color-danger-50)' }
+        : { label: 'Payment due', detail: daysLeft != null ? `Due in ${daysLeft} days` : 'Upcoming', color: 'var(--color-warning-600)', tint: 'var(--color-warning-50)' };
 
   return (
-    <section className="td-feature">
-      <RuleHeading label="Your lease" action={<Link to="/app/contracts" className="td-link">Lease <ArrowRight size={13} /></Link>} />
+    <DashboardSection
+      eyebrow="Your lease"
+      action={<Link to="/app/contracts" className="td-link">Lease <ArrowRight size={13} /></Link>}
+    >
       <article className="td-lease">
         <div className="td-lease-main">
           <h3 className="td-lease-name">{label}</h3>
-          <p className="td-app-meta"><MapPin size={12} /> {location}</p>
+          {location && <p className="td-app-meta"><MapPin size={12} /> {location}</p>}
           <div className="td-lease-figs">
             <div>
               <span className="td-fig-lab">Monthly rent</span>
-              <span className="td-fig-val num-old">GH₵ {rentDisp}</span>
+              <span className="td-fig-val num-old">{formatCents(contract.rent_amount)}</span>
             </div>
             <div>
               <span className="td-fig-lab">Next due</span>
-              <span className="td-fig-val num-old">{nextDate ?? `${contract.payment_day}th`}</span>
-              {days != null && <span className={`td-fig-hint${days <= 0 ? ' over' : ''}`}>{days <= 0 ? 'Overdue' : `in ${days} days`}</span>}
+              <span className="td-fig-val num-old">{nextDueDate ? formatDate(nextDueDate) : `${contract.payment_day}th`}</span>
+              {daysLeft != null && (
+                <span className={`td-fig-hint${daysLeft <= 0 ? ' over' : ''}`}>
+                  {daysLeft <= 0 ? 'Overdue' : `in ${daysLeft} days`}
+                </span>
+              )}
             </div>
           </div>
           <div className="td-hero-acts">
@@ -390,232 +555,253 @@ function ActiveLeaseSummary({ contract, ledger }: { contract: Contract; ledger: 
           </div>
         </div>
         <div className="td-lease-health">
-          <Donut pct={health} size={104} label="Health" />
-          <span className="td-health-lab">{health >= 85 ? 'Good standing' : health >= 65 ? 'Fair' : 'Attention'}</span>
+          <span
+            className="flex h-[104px] w-[104px] flex-col items-center justify-center rounded-full text-center"
+            style={{ backgroundColor: standing.tint, color: standing.color }}
+            role="img"
+            aria-label={`Payment standing: ${standing.label}. ${standing.detail}.`}
+          >
+            <span className="font-display text-sm font-semibold leading-tight">{standing.label}</span>
+          </span>
+          <span className="td-health-lab">{standing.detail}</span>
         </div>
       </article>
-    </section>
+    </DashboardSection>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   TENANT READINESS (rail) — donut + checklist.
+   TENANT READINESS (rail) — donut + checklist driven by real API data.
    ════════════════════════════════════════════════════════════════════════ */
-const READINESS_ITEMS = [
-  { label: 'ID verified', done: true },
-  { label: 'Proof of income', done: true },
-  { label: 'References', done: true },
-  { label: 'Next of kin', done: false },
-] as const;
-
-function readinessPct() {
-  const done = READINESS_ITEMS.filter(r => r.done).length;
-  return Math.round((done / READINESS_ITEMS.length) * 100);
-}
-
-function ReadinessBand() {
+function ReadinessBand({ pct, items }: { pct: number; items: ReadinessItem[] }) {
   const navigate = useNavigate();
-  const pct = readinessPct();
   return (
-    <section>
-      <RuleHeading label="Tenant readiness" action={<span className="td-link td-ok">{pct === 100 ? 'Complete' : `${pct}% ready`}</span>} />
+    <DashboardSection
+      eyebrow="Tenant readiness"
+      action={
+        <span className={`td-link${pct === 100 ? ' td-ok' : ''}`}>
+          {pct === 100 ? 'Complete' : `${pct}% ready`}
+        </span>
+      }
+    >
       <div className="td-ready-bar">
         <div className="td-ready-gauge">
           <Donut pct={pct} size={96} label="Ready" />
         </div>
         <ul className="td-ready-items">
-          {READINESS_ITEMS.map((item) => (
-            <li key={item.label} className={item.done ? 'done' : ''}>
-              <span className="td-ready-mark">{item.done ? <Check size={11} strokeWidth={3} /> : null}</span>
+          {items.map((item) => (
+            <li key={item.key} className={item.complete ? 'done' : ''}>
+              <span className="td-ready-mark">{item.complete ? <Check size={11} strokeWidth={3} /> : null}</span>
               <span className="td-ready-txt">{item.label}</span>
             </li>
           ))}
         </ul>
         {pct < 100 && (
           <button className="td-btn-primary td-ready-cta" onClick={() => navigate('/app/profile')}>
-            Add next of kin <ArrowUpRight size={16} strokeWidth={2} />
+            Complete profile <ArrowUpRight size={16} strokeWidth={2} />
           </button>
         )}
       </div>
-    </section>
+    </DashboardSection>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   MESSAGES (rail).
+   MESSAGES (rail) — real conversations from the dashboard payload.
    ════════════════════════════════════════════════════════════════════════ */
-const MOCK_MESSAGES = [
-  { id: 'm1', sender: 'Kojo Mensah', role: 'Property Manager', preview: 'Thanks for your application. We’ll be in touch shortly.', time: '2h', unread: true, initials: 'KM' },
-  { id: 'm2', sender: 'Ama Owusu', role: 'Landlord', preview: 'Can we schedule a viewing this week?', time: '1d', unread: false, initials: 'AO' },
-  { id: 'm3', sender: 'Maintenance Team', role: 'Support', preview: 'Your maintenance request has been updated.', time: '2d', unread: false, initials: 'MT' },
-];
-
-function MessagesRow() {
+function MessagesRow({ conversations }: { conversations: ConversationSummary[] }) {
   const navigate = useNavigate();
+  const display = conversations.slice(0, 3);
+
   return (
-    <section>
-      <RuleHeading label="Messages" action={<Link to="/app/messages" className="td-link">All <ArrowRight size={13} /></Link>} />
-      <div className="td-msg-grid">
-        {MOCK_MESSAGES.map((m) => (
-          <button key={m.id} className="td-msg-cell" onClick={() => navigate('/app/messages')}>
-            <span className="td-msg-cell-top">
-              <span className={`td-msg-av${m.unread ? ' unread' : ''}`}>{m.initials}</span>
-              <span className="td-msg-tm">{m.time}</span>
-            </span>
-            <span className="td-msg-nm">{m.sender}</span>
-            <span className="td-msg-role">{m.role}</span>
-            <span className="td-msg-prev2">{m.preview}</span>
-          </button>
-        ))}
-      </div>
-    </section>
+    <DashboardSection
+      eyebrow="Messages"
+      action={<Link to="/app/messages" className="td-link">All <ArrowRight size={13} /></Link>}
+    >
+      {display.length === 0 ? (
+        <div className="td-saved-empty">
+          <MessageSquare size={22} strokeWidth={1.5} />
+          <p>No messages yet.</p>
+          <button className="td-btn-ghost td-ghost-ink" onClick={() => navigate('/app/messages')}>Go to messages</button>
+        </div>
+      ) : (
+        <div className="td-msg-grid">
+          {display.map((conv) => {
+            const name = conv.other_participant?.name ?? 'Unknown';
+            const initials = conv.other_participant?.initials
+              ?? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+            const preview = conv.preview ?? conv.last_message_preview ?? '';
+            const hasUnread = conv.unread_count > 0;
+            const time = conv.last_message_at
+              ? new Date(conv.last_message_at).toLocaleString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true })
+              : '';
+            return (
+              <button key={conv.id} className="td-msg-cell" onClick={() => navigate('/app/messages')}>
+                <span className="td-msg-cell-top">
+                  <span className={`td-msg-av${hasUnread ? ' unread' : ''}`}>{initials}</span>
+                  <span className="td-msg-tm">{time}</span>
+                </span>
+                <span className="td-msg-nm">{name}</span>
+                {conv.title && <span className="td-msg-role">{conv.title}</span>}
+                <span className="td-msg-prev2">{preview}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </DashboardSection>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   RECOMMENDED — full-width editorial property gallery.
+   CURATED — full-width editorial property gallery.
    ════════════════════════════════════════════════════════════════════════ */
-type RecCard = { id: number | string; listingId?: number; img: string; name: string; loc: string; price: number; beds: number; baths: number; badge: string };
-
-function toRecCard(l: Listing, i: number): RecCard {
-  const unit = l.unit; const prop = unit?.property;
+function toCardData(l: Listing, i: number) {
+  const unit = l.unit;
+  const prop = unit?.property;
   return {
-    id: l.id, listingId: l.id,
-    img: l.primary_photo?.path ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}` : CARD_IMGS[i % CARD_IMGS.length],
+    id: l.id,
+    img: l.primary_photo?.path
+      ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}`
+      : CARD_IMGS[i % CARD_IMGS.length],
     name: l.title,
-    loc: prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : 'Accra',
-    price: unit?.rent_amount ? Math.round(parseFloat(unit.rent_amount)) : 0,
+    loc: prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : null,
+    price: unit?.rent_amount ?? null,
     beds: unit?.bedrooms ? parseInt(unit.bedrooms, 10) : 0,
     baths: unit?.bathrooms ? parseInt(unit.bathrooms, 10) : 0,
-    badge: l.status === 'active' ? 'Verified' : 'New',
   };
 }
 
-const FALLBACK_REC: RecCard[] = [
-  { id: 'f1', img: CARD_IMGS[0], name: 'Modern 2BR Apartment', loc: 'East Legon, Accra', price: 3500, beds: 2, baths: 2, badge: 'Verified' },
-  { id: 'f2', img: CARD_IMGS[2], name: 'The Indigo Loft', loc: 'Labone, Accra', price: 2800, beds: 1, baths: 1, badge: 'Verified' },
-  { id: 'f3', img: CARD_IMGS[3], name: 'Spacious 2BR Apartment', loc: 'Cantonments, Accra', price: 3800, beds: 2, baths: 2, badge: 'Verified' },
-  { id: 'f4', img: CARD_IMGS[5], name: 'Garden View Studio', loc: 'Osu, Accra', price: 2400, beds: 1, baths: 1, badge: 'New' },
-];
-
-function RecommendedHomes({ listings, savedIds, onToggle }: {
-  listings: Listing[] | null;
-  savedIds: Set<number | string>;
-  onToggle: (id: number | string) => void;
+function CuratedHomes({ listings, savedIds, onToggle }: {
+  listings: Listing[];
+  savedIds: Set<number>;
+  onToggle: (id: number) => void;
 }) {
   const navigate = useNavigate();
-  const cards = listings?.length ? listings.map(toRecCard) : FALLBACK_REC;
 
   return (
-    <section className="td-gallery">
-      <RuleHeading label="Curated for you" action={<Link to="/app/browse" className="td-link">Browse all <ArrowRight size={13} /></Link>} />
-      <motion.div
-        className="td-gal-row"
-        variants={staggerContainer(0.06)}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: '0px 0px -12% 0px' }}
-      >
-        {cards.map((c) => (
-          <motion.article
-            key={c.id}
-            variants={staggerItem}
-            className="td-prop u-card-hover"
-            onClick={() => c.listingId && navigate(`/app/listing/${c.listingId}`)}
-          >
-            <div className="u-zoom td-prop-img">
-              <img src={c.img} alt={c.name} loading="lazy"
-                onError={e => { (e.currentTarget as HTMLImageElement).src = CARD_IMGS[0]; }} />
-              <span className="td-prop-badge">{c.badge}</span>
-              <button
-                className={`td-prop-heart${savedIds.has(c.id) ? ' on' : ''}`}
-                onClick={e => { e.stopPropagation(); onToggle(c.id); }}
-                aria-label="Save listing"
+    <DashboardSection
+      eyebrow="Curated for you"
+      action={<Link to="/app/browse" className="td-link">Browse all <ArrowRight size={13} /></Link>}
+    >
+      {listings.length === 0 ? (
+        <div className="td-saved-empty">
+          <IconHome size={22} />
+          <p>No curated listings available right now.</p>
+          <button className="td-btn-ghost td-ghost-ink" onClick={() => navigate('/app/browse')}>Browse all homes</button>
+        </div>
+      ) : (
+        <motion.div
+          className="td-gal-row"
+          variants={staggerContainer(0.06)}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+        >
+          {listings.map((listing, i) => {
+            const c = toCardData(listing, i);
+            return (
+              <motion.article
+                key={c.id}
+                variants={staggerItem}
+                className="td-prop u-card-hover"
+                onClick={() => navigate(`/app/listing/${c.id}`)}
               >
-                <Heart size={14} strokeWidth={2} fill={savedIds.has(c.id) ? 'currentColor' : 'none'} />
-              </button>
-            </div>
-            <div className="td-prop-body">
-              <p className="td-prop-loc"><MapPin size={11} /> {c.loc}</p>
-              <h3 className="td-prop-name">{c.name}</h3>
-              <div className="td-prop-foot">
-                <span className="td-prop-price num-old">GH₵ {c.price.toLocaleString('en-GH')}<small> /mo</small></span>
-                <span className="td-prop-meta">
-                  {c.beds > 0 && <span><BedDouble size={13} /> {c.beds}</span>}
-                  {c.baths > 0 && <span><Bath size={13} /> {c.baths}</span>}
-                </span>
-              </div>
-            </div>
-          </motion.article>
-        ))}
-      </motion.div>
-    </section>
+                <div className="u-zoom td-prop-img">
+                  <img src={c.img} alt={c.name} loading="lazy"
+                    onError={e => { (e.currentTarget as HTMLImageElement).src = CARD_IMGS[0]; }} />
+                  <span className="td-prop-badge">Verified</span>
+                  <button
+                    className={`td-prop-heart${savedIds.has(c.id) ? ' on' : ''}`}
+                    onClick={e => { e.stopPropagation(); onToggle(c.id); }}
+                    aria-label={savedIds.has(c.id) ? 'Remove from saved' : 'Save listing'}
+                  >
+                    <Heart size={14} strokeWidth={2} fill={savedIds.has(c.id) ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
+                <div className="td-prop-body">
+                  {c.loc && <p className="td-prop-loc"><MapPin size={11} /> {c.loc}</p>}
+                  <h3 className="td-prop-name">{c.name}</h3>
+                  <div className="td-prop-foot">
+                    <span className="td-prop-price num-old">
+                      {c.price ? formatCedisDecimal(c.price) : '—'}<small> /mo</small>
+                    </span>
+                    <span className="td-prop-meta">
+                      {c.beds > 0 && <span><BedDouble size={13} /> {c.beds}</span>}
+                      {c.baths > 0 && <span><Bath size={13} /> {c.baths}</span>}
+                    </span>
+                  </div>
+                </div>
+              </motion.article>
+            );
+          })}
+        </motion.div>
+      )}
+    </DashboardSection>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
    SAVED — clean hairline list panel (sits in the lead column).
    ════════════════════════════════════════════════════════════════════════ */
-function SavedRow({ listings, savedIds }: { listings: Listing[] | null; savedIds: Set<number | string> }) {
+function SavedRow({ listings }: { listings: Listing[] }) {
   const navigate = useNavigate();
-  const savedList = listings?.filter(l => savedIds.has(l.id)) ?? [];
-  const display = savedList.length > 0 ? savedList.slice(0, 3) : MOCK.MOCK_LISTINGS.slice(0, 3);
-  const isEmpty = savedList.length === 0 && !listings?.length;
+  const display = listings.slice(0, 3);
 
   return (
-    <section>
-      <RuleHeading label="Saved homes" action={<Link to="/app/saved" className="td-link">All <ArrowRight size={13} /></Link>} />
-      {isEmpty ? (
+    <DashboardSection
+      eyebrow="Saved homes"
+      action={<Link to="/app/saved" className="td-link">All <ArrowRight size={13} /></Link>}
+    >
+      {display.length === 0 ? (
         <div className="td-saved-empty">
-          <Heart size={22} strokeWidth={1.5} />
-          <p>Nothing saved yet — tap the heart on a home to keep it here.</p>
+          <IconHeart size={22} />
+          <p>No saved homes yet. Tap the heart on a listing to keep it here.</p>
           <button className="td-btn-ghost td-ghost-ink" onClick={() => navigate('/app/browse')}>Browse homes</button>
         </div>
       ) : (
         <div className="td-saved-grid">
           {display.map((l, i) => {
             const unit = l.unit;
-            const price = unit?.rent_amount ? parseFloat(unit.rent_amount) : 0;
-            const img = l.primary_photo?.path ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}` : CARD_IMGS[i % CARD_IMGS.length];
+            const img = l.primary_photo?.path
+              ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}`
+              : CARD_IMGS[i % CARD_IMGS.length];
             return (
               <button key={l.id} className="td-saved-card u-card-hover" onClick={() => navigate(`/app/listing/${l.id}`)}>
-                <span className="u-zoom td-saved-cimg"><img src={img} alt="" onError={e => { (e.currentTarget as HTMLImageElement).src = CARD_IMGS[0]; }} /></span>
+                <span className="u-zoom td-saved-cimg">
+                  <img src={img} alt="" onError={e => { (e.currentTarget as HTMLImageElement).src = CARD_IMGS[0]; }} />
+                </span>
                 <span className="td-saved-cbody">
                   <span className="td-saved-nm">{l.title}</span>
-                  <span className="td-saved-lo"><MapPin size={11} /> {unit?.property?.city ?? 'Accra'}</span>
-                  <span className="td-saved-pr num-old">GH₵ {price.toLocaleString('en-GH')}<small> /mo</small></span>
+                  <span className="td-saved-lo"><MapPin size={11} /> {unit?.property?.city ?? ''}</span>
+                  <span className="td-saved-pr num-old">
+                    {unit?.rent_amount ? <>{formatCedisDecimal(unit.rent_amount)}<small> /mo</small></> : '—'}
+                  </span>
                 </span>
               </button>
             );
           })}
         </div>
       )}
-    </section>
+    </DashboardSection>
   );
 }
 
-/* ── states ──────────────────────────────────────────────────────────────── */
+/* ── skeleton ────────────────────────────────────────────────────────────── */
 function DashSkeleton() {
   return (
     <div className="td-root">
       <div className="td-sk" style={{ height: 420, borderRadius: 16 }} />
       <div className="td-sk" style={{ height: 88, borderRadius: 12 }} />
-      <div className="td-split">
-        <div className="td-sk" style={{ height: 320, borderRadius: 16 }} />
-        <div className="td-sk" style={{ height: 320, borderRadius: 16 }} />
+      {/* Payment summary skeleton — matching 4-card DataCardGrid */}
+      <div className="td-sk-cards-row">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
-    </div>
-  );
-}
-
-function DashError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="td-root">
-      <div className="td-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-        <h3 className="td-app-name" style={{ marginBottom: '0.5rem' }}>Could not load your dashboard</h3>
-        <p style={{ color: 'var(--color-ink-500)', marginBottom: '1.5rem' }}>Your data is safe — please try again.</p>
-        <button className="td-btn-primary" onClick={onRetry} style={{ margin: '0 auto' }}>Try again <ArrowUpRight size={16} strokeWidth={2} /></button>
-      </div>
+      <div className="td-sk" style={{ height: 320, borderRadius: 16 }} />
+      <div className="td-sk" style={{ height: 200, borderRadius: 16 }} />
     </div>
   );
 }
@@ -624,70 +810,113 @@ function DashError({ onRetry }: { onRetry: () => void }) {
    MAIN
    ════════════════════════════════════════════════════════════════════════ */
 export function TenantDashboard() {
-  const { user } = useAuth();
-  const firstName = user && 'first_name' in user ? user.first_name : 'there';
+  const dash = useApi(() => tenantApi.dashboard(), []);
 
-  const contractsQ = useApi(() => tenantApi.contracts(), []);
-  const ledgerQ = useApi(() => tenantApi.ledger(), []);
-  const featuredQ = useApi(() => publicApi.featured(), []);
-  const savedQ = useApi(() => tenantApi.savedListings(), []);
-
-  const [localSaved, setLocalSaved] = useState<Set<number | string>>(new Set());
-  const savedIds = new Set([...(savedQ.data?.map(l => l.id) ?? []), ...localSaved]);
-  const onToggle = (id: number | string) =>
+  /* Optimistic saved toggle — persisted to server on real saves pages */
+  const [localSaved, setLocalSaved] = useState<Set<number>>(new Set());
+  const onToggle = (id: number) =>
     setLocalSaved(p => {
       const n = new Set(p);
       if (n.has(id)) { n.delete(id); } else { n.add(id); }
       return n;
     });
 
-  if (contractsQ.loading) return <DashSkeleton />;
-  if (contractsQ.error && !contractsQ.data) return <DashError onRetry={contractsQ.reload} />;
+  if (dash.loading) return <DashSkeleton />;
 
-  const contracts = contractsQ.data ?? [];
-  const ledger = ledgerQ.data ?? [];
-  const dashState = resolveDashState(contracts);
-  const activeC = contracts.find(c => c.status === 'active') ?? null;
-  const pendingC = contracts.find(c => c.status === 'pending_tenant') ?? null;
-  const displayC = activeC ?? pendingC ?? null;
+  if (dash.error) {
+    if (dash.error.status === 403) {
+      return (
+        <div className="td-root">
+          <ForbiddenState title="Dashboard unavailable" message="You don't have access to this area." />
+        </div>
+      );
+    }
+    return (
+      <div className="td-root">
+        <div className="td-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
+          <ErrorState
+            title="Could not load your dashboard"
+            message="Your data is safe — please try again."
+            onRetry={dash.reload}
+          />
+        </div>
+      </div>
+    );
+  }
 
+  if (!dash.data) return <DashSkeleton />;
+
+  const d = dash.data;
+  const { user, readiness, stats, active_contract, rent_summary, applications,
+    curated_listings, saved_listings, recent_conversations } = d;
+
+  const firstName = user.first_name ?? '';
+  const dashState = resolveDashState(active_contract, stats.applications_count);
+
+  /* Next due from rent_summary */
+  const nextDue = rent_summary?.next_due ?? null;
+  const nextDueDate = nextDue?.due_date ?? null;
+  const daysLeft = nextDueDate ? daysUntil(nextDueDate) : null;
+
+  /* Pending rent display for index strip */
   const pendingRent = (() => {
-    const due = ledger.filter(e => e.type === 'rent' && (e.status === 'pending' || e.status === 'overdue'));
-    if (!due.length) return null;
-    const total = due.reduce((s, e) => s + (e.amount_cents ?? 0), 0) / 100;
-    return total > 0 ? `GH₵ ${total.toLocaleString('en-GH')}` : null;
+    if (!rent_summary || rent_summary.balance_cents <= 0) return null;
+    return formatCents(rent_summary.balance_cents);
   })();
+
+  /* Saved IDs = from API + local optimistic */
+  const apiSavedIds = new Set<number>(saved_listings.map(l => l.id));
+  const savedIds = new Set<number>([...apiSavedIds, ...localSaved]);
 
   return (
     <div className="td-root">
       <DashHero
         firstName={firstName}
         state={dashState}
-        contract={displayC}
-        ledger={ledger}
-        unread={0}
+        activeContract={active_contract}
+        nextDueDate={nextDueDate}
+        daysLeft={daysLeft}
+        unread={stats.unread_notifications_count}
+        city={user.city}
       />
 
       <IndexStrip
-        appsCount={dashState === 'active_lease' ? 0 : MOCK_APPS.length}
-        savedCount={savedIds.size}
-        readinessPct={readinessPct()}
+        appsCount={stats.applications_count}
+        savedCount={stats.saved_listings_count}
+        readinessPct={readiness.percentage}
+        verifiedCount={stats.verified_listings_count}
         pendingRent={pendingRent}
       />
 
+      {/* Payment summary — only shown when tenant has an active lease */}
+      {dashState === 'active_lease' && rent_summary && (
+        <motion.div variants={fadeRise} initial="hidden" animate="show">
+          <PaymentSummaryRow
+            balanceCents={rent_summary.balance_cents}
+            nextDue={nextDue}
+            daysLeft={daysLeft}
+          />
+        </motion.div>
+      )}
+
       <motion.div variants={fadeRise} initial="hidden" animate="show">
-        {dashState === 'active_lease' && activeC
-          ? <ActiveLeaseSummary contract={activeC} ledger={ledger} />
-          : <ApplicationProgress />}
+        {dashState === 'active_lease' && active_contract
+          ? <ActiveLeaseSummary
+              contract={active_contract}
+              nextDueDate={nextDueDate}
+              daysLeft={daysLeft}
+              balanceCents={rent_summary?.balance_cents ?? 0}
+            />
+          : <ApplicationProgress applications={applications} />}
       </motion.div>
 
-      <ReadinessBand />
+      <ReadinessBand pct={readiness.percentage} items={readiness.items} />
 
-      <RecommendedHomes listings={featuredQ.data} savedIds={savedIds} onToggle={onToggle} />
+      <CuratedHomes listings={curated_listings} savedIds={savedIds} onToggle={onToggle} />
 
-      <MessagesRow />
+      <MessagesRow conversations={recent_conversations} />
 
-      <SavedRow listings={savedQ.data} savedIds={savedIds} />
+      <SavedRow listings={saved_listings} />
     </div>
   );
 }

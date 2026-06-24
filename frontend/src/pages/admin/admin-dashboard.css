@@ -1,0 +1,194 @@
+/**
+ * Admin command-center styles. Prefix: .adm-
+ * Tokens only — no hardcoded hex. Print-editorial, calm, trust-&-safety bias.
+ */
+
+/* Distribution bar (contract lifecycle / inventory) */
+.adm-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-ink-100);
+  overflow: hidden;
+}
+
+.adm-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* Stacked segment meter (lifecycle overview) */
+.adm-segment-track {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-ink-100);
+}
+
+.adm-segment {
+  height: 100%;
+  min-width: 2px;
+}
+
+/* Review-queue row */
+.adm-queue-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-ink-200);
+}
+
+.adm-queue-row:last-child {
+  border-bottom: 0;
+}
+
+/* Audit timeline */
+.adm-timeline {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.adm-timeline::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--color-ink-200);
+}
+
+.adm-timeline-item {
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.adm-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.adm-timeline-dot {
+  position: absolute;
+  left: -1.25rem;
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 2px solid var(--color-surface);
+}
+
+/* Inventory stat tile */
+.adm-tile {
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-ink-200);
+  background: var(--color-surface);
+}
+
+/* ── Greeting hero — light, editorial, white glass masthead ─────────────────
+   The greeting (time-of-day), admin name and date/time are all live; nothing
+   here is hardcoded. Photography is decorative only. */
+.adm-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--color-ink-200);
+  background:
+    radial-gradient(120% 140% at 100% 0%, var(--color-brand-50) 0%, transparent 55%),
+    var(--color-surface);
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.adm-hero-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.adm-hero-photo {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 56%;
+  background-size: cover;
+  background-position: center;
+  /* Long, smoothly-interpolated fade so the photo melts into the paper. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.55) 42%, #000 72%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.55) 42%, #000 72%);
+  /* Cross-fade between slides. */
+  opacity: 0;
+  transition: opacity 1.6s ease-in-out;
+}
+
+.adm-hero-photo.on {
+  opacity: 0.92;
+}
+
+.adm-hero-wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    var(--color-surface) 26%,
+    color-mix(in srgb, var(--color-surface) 45%, transparent) 52%,
+    transparent 82%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-hero-photo { transition: opacity 0.4s ease; }
+}
+
+.adm-hero-body {
+  position: relative;
+  z-index: 1;
+  padding: 2rem 2.25rem;
+  max-width: 38rem;
+}
+
+.adm-hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-brand-700);
+}
+
+.adm-hero-greet {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 3.4vw, 2.9rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--color-ink-950);
+  margin-top: 0.5rem;
+}
+
+.adm-hero-sub {
+  margin-top: 0.85rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--color-ink-600);
+  max-width: 32rem;
+}
+
+.adm-hero-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-brand-700);
+}
+
+@media (max-width: 720px) {
+  .adm-hero-photo { display: none; }
+  .adm-hero-wash { background: none; }
+  .adm-hero-body { padding: 1.5rem 1.5rem; }
+}

@@ -1,0 +1,361 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Admin;
+use App\Models\AuditLog;
+use App\Models\User;
+use App\Support\Audit\AuditClassifier;
+use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+/**
+ * AuditLogService
+ *
+ * Encapsulates all query, filter, summary, and export logic for audit logs.
+ * The controller stays thin; all business logic lives here.
+ */
+class AuditLogService
+{
+    /**
+     * Return a paginated set of audit logs matching the given filters.
+     *
+     * Supported filters:
+     *   severity    string  in:info,warning,critical
+     *   area        string  translated to whereIn action via AuditClassifier
+     *   actor_role  string  in:admin,landlord,tenant,user,system
+     *   from_date   date
+     *   to_date     date
+     *   search      string  case-insensitive LIKE across action/description/ip/actor
+     *   sort        string  'newest' (default) | 'oldest'
+     *   per_page    int     1–100, default 20
+     */
+    public function paginate(array $filters): LengthAwarePaginator
+    {
+        $query = $this->buildQuery($filters);
+
+        $perPage = min(max((int) ($filters['per_page'] ?? 20), 1), 100);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * Compute real summary metrics from the DB.
+     * All counts are today vs yesterday for trend analysis.
+     *
+     * @return array<string, mixed>
+     */
+    public function summary(): array
+    {
+        $tz = config('app.timezone', 'UTC');
+
+        $todayStart = Carbon::today($tz);
+        $yesterdayStart = Carbon::yesterday($tz);
+
+        // -----------------------------------------------------------------------
+        // Raw counts
+        // -----------------------------------------------------------------------
+        $criticalToday = AuditLog::where('severity', 'critical')
+            ->where('created_at', '>=', $todayStart)->count();
+        $criticalYesterday = AuditLog::where('severity', 'critical')
+            ->whereBetween('created_at', [$yesterdayStart, $todayStart])->count();
+
+        $failedSigninsToday = AuditLog::where('action', 'login_rate_limited')
+            ->where('created_at', '>=', $todayStart)->count();
+        $failedSigninsYesterday = AuditLog::where('action', 'login_rate_limited')
+            ->whereBetween('created_at', [$yesterdayStart, $todayStart])->count();
+
+        $policyActions = ['feature_enabled', 'feature_disabled', 'identity_verified', 'account_suspended', 'account_reactivated'];
+        $policyToday = AuditLog::whereIn('action', $policyActions)
+            ->where('created_at', '>=', $todayStart)->count();
+        $policyYesterday = AuditLog::whereIn('action', $policyActions)
+            ->whereBetween('created_at', [$yesterdayStart, $todayStart])->count();
+
+        $activityToday = AuditLog::where('created_at', '>=', $todayStart)->count();
+        $activityYesterday = AuditLog::whereBetween('created_at', [$yesterdayStart, $todayStart])->count();
+
+        $needsReviewToday = AuditLog::whereIn('severity', ['critical', 'warning'])
+            ->where('created_at', '>=', $todayStart)->count();
+
+        // -----------------------------------------------------------------------
+        // Metrics array
+        // -----------------------------------------------------------------------
+        $metrics = [
+            'critical_today' => [
+                'value' => $criticalToday,
+                'label' => 'Critical events today',
+                'trend' => $this->computeTrend($criticalToday, $criticalYesterday),
+            ],
+            'failed_signins' => [
+                'value' => $failedSigninsToday,
+                // Honest label — these are rate-limited sign-ins, not necessarily
+                // all failed (an attacker hits the limit; the label is accurate).
+                'label' => 'Rate-limited sign-ins today',
+                'trend' => $this->computeTrend($failedSigninsToday, $failedSigninsYesterday),
+            ],
+            'policy_changes' => [
+                'value' => $policyToday,
+                'label' => 'Policy changes today',
+                'trend' => $this->computeTrend($policyToday, $policyYesterday),
+            ],
+            'user_activity' => [
+                'value' => $activityToday,
+                'label' => 'Total events today',
+                'trend' => $this->computeTrend($activityToday, $activityYesterday),
+            ],
+            'needs_review' => [
+                'value' => $needsReviewToday,
+                'label' => $needsReviewToday > 0 ? 'Requires your attention' : 'No items',
+                // No trend for needs_review — the count itself is the signal.
+            ],
+        ];
+
+        // -----------------------------------------------------------------------
+        // Insights — derived ONLY from real aggregates computed above
+        // -----------------------------------------------------------------------
+        $insights = [];
+
+        if ($criticalToday === 0) {
+            $insights[] = [
+                'tone' => 'success',
+                'title' => 'No critical events today',
+                'detail' => 'The platform has had no critical-severity audit events today.',
+                'action' => null,
+            ];
+        } elseif ($criticalToday > $criticalYesterday && $criticalYesterday > 0) {
+            $delta = $criticalToday - $criticalYesterday;
+            $insights[] = [
+                'tone' => 'danger',
+                'title' => "Critical events up by {$delta} vs yesterday",
+                'detail' => "Today: {$criticalToday} · Yesterday: {$criticalYesterday}.",
+                'action' => ['label' => 'Review now', 'to' => null],
+            ];
+        }
+
+        if ($failedSigninsToday > $failedSigninsYesterday) {
+            $delta = $failedSigninsToday - $failedSigninsYesterday;
+            $insights[] = [
+                'tone' => $failedSigninsToday >= 5 ? 'danger' : 'warning',
+                'title' => 'Rate-limited sign-ins increased today',
+                'detail' => "Today: {$failedSigninsToday} · Yesterday: {$failedSigninsYesterday} (↑{$delta}).",
+                'action' => ['label' => 'Review users', 'to' => '/app/users'],
+            ];
+        }
+
+        if ($needsReviewToday > 0) {
+            $insights[] = [
+                'tone' => 'warning',
+                'title' => "{$needsReviewToday} ".($needsReviewToday === 1 ? 'event needs' : 'events need').' review',
+                'detail' => 'Events with critical or warning severity require your attention.',
+                'action' => null,
+            ];
+        }
+
+        // "Most activity from {area}" — only when there are events today
+        if ($activityToday > 0) {
+            $areaCounts = AuditLog::where('created_at', '>=', $todayStart)
+                ->get(['action'])
+                ->groupBy(fn ($log) => AuditClassifier::area($log->action))
+                ->map(fn ($group) => $group->count())
+                ->sortDesc();
+
+            if ($areaCounts->isNotEmpty()) {
+                $topArea = $areaCounts->keys()->first();
+                $topCount = $areaCounts->first();
+                $insights[] = [
+                    'tone' => 'info',
+                    'title' => "Most activity from {$topArea}",
+                    'detail' => "{$topCount} ".($topCount === 1 ? 'event' : 'events')." from the {$topArea} area today.",
+                    'action' => null,
+                ];
+            }
+        }
+
+        return [
+            'metrics' => $metrics,
+            'insights' => $insights,
+        ];
+    }
+
+    /**
+     * Stream a CSV export of filtered audit logs (max 5 000 rows).
+     * Reuses buildQuery() — no duplication with paginate().
+     */
+    public function export(array $filters): StreamedResponse
+    {
+        $query = $this->buildQuery($filters)->limit(5000);
+
+        $filename = 'audit-logs-'.now()->format('Y-m-d').'.csv';
+
+        return response()->stream(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+
+            // Header row
+            fputcsv($handle, [
+                'Time',
+                'Area',
+                'Actor',
+                'Actor email',
+                'Action',
+                'Summary',
+                'Severity',
+                'Status',
+                'IP',
+            ]);
+
+            $query->with(['actor', 'subject'])->chunk(500, function ($logs) use ($handle) {
+                foreach ($logs as $log) {
+                    $actor = $log->actor;
+                    $actorName = $this->resolveActorName($actor);
+                    $actorEmail = $actor ? $actor->email : null;
+                    $status = AuditClassifier::status($log->severity);
+
+                    fputcsv($handle, [
+                        $log->created_at?->toIso8601String(),
+                        AuditClassifier::area($log->action),
+                        $actorName,
+                        $actorEmail,
+                        $log->action,
+                        $log->description ?? AuditClassifier::actionLabel($log->action),
+                        $log->severity,
+                        $status['label'],
+                        $log->ip_address,
+                    ]);
+                }
+            });
+
+            fclose($handle);
+        }, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Build the base Eloquent query from a filters array.
+     * Shared between paginate() and export() to keep logic DRY.
+     */
+    private function buildQuery(array $filters)
+    {
+        $query = AuditLog::query()->with(['actor', 'subject']);
+
+        // Severity
+        if (! empty($filters['severity'])) {
+            $query->where('severity', $filters['severity']);
+        }
+
+        // Area → translate to a whereIn on action column
+        if (! empty($filters['area'])) {
+            $areaMap = AuditClassifier::areaToActions();
+            $actions = $areaMap[$filters['area']] ?? [];
+            if (empty($actions)) {
+                // Area is valid but has no mapped actions — return nothing
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn('action', $actions);
+            }
+        }
+
+        // Actor role
+        if (! empty($filters['actor_role'])) {
+            $role = $filters['actor_role'];
+            if ($role === 'admin') {
+                $query->where('actor_type', Admin::class);
+            } elseif ($role === 'system') {
+                $query->whereNull('actor_type');
+            } elseif (in_array($role, ['tenant', 'landlord'])) {
+                $query->where('actor_type', User::class)
+                    ->whereHas('actor', fn ($q) => $q->where('user_type', $role));
+            } elseif ($role === 'user') {
+                $query->where('actor_type', User::class);
+            }
+        }
+
+        // Date bounds
+        if (! empty($filters['from_date'])) {
+            $query->where('created_at', '>=', $filters['from_date']);
+        }
+        if (! empty($filters['to_date'])) {
+            $query->where('created_at', '<=', $filters['to_date'].' 23:59:59');
+        }
+
+        // Search — wrapped in a closure so AND filters are not broken
+        if (! empty($filters['search'])) {
+            $term = $filters['search'];
+            $query->where(function ($q) use ($term) {
+                $q->where('action', 'like', "%{$term}%")
+                    ->orWhere('description', 'like', "%{$term}%")
+                    ->orWhere('ip_address', 'like', "%{$term}%")
+                    ->orWhereHas('actor', function ($actorQ) use ($term) {
+                        // Admin actors have name + email; User actors have full_name + email
+                        $actorQ->where(function ($inner) use ($term) {
+                            $inner->where('email', 'like', "%{$term}%")
+                                ->orWhere('name', 'like', "%{$term}%")         // Admin
+                                ->orWhere('first_name', 'like', "%{$term}%")   // User
+                                ->orWhere('last_name', 'like', "%{$term}%");   // User
+                        });
+                    });
+            });
+        }
+
+        // Sort
+        $direction = ($filters['sort'] ?? 'newest') === 'oldest' ? 'asc' : 'desc';
+        $query->orderBy('created_at', $direction);
+
+        return $query;
+    }
+
+    /**
+     * Compute a trend comparison object.
+     *
+     * @return array{direction: string, pct: int|null, label: string}
+     */
+    private function computeTrend(int $today, int $yesterday): array
+    {
+        if ($yesterday === 0) {
+            return [
+                'direction' => $today > 0 ? 'up' : 'flat',
+                'pct' => null,
+                'label' => 'No prior-day baseline',
+            ];
+        }
+
+        $pct = (int) round((($today - $yesterday) / $yesterday) * 100);
+
+        if ($pct > 0) {
+            return ['direction' => 'up',   'pct' => $pct, 'label' => "+{$pct}% vs yesterday"];
+        } elseif ($pct < 0) {
+            return ['direction' => 'down', 'pct' => abs($pct), 'label' => abs($pct).'% lower than yesterday'];
+        }
+
+        return ['direction' => 'flat', 'pct' => 0, 'label' => 'Same as yesterday'];
+    }
+
+    /**
+     * Resolve a display name from a polymorphic actor model.
+     */
+    private function resolveActorName(?object $actor): string
+    {
+        if ($actor === null) {
+            return 'System';
+        }
+
+        if ($actor instanceof Admin) {
+            return $actor->name ?? 'Admin';
+        }
+
+        if ($actor instanceof User) {
+            $full = trim(($actor->first_name ?? '').' '.($actor->last_name ?? ''));
+
+            return $full !== '' ? $full : ($actor->email ?? 'User');
+        }
+
+        return 'Unknown';
+    }
+}

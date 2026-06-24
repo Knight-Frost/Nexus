@@ -351,7 +351,7 @@ class NotificationDigestTest extends TestCase
 
         // Run command
         $this->artisan('notifications:digest-daily')
-            ->expectsOutput('📬 Nexus - Daily Notification Digest')
+            ->expectsOutput('📬 '.config('brand.display_name').' - Daily Notification Digest')
             ->assertSuccessful();
     }
 
@@ -380,7 +380,7 @@ class NotificationDigestTest extends TestCase
 
         // Verify message format
         $sent = $this->fakeSmsClient->getSent()[0];
-        $this->assertStringContainsString('Nexus Digest:', $sent['message']);
+        $this->assertStringContainsString(config('brand.short_name').' Digest:', $sent['message']);
         $this->assertStringContainsString('3 new notifications', $sent['message']);
     }
 }

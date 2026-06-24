@@ -55,6 +55,37 @@ class Admin extends Authenticatable
     }
 
     /**
+     * Prevent deletion of admin accounts.
+     *
+     * Phase 1: All admins are super admins and no admin may delete another
+     * admin account. Granular super-admin RBAC (who, if anyone, may remove an
+     * admin) arrives in Phase 4 — until then this is a hard, model-level guard
+     * so NO caller (controller, job, tinker, future code) can delete an admin.
+     *
+     * @throws \RuntimeException Always
+     */
+    public function delete()
+    {
+        throw new \RuntimeException(
+            'Admin accounts cannot be deleted yet. Removing an admin will be '.
+            'gated behind super-admin RBAC (Phase 4); see App\\Models\\Admin.'
+        );
+    }
+
+    /**
+     * Prevent force-deletion of admin accounts (same guarantee as delete()).
+     *
+     * @throws \RuntimeException Always
+     */
+    public function forceDelete()
+    {
+        throw new \RuntimeException(
+            'Admin accounts cannot be deleted yet. Removing an admin will be '.
+            'gated behind super-admin RBAC (Phase 4); see App\\Models\\Admin.'
+        );
+    }
+
+    /**
      * Scope: Only active admins
      */
     public function scopeActive($query)

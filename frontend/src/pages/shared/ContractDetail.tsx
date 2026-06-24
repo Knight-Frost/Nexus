@@ -3,15 +3,15 @@ import { Link, useParams } from 'react-router';
 import { useAuth } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
 import { adminApi, landlordApi, tenantApi } from '@/lib/endpoints';
-import { contractStatusTone, formatCents, formatDate, humanize } from '@/lib/format';
+import { formatCents, formatDate, humanize } from '@/lib/format';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { NexusCard } from '@/components/cards/NexusCard';
+import { SemanticBadge } from '@/components/cards/SemanticBadge';
+import { getContractVariant } from '@/components/cards/variants';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Field, Textarea } from '@/components/ui/Field';
 import { ErrorState, LoadingState } from '@/components/ui/states';
-import { cn } from '@/lib/cn';
 import {
   IconCalendar,
   IconCheck,
@@ -20,18 +20,20 @@ import {
   IconUsers,
   IconAlertTriangle,
   IconArrowLeft,
+  IconLedger,
 } from '@/components/ui/icons';
 import type { Contract } from '@/lib/types';
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
+    <div className="flex items-center justify-between gap-4 py-3 border-t border-ink-100 first:border-t-0">
       <dt className="text-sm text-ink-500">{label}</dt>
       <dd className="text-sm font-medium text-ink-900 text-right">{value}</dd>
     </div>
   );
 }
 
+/** Party card using NexusCard (Level 1) with ink teal icon tile */
 function PartyCard({
   role,
   name,
@@ -42,16 +44,16 @@ function PartyCard({
   idLabel: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50/50 px-4 py-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+    <NexusCard role="neutral" className="flex items-center gap-3 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-info-50 text-info-700">
         <IconUsers size={18} />
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">{role}</p>
+        <p className="eyebrow mb-1">{role}</p>
         <p className="truncate text-sm font-semibold text-ink-900">{name}</p>
         <p className="text-xs text-ink-500">{idLabel}</p>
       </div>
-    </div>
+    </NexusCard>
   );
 }
 
@@ -242,12 +244,11 @@ export function ContractDetail() {
       {/* Action result banner */}
       {actionResult && (
         <div
-          className={cn(
-            'flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium',
+          className={
             actionResult.type === 'success'
-              ? 'bg-success-50 text-success-700 border border-success-200'
-              : 'bg-danger-50 text-danger-700 border border-danger-200',
-          )}
+              ? 'flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium bg-success-50 text-success-700 border border-success-200'
+              : 'flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium bg-danger-50 text-danger-700 border border-danger-200'
+          }
         >
           {actionResult.type === 'success' ? (
             <IconCheckCircle size={16} className="shrink-0" />
@@ -273,18 +274,16 @@ export function ContractDetail() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-        {/* Contract details */}
-        <Card>
-          <CardHeader
-            title="Contract Details"
-            action={
-              <Badge tone={contractStatusTone(contract.status)}>
-                {humanize(contract.status)}
-              </Badge>
-            }
-          />
-          <CardBody className="pt-0">
-            <dl className="divide-y divide-ink-100">
+        {/* Contract details — NexusCard Level 1 */}
+        <NexusCard role="neutral" className="p-0 overflow-hidden">
+          <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-ink-200">
+            <h2 className="font-display text-lg font-semibold text-ink-950">Contract Details</h2>
+            <SemanticBadge role={getContractVariant(contract.status)}>
+              {humanize(contract.status)}
+            </SemanticBadge>
+          </div>
+          <div className="px-6 py-2">
+            <dl>
               <DetailRow
                 label="Contract ID"
                 value={
@@ -309,16 +308,18 @@ export function ContractDetail() {
                 <DetailRow label="Termination reason" value={contract.termination_reason} />
               )}
             </dl>
-          </CardBody>
-        </Card>
+          </div>
+        </NexusCard>
 
-        {/* Timeline / quick info */}
-        <Card>
-          <CardHeader title="Timeline" />
-          <CardBody className="pt-0 space-y-3">
+        {/* Timeline — NexusCard Level 1 */}
+        <NexusCard role="neutral" className="p-0 overflow-hidden">
+          <div className="px-6 py-4 border-b border-ink-200">
+            <h2 className="font-display text-lg font-semibold text-ink-950">Timeline</h2>
+          </div>
+          <div className="px-6 py-4 space-y-3">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100">
-                <IconDoc size={14} className="text-brand-700" />
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-info-50">
+                <IconDoc size={14} className="text-info-600" />
               </div>
               <div>
                 <p className="text-sm font-medium text-ink-900">Contract created</p>
@@ -364,14 +365,17 @@ export function ContractDetail() {
                 </div>
               </div>
             )}
-          </CardBody>
-        </Card>
+          </div>
+        </NexusCard>
       </div>
 
-      {/* Financials summary */}
-      <Card>
-        <CardHeader title="Financials" />
-        <CardBody className="pt-0">
+      {/* Financials summary — NexusCard Level 1 */}
+      <NexusCard role="neutral" className="p-0 overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-ink-200">
+          <IconLedger size={18} className="text-ink-400" />
+          <h2 className="font-display text-lg font-semibold text-ink-950">Financials</h2>
+        </div>
+        <div className="px-6 py-5">
           <dl className="grid gap-4 sm:grid-cols-3">
             {[
               { label: 'Monthly Rent', value: formatCents(contract.rent_amount) },
@@ -382,10 +386,8 @@ export function ContractDetail() {
                 key={label}
                 className="rounded-xl bg-ink-50 border border-ink-100 px-4 py-3"
               >
-                <dt className="text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  {label}
-                </dt>
-                <dd className="mt-1 font-display text-lg font-semibold text-ink-900">
+                <dt className="eyebrow mb-1">{label}</dt>
+                <dd className="font-display text-lg font-semibold text-ink-900 num-old">
                   {value}
                 </dd>
               </div>
@@ -402,8 +404,8 @@ export function ContractDetail() {
             </Link>{' '}
             section.
           </p>
-        </CardBody>
-      </Card>
+        </div>
+      </NexusCard>
 
       {/* Send modal */}
       <Modal

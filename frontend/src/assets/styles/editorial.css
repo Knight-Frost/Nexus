@@ -1,12 +1,11 @@
 /* ==========================================================================
-   NEXUS — "Editorial" app skin · WARM PAPER & OXBLOOD
+   NEXUS — "Editorial" app skin · WHITE LIQUID GLASS
    --------------------------------------------------------------------------
-   A warm, light, editorial identity: bone-paper canvas, near-black ink, a
-   single oxblood accent used as punctuation. Type is a characterful serif
-   display (Fraunces) over a humanist grotesk body (Hanken Grotesque) with
-   IBM Plex Mono for tracked caps/data. The goal is "print magazine", not
-   "light SaaS" — so hierarchy comes from type scale + hairlines, and oxblood
-   is rationed.
+   A cool, white, architectural identity: ice-white canvas, cool slate ink,
+   ink-teal as the primary interactive color, oxblood rationed to danger only.
+   Translucent glass surfaces carry hierarchy; hairlines replace heavy shadows.
+   Type: Fraunces display (headings/hero), Hanken Grotesque (body), IBM Plex
+   Mono (eyebrows/labels/data).
 
    Applied as a SCOPED SKIN via `[data-skin='editorial']` on the AppShell root,
    so routes that don't render AppShell are unaffected. We re-declare the same
@@ -14,8 +13,7 @@
    `--color-brand-*`, ...), so every token-based page re-skins instantly; the
    flagship pages are then hand-rebuilt to fully exploit the language.
 
-   Light-first. The wrapper also carries `data-theme="light"`. (A dark variant
-   could later live under `[data-skin='editorial'][data-theme='dark']`.)
+   Light-first. The wrapper also carries `data-theme="light"`.
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,0,700;9..144,1,400;9..144,1,500&family=Hanken+Grotesque:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
@@ -23,111 +21,300 @@
 [data-skin='editorial'] {
   color-scheme: light;
 
-  /* ── Brand = OXBLOOD ramp ───────────────────────────────────────────────
-     Buttons fill oxblood with paper-white text. Links/active use the darker
-     #872117 for AA contrast on the bone canvas. Light steps are tint washes. */
-  --color-brand-50:  #F7E7E2; /* tint background (badges, icon boxes) */
-  --color-brand-100: #F0D5CD;
-  --color-brand-200: #E2B4A8;
-  --color-brand-300: #CD8678;
-  --color-brand-400: #B5503F;
-  --color-brand-500: #9E3024; /* focus ring */
-  --color-brand-600: #9E3024; /* primary button fill */
-  --color-brand-700: #872117; /* text links / active nav — AA on paper */
-  --color-brand-800: #6E1A12;
-  --color-brand-900: #571309;
-  --color-brand-950: #2E0A06;
+  /* ── Brand = INK TEAL ramp (PRIMARY / links / active / confidence) ─────────
+     why: brand + action ramps are deliberately INHERITED from :root[data-theme='light']
+     (identical ink-teal defaults) rather than re-declared here, so the user's
+     accent-color override (set inline on <html> by AccentProvider) cascades into
+     the skinned app. Re-declaring them here would shadow the accent. Oxblood stays
+     rationed to danger/critical + the fixed logo mark (--nexus-logo). */
 
-  /* ── Ink = warm stone ramp (low = surfaces, high = text) ────────────────── */
-  --color-ink-50:  #EDE7DC; /* subtle elevated surface / row hover */
-  --color-ink-100: #E6DFD2; /* hover bg / skeleton base */
-  --color-ink-200: #DED5C6; /* hairline borders (the workhorse) */
-  --color-ink-300: #CCC1AE; /* stronger dividers */
-  --color-ink-400: #A89E8B; /* placeholders */
-  --color-ink-500: #6B6358; /* muted text — ~5:1 on canvas */
-  --color-ink-600: #524B40; /* secondary text */
-  --color-ink-700: #38322A; /* body text */
-  --color-ink-800: #262019; /* labels / strong text */
-  --color-ink-900: #14110D; /* primary text */
-  --color-ink-950: #0C0A06; /* headings */
+  /* ── Ink = cool slate ramp (low = surfaces, high = text) ────────────────── */
+  --color-ink-50:  #F4F7FA; /* subtle elevated surface / row hover */
+  --color-ink-100: #EEF2F6; /* hover bg / skeleton base */
+  --color-ink-200: #E2E8F0; /* hairline borders (the workhorse) */
+  --color-ink-300: #CBD5E1; /* stronger dividers */
+  --color-ink-400: #94A3B8; /* placeholders */
+  --color-ink-500: #64748B; /* muted text — ~4.6:1 on canvas */
+  --color-ink-600: #475569; /* secondary text */
+  --color-ink-700: #334155; /* body text */
+  --color-ink-800: #1E293B; /* labels / strong text */
+  --color-ink-900: #111827; /* primary text */
+  --color-ink-950: #0B1220; /* headings */
 
-  /* ── Semantic states — tuned for the warm paper canvas ──────────────────── */
-  --color-success-50:  #E4EFE7;
-  --color-success-500: #2F7D52;
-  --color-success-600: #1F6440;
-  --color-warning-50:  #F7EAD2;
-  --color-warning-500: #B5701A;
-  --color-warning-600: #8F5510;
-  /* danger is a clean scarlet — kept visibly REDDER than the brown-red brand
-     oxblood so "destructive" never reads as "brand". */
-  --color-danger-50:   #F8E2DD;
-  --color-danger-500:  #C8372A;
-  --color-danger-600:  #A52A1F;
-  --color-danger-solid: #C8372A;
-  --color-danger-solid-hover: #A52A1F;
-  --color-info-50:  #E2ECF3;
-  --color-info-500: #2F5D86;
-  --color-info-600: #234A6E;
+  /* ── Semantic states — tuned for the cool white canvas ──────────────────── */
+  /* success = FRESH GREEN */
+  --color-success-50:  #E7F6EF;
+  --color-success-500: #0A7A50;
+  --color-success-600: #086040;
+  /* warning = AMBER (standard, reads clearly on white) */
+  --color-warning-50:  #FEF3E2;
+  --color-warning-500: #B45309;
+  --color-warning-600: #92400E;
+  /* danger = OXBLOOD (critical / overdue / destructive; rationed accent) */
+  --color-danger-50:   #FDECEC;
+  --color-danger-500:  #C02018;
+  --color-danger-600:  #9E1A12;
+  --color-danger-solid: #C02018;
+  --color-danger-solid-hover: #9E1A12;
+  /* info = DEEP BLUE (neutral-confidence, distinct from brand teal) */
+  --color-info-50:  #EAF1FC;
+  --color-info-500: #1954B4;
+  --color-info-600: #143E98;
 
   /* ── Surfaces ───────────────────────────────────────────────────────────── */
-  --color-canvas:   #F3EEE6; /* warm bone paper — never pure white */
-  --color-surface:  #FBF8F2; /* raised card */
-  --color-on-brand: #FBF8F2; /* paper-white text on oxblood fill */
+  --color-canvas:   #F6F8FB; /* cool white architectural light */
+  --color-surface:  #FFFFFF; /* raised card */
+  --color-on-brand: #FFFFFF; /* white text on teal fill */
 
-  /* ── Obsidian + mint literals (current AppShell sidebar) — espresso rail ──
-     A warm dark sidebar against the paper canvas. Replaced for real in the
-     rebuilt shell, but these keep un-rebuilt chrome looking intentional. */
-  --color-obsidian:        #1A1A1F; /* sidebar panel — neutral charcoal (NOT brown) */
-  --color-obsidian-light:  #262630; /* active / hover nav bg */
-  --color-obsidian-dim:    #141418; /* the icon rail (a touch deeper) */
-  --color-obsidian-border: #2F2F39;
-  --color-mint:            #C0392B; /* sidebar accent — clean brick red (brand-aligned) */
-  --color-mint-dim:        #A52F22;
-  --color-mint-light:      #2A1512;
-  --color-pearl:           #FBF8F2;
-  --color-on-obsidian:     #ECEAE4; /* cool porcelain text on charcoal */
-  --color-on-mint:         #FBF8F2;
+  /* ── Obsidian + mint literals (AppShell sidebar — dark rail on white canvas) */
+  --color-obsidian:        #1A1C24; /* sidebar panel — cool charcoal */
+  --color-obsidian-light:  #252836; /* active / hover nav bg */
+  --color-obsidian-dim:    #131520; /* the icon rail (a touch deeper) */
+  --color-obsidian-border: #2E3040;
+  --color-mint:            #0A7068; /* sidebar accent — ink-teal (brand-aligned) */
+  --color-mint-dim:        #096058;
+  --color-mint-light:      #E6F2F1;
+  --color-pearl:           #FFFFFF;
+  --color-on-obsidian:     #E8EDF5; /* cool text on charcoal */
+  --color-on-mint:         #FFFFFF;
 
-  /* ── Domain accent (GH₵ amounts) — bronze, distinct from oxblood ─────────── */
-  --color-money:    #92611F;
-  --color-money-bg: rgba(146, 97, 31, 0.12);
+  /* ── Domain accent (GH₵ amounts) — ink teal (cool, premium; NEVER gold/brown) */
+  --color-money:    #075865;
+  --color-money-bg: rgba(13, 117, 132, 0.10);
 
   /* ── Typography ─────────────────────────────────────────────────────────── */
   --font-display: 'Fraunces', 'Times New Roman', Georgia, serif;
   --font-sans:    'Hanken Grotesque', system-ui, -apple-system, sans-serif;
   --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
 
-  /* ── Radii — editorial likes tighter corners ────────────────────────────── */
-  --radius-xl:  0.75rem;   /* 12px */
-  --radius-2xl: 1rem;      /* 16px */
+  /* ── Radii — glass system uses generously rounded corners ───────────────── */
+  --radius-xl:  0.875rem;  /* 14px */
+  --radius-2xl: 1.25rem;   /* 20px */
 
-  /* ── Elevation — soft, warm-tinted; hierarchy leans on hairlines ────────── *
-   * inset specular top edge keeps cards feeling printed on paper.             */
+  /* ── Elevation — cool slate shadows; hairlines carry hierarchy ────────────── *
+   * glass-highlight (inset top edge) replaces the warm specular rim.           */
   --shadow-sm:
-    0 1px 2px rgb(20 17 13 / 0.05),
-    0 1px 3px rgb(20 17 13 / 0.05);
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 1px 3px rgb(15 23 42 / 0.06);
   --shadow-md:
-    0 2px 6px -1px rgb(20 17 13 / 0.06),
-    0 16px 32px -12px rgb(20 17 13 / 0.12),
-    inset 0 1px 0 rgb(255 255 255 / 0.6);
+    0 4px 12px -2px rgb(15 23 42 / 0.06),
+    0 12px 32px -8px rgb(15 23 42 / 0.10),
+    inset 0 1px 0 rgb(255 255 255 / 0.70);
   --shadow-lg:
-    0 36px 70px -28px rgb(20 17 13 / 0.22),
-    0 8px 20px -8px rgb(20 17 13 / 0.12),
-    inset 0 1px 0 rgb(255 255 255 / 0.7);
+    0 24px 64px -16px rgb(15 23 42 / 0.14),
+    0 8px 20px -8px rgb(15 23 42 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.80);
 
-  /* ── Signature oxblood lift (hover) ─────────────────────────────────────── */
+  /* ── Teal lift (hover glow — primary is ink-teal) ────────────────────────── */
   --glow-gold:
-    0 0 0 1px rgb(158 48 36 / 0.20),
-    0 22px 44px -22px rgb(158 48 36 / 0.30),
-    0 6px 16px -8px rgb(20 17 13 / 0.10);
+    0 0 0 1px rgb(13 130 120 / 0.18),
+    0 22px 44px -22px rgb(13 130 120 / 0.22),
+    0 6px 16px -8px rgb(15 23 42 / 0.08);
 
-  /* ── Glass — for chrome that sits OVER hero photography (dark scrim) ─────── */
-  --glass-bg:     rgba(20, 17, 13, 0.42);
-  --glass-strong: rgba(20, 17, 13, 0.66);
-  --glass-border: rgba(251, 248, 242, 0.18);
+  /* ── Glass tokens — light glass for the editorial app skin ──────────────── */
+  --glass-bg:             rgba(255,255,255,0.60);
+  --glass-bg-strong:      rgba(255,255,255,0.78);
+  --glass-border:         rgba(15,23,42,0.08);
+  --glass-border-strong:  rgba(15,23,42,0.12);
+  --glass-blur:           16px;
+  --glass-highlight:      inset 0 1px 0 rgba(255,255,255,0.65);
+  --glass-shadow:         0 8px 32px rgba(15,23,42,0.07), 0 2px 8px rgba(15,23,42,0.04);
+  --glass-shadow-lg:      0 24px 64px rgba(15,23,42,0.12);
+
+  /* ── Sidebar (AppShell `nvx-`) palette — light glass ───────────────────── *
+   * The sidebar <style> references these so it themes with the rest of the app
+   * instead of being frozen to literal light hex. */
+  --nvx-shell-bg:      #F6F8FB;
+  --nvx-side-bg:       #FFFFFF;
+  --nvx-border:        #E2E8F0;
+  --nvx-text-strong:   #111827;
+  --nvx-muted:         #64748B;
+  --nvx-hover-bg:      #F4F7FA;
+  --nvx-active-bg:     var(--color-brand-50);
+  --nvx-active-text:   var(--color-brand-700);
+  --nvx-accent:        var(--color-brand-600);
+  --nvx-on-accent:     #FFFFFF;
+  --nvx-iconbtn-hover: #EEF2F6;
+  --nvx-mtop-bg:       rgba(246,248,251,0.92);
+
+  /* ── Action ramp (primary buttons) ──────────────────────────────────────
+     why: inherited from :root so the accent override cascades (see brand note). */
+  --color-on-action:  #FFFFFF;
+
+  /* ── Action-soft — teal tint for sent bubbles + selected list rows ──────── */
+  --color-action-soft:        rgba(13,130,120,0.10);
+  --color-action-soft-border: rgba(13,130,120,0.22);
+
+  /* ── Fixed brand mark — OXBLOOD (logo never flips; danger anchor) ───────── */
+  --nexus-logo:    #9E3024;
+  --nexus-on-logo: #FFFFFF;
+
+  /* ── Homecrest card system — deep "command/featured" fills + cool ink ────────
+     Soft/tinted cards derive from the semantic -50/-600 ramps above; only the
+     deep featured fills need bespoke values. */
+  --nexus-cmd-fg:        #F0F5F8; /* cool white text on a command card */
+  --nexus-cmd-sub:       rgba(240,245,248,0.74);
+  --nexus-cmd-chip:      rgba(255,255,255,0.16); /* translucent icon chip */
+  --nexus-cmd-chip-fg:   #FFFFFF;
+  --nexus-cmd-success:   #086040;
+  --nexus-cmd-success-2: #064830;
+  --nexus-cmd-danger:    #9E1A12;
+  --nexus-cmd-danger-2:  #7A1410;
+  --nexus-cmd-review:    #92400E;
+  --nexus-cmd-review-2:  #6F3008;
+  --nexus-cmd-info:      #096058;
+  --nexus-cmd-info-2:    #063E3A;
+  --nexus-cmd-neutral:   #1E293B;
+  --nexus-cmd-neutral-2: #111827;
 
   /* ── Motion ─────────────────────────────────────────────────────────────── */
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   PETROL BLACK / INK TEAL — the official dark variant of the editorial skin.
+   Higher specificity (0,2,0) than the base `[data-skin='editorial']` (0,1,0),
+   so it wins whenever the AppShell root carries data-theme="dark". Every
+   token-based page re-skins automatically. The mood is "petrol-black after
+   dark": deep petrol near-black surfaces, cool paper-white ink, teal as the
+   selective accent (focus / links / active nav / badges / verified), and a
+   coral `action` ramp reserved for primary buttons + destructive states.
+   (Supersedes the rejected warm/espresso dark — no brown/bronze/gold here.)
+   ========================================================================== */
+[data-skin='editorial'][data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Brand = TEAL ramp — luminous on petrol-black */
+  --color-brand-50:  #0E2A28;
+  --color-brand-100: #123431;
+  --color-brand-200: #17433F;
+  --color-brand-300: #1E5852;
+  --color-brand-400: #2DD4BF;
+  --color-brand-500: #2DD4BF; /* focus ring */
+  --color-brand-600: #14B8A6; /* teal accent — links / active nav / badges */
+  --color-brand-700: #5EEAD4; /* text links / active nav — AA on petrol */
+  --color-brand-800: #7FF0E2;
+  --color-brand-900: #A7F3E9;
+  --color-brand-950: #D5FBF4;
+
+  /* on-brand: the text that sits ON a brand fill */
+  --color-on-brand: #04211E;
+
+  /* Ink = petrol/teal neutral ramp (low = surfaces, high = text) */
+  --color-ink-50:  #182B2C; /* subtle elevated surface / row hover */
+  --color-ink-100: #132324; /* hover bg / skeleton base */
+  --color-ink-200: #1C2D2E; /* hairline borders */
+  --color-ink-300: #263A3B; /* stronger dividers */
+  --color-ink-400: #667570; /* placeholders */
+  --color-ink-500: #93A19D; /* muted text — ~5:1 on canvas */
+  --color-ink-600: #C6D0CC; /* secondary text */
+  --color-ink-700: #D7DFDC; /* body text */
+  --color-ink-800: #E7EEEB; /* labels */
+  --color-ink-900: #F3F7F5; /* primary text */
+  --color-ink-950: #F9FCFB; /* headings */
+
+  /* Semantic states — same ROLES as light, luminous on petrol-black.
+     success = estate green · warning = clay · danger = oxblood · info = teal */
+  --color-success-50:  #0F2A1E;
+  --color-success-500: #3FBE85;
+  --color-success-600: #62D3A0;
+  --color-warning-50:  #2A1A0E;
+  --color-warning-500: #E0793F;
+  --color-warning-600: #F0986A;
+  --color-danger-50:   #2A1413;
+  --color-danger-500:  #E06A5A;
+  --color-danger-600:  #F2998A;
+  --color-danger-solid: #B42318;
+  --color-danger-solid-hover: #991B0F;
+  --color-info-50:  #0C2226;
+  --color-info-500: #3FB6C4;
+  --color-info-600: #6FD0DA;
+
+  /* Surfaces — petrol near-black */
+  --color-canvas:  #071011;
+  --color-surface: #101C1D;
+
+  /* Action ramp — INK TEAL (primary buttons; matches "primary = teal") */
+  --color-action-400: #2DD4BF;
+  --color-action-500: #14B8A6;
+  --color-action-600: #0D9488;
+  --color-action-700: #0B7A70;
+  --color-on-action:  #04211E;
+
+  /* Action-soft — teal tint for sent bubbles + selected list rows (dark) */
+  --color-action-soft:        rgba(45, 212, 191, 0.14);
+  --color-action-soft-border: rgba(45, 212, 191, 0.32);
+
+  /* Domain accent (GH₵ amounts) — cool platinum on petrol */
+  --color-money:    #CBD8D2;
+  --color-money-bg: rgba(45, 212, 191, 0.10);
+
+  /* Fixed brand mark — luminous oxblood (logo never flips with the teal brand) */
+  --nexus-logo:    #C24436;
+  --nexus-on-logo: #FFFFFF;
+
+  /* Homecrest card system — deep command fills tuned to sit on petrol-black */
+  --nexus-cmd-fg:        #F2F7F5;
+  --nexus-cmd-sub:       rgba(242, 247, 245, 0.70);
+  --nexus-cmd-chip:      rgba(255, 255, 255, 0.10);
+  --nexus-cmd-chip-fg:   #F2F7F5;
+  --nexus-cmd-success:   #134D2E;
+  --nexus-cmd-success-2: #0C3A22;
+  --nexus-cmd-danger:    #7A241B;
+  --nexus-cmd-danger-2:  #571712;
+  --nexus-cmd-review:    #9E4521;
+  --nexus-cmd-review-2:  #743016;
+  --nexus-cmd-info:      #0A5B68;
+  --nexus-cmd-info-2:    #06424C;
+  --nexus-cmd-neutral:   #16292A;
+  --nexus-cmd-neutral-2: #0E1F20;
+
+  /* Sidebar (nvx) palette — petrol dark */
+  --nvx-shell-bg:      #071011;
+  --nvx-side-bg:       #0A1516;
+  --nvx-border:        #1C2D2E;
+  --nvx-text-strong:   #F3F7F5;
+  --nvx-muted:         #93A19D;
+  --nvx-hover-bg:      #101C1D;
+  --nvx-active-bg:     #102A27;
+  --nvx-active-text:   #5EEAD4;
+  --nvx-accent:        #2DD4BF;
+  --nvx-on-accent:     #04211E;
+  --nvx-iconbtn-hover: #101C1D;
+  --nvx-mtop-bg:       rgba(7, 16, 17, 0.92);
+
+  /* Elevation — deep on dark; keep pure-black shadows */
+  --shadow-sm:
+    0 1px 2px rgb(0 0 0 / 0.50),
+    0 1px 3px rgb(0 0 0 / 0.55);
+  --shadow-md:
+    0 2px 6px -1px rgb(0 0 0 / 0.50),
+    0 16px 32px -12px rgb(0 0 0 / 0.60),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-lg:
+    0 36px 70px -28px rgb(0 0 0 / 0.80),
+    0 8px 20px -8px rgb(0 0 0 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+
+  /* Teal lift (replaces oxblood glow-gold) */
+  --glow-gold:
+    0 0 0 1px rgb(45 212 191 / 0.16),
+    0 22px 44px -22px rgb(0 0 0 / 0.55),
+    0 6px 16px -8px rgb(0 0 0 / 0.5);
+
+  /* Glass over photography — petrol scrim */
+  --glass-bg:     rgba(7, 16, 17, 0.55);
+  --glass-strong: rgba(7, 16, 17, 0.74);
+  --glass-border: rgba(243, 247, 245, 0.14);
+}
+
+/* Teal card hover ring on dark (overrides the base oxblood border). */
+[data-skin='editorial'][data-theme='dark'] .u-card-hover:hover { border-color: rgb(45 212 191 / 0.32); }
+
+/* The specular top-rim highlight is a white line for printed-on-paper light
+   cards; on dark it would read as a harsh band, so soften it right down. */
+[data-skin='editorial'][data-theme='dark'] .u-specular::before {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.10) 50%, transparent);
 }
 
 /* ==========================================================================
@@ -181,7 +368,7 @@
 }
 [data-skin='editorial'] .u-card-hover:hover {
   transform: translateY(-4px);
-  border-color: rgb(158 48 36 / 0.45);
+  border-color: rgb(13 117 132 / 0.42);
   box-shadow: var(--glow-gold);
 }
 
@@ -243,4 +430,30 @@
     transform: none !important;
   }
   [data-skin='editorial'] [data-reveal] { opacity: 1 !important; }
+}
+
+/* ==========================================================================
+   AUDIT & ACTIVITY CENTER — page-scoped red tokens
+   --------------------------------------------------------------------------
+   These are defined on .audit-center so they apply in BOTH light and dark
+   independent of the global brand-* tokens (which flip to teal in dark mode).
+   Every red accent on the Audit page uses var(--audit-*) — not bg-brand-*.
+   ========================================================================== */
+
+.audit-center {
+  --audit-accent:        #9E3024;
+  --audit-accent-strong: #872117;
+  --audit-accent-bg:     #F7E7E2;
+  --audit-accent-border: #E2B4A8;
+  --audit-accent-muted:  rgba(158, 48, 36, 0.12);
+  --audit-ink:           #14110D;
+}
+
+[data-theme='dark'] .audit-center {
+  --audit-accent:        #E06A5A;
+  --audit-accent-strong: #F2998A;
+  --audit-accent-bg:     rgba(224, 106, 90, 0.14);
+  --audit-accent-border: rgba(224, 106, 90, 0.30);
+  --audit-accent-muted:  rgba(224, 106, 90, 0.10);
+  --audit-ink:           #F3F7F5;
 }

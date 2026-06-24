@@ -1,0 +1,354 @@
+/* ==========================================================================
+   AUTH IDENTITY — Navy/Blue split-screen system
+   Scoped to [data-auth-shell]. Overrides the app's teal brand ramp with
+   Deep Sapphire navy for auth pages only. The left panel is always dark navy
+   regardless of the page theme; the right form area adapts to light/dark.
+   ========================================================================== */
+
+[data-auth-shell] {
+  /* ── Typography faces (semantic, auth-scoped) ───────────────────────────── */
+  /* Hero/display = editorial serif; form UI = Manrope; wordmark = crisp sans.
+     Pinned here so the app's theme-driven --font-display can't leak in. */
+  --font-auth-display: 'Cormorant Garamond', 'Playfair Display', Georgia,
+    'Times New Roman', serif;
+  --font-auth-ui: 'Manrope', 'Inter', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-brand: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+
+  /* ── Left panel (always dark navy, never follows theme) ─────────────────── */
+  --auth-panel-from:        #07152F;
+  --auth-panel-to:          #0B2552;
+  --auth-panel-text:        #FFFFFF;
+  --auth-panel-muted:       rgba(255, 255, 255, 0.68);
+  --auth-panel-accent:      #7BA8F0;
+  --auth-panel-border:      rgba(255, 255, 255, 0.10);
+  --auth-panel-chip:        rgba(255, 255, 255, 0.07);
+  --auth-panel-chip-border: rgba(255, 255, 255, 0.12);
+
+  /* ── Deep Sapphire brand ramp (overrides app teal for auth) ─────────────── */
+  --color-brand-50:  #EBF0FB;
+  --color-brand-100: #D0DCFB;
+  --color-brand-200: #A8BBFA;
+  --color-brand-300: #7D99F0;
+  --color-brand-400: #3570D4;
+  --color-brand-500: #2059C0;
+  --color-brand-600: #1B4DA8;
+  --color-brand-700: #163F8C;
+  --color-brand-800: #102D6B;
+  --color-brand-900: #0A1D4A;
+  --color-brand-950: #071540;
+  --color-on-brand:  #FFFFFF;
+
+  /* ── Action ramp — navy blue (overrides coral for auth buttons) ──────────── */
+  --color-action-400: #3570D4;
+  --color-action-500: #2059C0;
+  --color-action-600: #1B4DA8;
+  --color-action-700: #163F8C;
+  --color-on-action:  #FFFFFF;
+
+  /* ── Light mode form area ────────────────────────────────────────────────── */
+  --auth-form-bg:       #FFFFFF;
+  --auth-text-primary:  #0F1B2D;
+  --auth-text-muted:    #64748B;
+  --auth-border:        #E2E8F0;
+  --auth-input-bg:      #FFFFFF;
+  --auth-input-border:  #CBD5E1;
+  --auth-focus:         #2059C0;
+  --auth-focus-ring:    rgba(32, 89, 192, 0.18);
+  --auth-surface:       #F8FAFD;
+  --auth-divider:       #E2E8F0;
+}
+
+/* Dark mode — right panel goes deep navy */
+[data-theme='dark'] [data-auth-shell] {
+  --auth-form-bg:       #071828;
+  --auth-text-primary:  #E8EFFE;
+  --auth-text-muted:    #7E9ABF;
+  --auth-border:        #1A3354;
+  --auth-input-bg:      #0C2040;
+  --auth-input-border:  #1A3354;
+  --auth-focus:         #4B82E0;
+  --auth-focus-ring:    rgba(75, 130, 224, 0.22);
+  --auth-surface:       #091526;
+  --auth-divider:       #1A3354;
+
+  /* Keep brand ramp readable on dark navy */
+  --color-brand-50:  #0F2650;
+  --color-brand-100: #142E68;
+  --color-brand-200: #1B3E96;
+  --color-brand-300: #2559C8;
+  --color-brand-400: #5E89E0;
+  --color-brand-500: #4B82E0;
+  --color-brand-600: #6898E8;
+  --color-brand-700: #8EB4F4;
+  --color-brand-800: #B0CCFA;
+  --color-brand-900: #CDD9FC;
+  --color-brand-950: #E4ECFE;
+  --color-on-brand:  #07152F;
+
+  --color-action-400: #6898E8;
+  --color-action-500: #4B82E0;
+  --color-action-600: #3570D4;
+  --color-action-700: #2059C0;
+  --color-on-action:  #FFFFFF;
+}
+
+/* ==========================================================================
+   AUTH SHELL — split screen layout
+   ========================================================================== */
+
+[data-auth-shell] {
+  display: flex;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+/* Left visual panel */
+[data-auth-shell] .auth-panel {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 52%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.5rem;
+}
+
+/* Right form column — only this scrolls when viewport is too short */
+[data-auth-shell] .auth-form-col {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 2rem;
+  background: var(--auth-form-bg);
+  /* Whole right column reads in Manrope; children inherit unless overridden. */
+  font-family: var(--font-auth-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 1023px) {
+  [data-auth-shell] {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  [data-auth-shell] .auth-panel {
+    flex: none;
+    min-height: 200px;
+    padding: 1.5rem;
+  }
+
+  [data-auth-shell] .auth-panel-trust {
+    display: none;
+  }
+
+  [data-auth-shell] .auth-panel-supporting {
+    display: none;
+  }
+
+  [data-auth-shell] .auth-panel-headline {
+    font-size: 2rem !important;
+    line-height: 1.05 !important;
+    margin-top: 0.625rem !important;
+  }
+
+  [data-auth-shell] .auth-form-col {
+    padding: 2rem 1rem 3rem;
+    align-items: flex-start;
+    overflow-y: visible;
+  }
+
+  [data-auth-shell] .auth-card {
+    max-width: 100%;
+  }
+}
+
+/* ==========================================================================
+   AUTH CARD
+   ========================================================================== */
+
+[data-auth-shell] .auth-card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--auth-form-bg);
+}
+
+/* ==========================================================================
+   AUTH INPUT SYSTEM
+   ========================================================================== */
+
+[data-auth-shell] .auth-field-input {
+  height: 3rem;
+  width: 100%;
+  padding: 0 1rem;
+  background: var(--auth-input-bg);
+  border: 1.5px solid var(--auth-input-border);
+  border-radius: 0.75rem;
+  font-family: var(--font-auth-ui);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.003em;
+  color: var(--auth-text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+[data-auth-shell] .auth-field-input::placeholder {
+  color: var(--auth-text-muted);
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+[data-auth-shell] .auth-field-input:focus {
+  outline: none;
+  border-color: var(--auth-focus);
+  box-shadow: 0 0 0 3px var(--auth-focus-ring);
+}
+
+[data-auth-shell] .auth-field-input[aria-invalid='true'] {
+  border-color: #C02018;
+}
+
+[data-auth-shell] .auth-field-input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px rgba(192, 32, 24, 0.14);
+}
+
+[data-auth-shell] .auth-field-input.has-left-icon {
+  padding-left: 2.75rem;
+}
+
+[data-auth-shell] .auth-field-input.has-right-icon {
+  padding-right: 2.75rem;
+}
+
+[data-auth-shell] .auth-select {
+  height: 3rem;
+  background: var(--auth-input-bg);
+  border: 1.5px solid var(--auth-input-border);
+  border-radius: 0.75rem;
+  font-family: var(--font-auth-ui);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--auth-text-primary);
+  padding: 0 2.25rem 0 0.875rem;
+  appearance: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+[data-auth-shell] .auth-select:focus {
+  outline: none;
+  border-color: var(--auth-focus);
+  box-shadow: 0 0 0 3px var(--auth-focus-ring);
+}
+
+/* Primary button */
+[data-auth-shell] .auth-btn-primary {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3rem;
+  border-radius: 0.875rem;
+  background: linear-gradient(to bottom, var(--color-action-400), var(--color-action-600));
+  color: var(--color-on-action, #FFFFFF);
+  font-family: var(--font-auth-ui);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  box-shadow: 0 8px 24px -8px rgba(32, 89, 192, 0.45);
+  transition: filter 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+  border: none;
+}
+
+[data-auth-shell] .auth-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+[data-auth-shell] .auth-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Social button */
+[data-auth-shell] .auth-btn-social {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  height: 3rem;
+  border-radius: 0.875rem;
+  background: var(--auth-input-bg);
+  border: 1.5px solid var(--auth-input-border);
+  color: var(--auth-text-primary);
+  font-family: var(--font-auth-ui);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+}
+
+[data-auth-shell] .auth-btn-social:hover:not(:disabled) {
+  border-color: var(--auth-focus);
+  background: var(--auth-surface);
+}
+
+[data-auth-shell] .auth-btn-social:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Entry animation */
+@keyframes auth-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+[data-auth-shell] .auth-card-animate {
+  animation: auth-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Spinner used by inline styles in auth pages */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   ROTATING SLIDE TRANSITION
+   The .auth-panel-slide key-change triggers this animation each time the
+   React component key prop changes (on slide advance).
+   Under prefers-reduced-motion we skip the animation; the content still
+   rotates — only the fade+lift is disabled.
+   ========================================================================== */
+
+@keyframes auth-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-auth-shell] .auth-panel-slide {
+  animation: auth-slide-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-auth-shell] .auth-panel-slide {
+    /* Instant swap — no motion, but rotation still fires */
+    animation: none;
+  }
+  /* Also freeze the card entry animation */
+  [data-auth-shell] .auth-card-animate {
+    animation: none;
+  }
+}

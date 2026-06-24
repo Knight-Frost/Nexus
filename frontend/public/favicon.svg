@@ -1,32 +1,19 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Nexus">
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wyncrest">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#26292e"/>
-      <stop offset="0.55" stop-color="#171a1e"/>
-      <stop offset="1" stop-color="#0d0f11"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0" stop-color="#f4dca0"/>
-      <stop offset="0.45" stop-color="#d6ad60"/>
-      <stop offset="1" stop-color="#9a7842"/>
+      <stop offset="0" stop-color="#0E8A80"/>
+      <stop offset="0.55" stop-color="#0A7068"/>
+      <stop offset="1" stop-color="#063E3A"/>
     </linearGradient>
   </defs>
 
-  <!-- graphite tile -->
+  <!-- rounded tile background -->
   <rect x="8" y="8" width="496" height="496" rx="116" fill="url(#bg)"/>
-  <rect x="8.5" y="8.5" width="495" height="495" rx="115.5" fill="none" stroke="#3a3d42" stroke-opacity="0.6"/>
+  <rect x="8.5" y="8.5" width="495" height="495" rx="115.5" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
 
-  <!-- architectural N: walls + roofline + diagonal -->
-  <g fill="none" stroke="url(#gold)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M150 398 L150 206 L256 110 L362 206 L362 398"/>
-    <path d="M150 206 L362 398"/>
-  </g>
+  <!-- W crest shield (semi-transparent white overlay) -->
+  <path d="M256 64 L390 112 V220 C390 318 330 370 256 410 C182 370 122 318 122 220 V112 Z" fill="rgba(255,255,255,0.15)"/>
 
-  <!-- gable window -->
-  <g fill="url(#gold)">
-    <rect x="232" y="150" width="24" height="24" rx="3"/>
-    <rect x="268" y="150" width="24" height="24" rx="3"/>
-    <rect x="232" y="186" width="24" height="24" rx="3"/>
-    <rect x="268" y="186" width="24" height="24" rx="3"/>
-  </g>
+  <!-- W letterform -->
+  <path d="M170 170 L202 320 L256 240 L310 320 L342 170" fill="none" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

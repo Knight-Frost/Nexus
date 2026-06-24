@@ -86,13 +86,18 @@ class ListingService
     }
 
     /**
-     * Get single public listing with view tracking
+     * Get single public listing with view tracking.
+     * Includes approved reviews and rating aggregates from the property.
      */
     public function getPublicListing(int $listingId): ?Listing
     {
         $listing = Listing::query()
             ->public()
-            ->with(['unit.property', 'photos', 'landlord'])
+            ->with([
+                'unit.property.approvedReviews.reviewer',
+                'photos',
+                'landlord',
+            ])
             ->find($listingId);
 
         if ($listing) {

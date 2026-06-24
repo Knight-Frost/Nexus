@@ -51,7 +51,7 @@ class CreateNotificationListener
         }
 
         $period = "{$entry->billing_period_start->format('M j')} - {$entry->billing_period_end->format('M j, Y')}";
-        $amount = '$'.number_format($entry->amount_cents / 100, 2);
+        $amount = 'GH₵ '.number_format($entry->amount_cents / 100, 2);
         $dueDate = $entry->due_date->format('F j, Y');
 
         $this->notificationService->create(
@@ -83,7 +83,7 @@ class CreateNotificationListener
             return;
         }
 
-        $amount = '$'.number_format($entry->amount_cents / 100, 2);
+        $amount = 'GH₵ '.number_format($entry->amount_cents / 100, 2);
 
         $this->notificationService->create(
             user: $event->tenant,
@@ -115,7 +115,7 @@ class CreateNotificationListener
         }
 
         // Payment amount is negative, so use absolute value
-        $amount = '$'.number_format(abs($payment->amount_cents) / 100, 2);
+        $amount = 'GH₵ '.number_format(abs($payment->amount_cents) / 100, 2);
 
         $this->notificationService->create(
             user: $event->tenant,
@@ -146,7 +146,7 @@ class CreateNotificationListener
             return;
         }
 
-        $amount = '$'.number_format($entry->amount_cents / 100, 2);
+        $amount = 'GH₵ '.number_format($entry->amount_cents / 100, 2);
 
         $this->notificationService->create(
             user: $event->tenant,

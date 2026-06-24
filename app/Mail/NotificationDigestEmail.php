@@ -33,7 +33,7 @@ class NotificationDigestEmail extends Mailable
         $count = $this->notifications->count();
 
         return new Envelope(
-            subject: "Your Nexus Notifications ({$count})",
+            subject: 'Your '.config('brand.display_name')." Notifications ({$count})",
         );
     }
 
