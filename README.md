@@ -56,9 +56,14 @@ composer install
 cp .env.example .env
 php artisan key:generate
 touch database/database.sqlite          # SQLite is the default connection
-php artisan migrate --seed              # schema + demo data (Phase1Seeder)
+php artisan migrate:fresh --seed        # schema + rich demo data (development mode)
+php artisan nexus:seed:verify           # optional: verify the demo graph + ledger
 php artisan serve                       # http://localhost:8000
 ```
+
+Seeding is **mode-aware**: `migrate:fresh --seed` builds the full local demo
+graph, while `NEXUS_SEED_MODE=production php artisan db:seed` creates only a safe,
+idempotent baseline (no demo data). See **[docs/SEEDING.md](docs/SEEDING.md)**.
 
 ### 2. Frontend (SPA)
 
@@ -75,11 +80,15 @@ is needed in development. Open **http://localhost:5173** and sign in.
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | `admin@nexus.com` | `password` |
-| Landlord | `landlord1@example.com` | `password` |
-| Tenant | `tenant1@example.com` | `password` |
+| Admin | `admin@wyncrest.test` | `password` |
+| Landlord (full access) | `landlord.verified@wyncrest.test` | `password` |
+| Landlord (limited) | `landlord.limited@wyncrest.test` | `password` |
+| Tenant (active lease) | `tenant.active@wyncrest.test` | `password` |
+| Tenant (overdue + late fee) | `tenant.showcase@wyncrest.test` | `password` |
 
-> Demo credentials are for local development only. Never seed them in production.
+> Demo credentials are for local development only and use the reserved
+> `@wyncrest.test` domain — they are never created in production mode. The full
+> account list lives in [docs/SEEDING.md](docs/SEEDING.md).
 
 ---
 

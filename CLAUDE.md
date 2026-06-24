@@ -314,8 +314,10 @@ composer install
 cp .env.example .env
 php artisan key:generate
 touch database/database.sqlite          # sqlite default
-php artisan migrate
-php artisan db:seed                      # demo data (Phase1Seeder)
+php artisan migrate:fresh --seed         # mode-aware seed (development demo graph)
+# production-safe baseline only: NEXUS_SEED_MODE=production php artisan db:seed
+# verify the demo graph + ledger: php artisan nexus:seed:verify
+# Seeding architecture + demo accounts: docs/SEEDING.md
 
 # Frontend
 cd frontend && npm install && npm run dev   # Vite dev server on :5173
