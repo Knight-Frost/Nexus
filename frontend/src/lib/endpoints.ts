@@ -58,7 +58,7 @@ import type {
   Unit,
   User,
   UserType,
-  VerificationStatus,
+  VerificationRequestStatus,
   VerificationStatusResponse,
   VerificationSubmitResponse,
   WeatherData,
@@ -972,7 +972,10 @@ export const adminApi = {
 
   /* ---- Verification moderation ------------------------------------------ */
   async verifications(params?: {
-    status?: VerificationStatus;
+    // Filters verification_request *records*, so this speaks the request
+    // vocabulary (terminal = 'approved'), matching the backend's
+    // `in:pending,under_review,approved,rejected,needs_more_information` rule.
+    status?: VerificationRequestStatus;
     page?: number;
   }): Promise<Paginated<AdminVerificationRequest>> {
     const { data } = await portalHttp.admin.get<Paginated<AdminVerificationRequest>>(
