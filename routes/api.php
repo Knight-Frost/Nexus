@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminAccessController;
 use App\Http\Controllers\Admin\AdminAuditController;
 // ============================================================================
 // AUTHENTICATION CONTROLLER
@@ -22,6 +23,7 @@ use App\Http\Controllers\Analytics\ContractAnalyticsController;
 use App\Http\Controllers\Analytics\FinancialAnalyticsController;
 use App\Http\Controllers\Analytics\NotificationAnalyticsController;
 use App\Http\Controllers\Analytics\PlatformAnalyticsController;
+use App\Http\Controllers\Auth\AdminInviteController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SocialAuthController;
@@ -110,6 +112,8 @@ Route::middleware(['rate.limit.role'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    // Self-service password change (User or Admin) — audited, revokes other sessions.
+    Route::post('/user/password', [AuthController::class, 'changePassword']);
 });
 
 // ============================================================================
@@ -130,6 +134,8 @@ Route::middleware(['rate.limit.role'])->group(function () {
 Route::middleware(['throttle:6,1'])->group(function () {
     Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+    // Invited admin sets their password and activates their account (token-guarded).
+    Route::post('/admin/accept-invite', [AdminInviteController::class, 'accept']);
 });
 
 // ============================================================================
@@ -314,58 +320,94 @@ Route::middleware(['metrics'])->group(function () {
     // ADMIN ROUTES - Protected with admin middleware
     // ============================================================================
     Route::middleware(['auth:sanctum', 'admin', 'rate.limit.role'])->prefix('admin')->group(function () {
-        // Dashboard
+        // Dashboard — available to any active admin (no specific capability).
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
+        // Access Control — "Manage Users & Permissions".
+        // Reads require the manage_access capability; every mutation is
+        // super-admin-only (enforced in the FormRequest authorize()).
+        Route::middleware('admin.can:manage_access')->prefix('access')->group(function () {
+            Route::get('/summary', [AdminAccessController::class, 'summary']);
+            Route::get('/roles', [AdminAccessController::class, 'roles']);
+            Route::get('/members', [AdminAccessController::class, 'members']);
+            Route::get('/admins', [AdminAccessController::class, 'admins']);
+            Route::get('/admins/{admin}', [AdminAccessController::class, 'showAdmin']);
+
+            Route::post('/admins', [AdminAccessController::class, 'invite']);
+            Route::post('/admins/{admin}/resend-invite', [AdminAccessController::class, 'resendInvite']);
+            Route::post('/admins/{admin}/revoke-invite', [AdminAccessController::class, 'revokeInvite']);
+            Route::patch('/admins/{admin}/capabilities', [AdminAccessController::class, 'updateCapabilities']);
+            Route::post('/admins/{admin}/promote-super', [AdminAccessController::class, 'promoteSuper']);
+            Route::post('/admins/{admin}/demote-super', [AdminAccessController::class, 'demoteSuper']);
+            Route::post('/admins/{admin}/deactivate', [AdminAccessController::class, 'deactivate']);
+            Route::post('/admins/{admin}/activate', [AdminAccessController::class, 'activate']);
+        });
+
         // User Management
-        Route::get('/users', [AdminUserController::class, 'index']);
-        Route::get('/users/{user}', [AdminUserController::class, 'show']);
-        Route::post('/users/{user}/suspend', [AdminUserController::class, 'suspend']);
-        Route::post('/users/{user}/activate', [AdminUserController::class, 'activate']);
-        Route::post('/users/{user}/block', [AdminUserController::class, 'block']);
-        Route::post('/users/{user}/archive', [AdminUserController::class, 'archive']);
+        Route::middleware('admin.can:manage_users')->group(function () {
+            Route::get('/users', [AdminUserController::class, 'index']);
+            Route::get('/users/{user}', [AdminUserController::class, 'show']);
+            Route::post('/users/{user}/suspend', [AdminUserController::class, 'suspend']);
+            Route::post('/users/{user}/activate', [AdminUserController::class, 'activate']);
+            Route::post('/users/{user}/block', [AdminUserController::class, 'block']);
+            Route::post('/users/{user}/archive', [AdminUserController::class, 'archive']);
+        });
 
         // Verification Management (Phase 4)
-        Route::get('/verifications', [AdminVerificationController::class, 'index']);
-        Route::get('/verifications/{verificationRequest}', [AdminVerificationController::class, 'show']);
-        Route::post('/verifications/{verificationRequest}/approve', [AdminVerificationController::class, 'approve']);
-        Route::post('/verifications/{verificationRequest}/reject', [AdminVerificationController::class, 'reject']);
-        Route::post('/verifications/{verificationRequest}/request-info', [AdminVerificationController::class, 'requestInfo']);
-        // Stream applicant documents during moderation (admin-gated + audited).
-        Route::get('/documents/{document}/download', [AdminVerificationController::class, 'downloadDocument']);
+        Route::middleware('admin.can:review_verifications')->group(function () {
+            Route::get('/verifications', [AdminVerificationController::class, 'index']);
+            Route::get('/verifications/{verificationRequest}', [AdminVerificationController::class, 'show']);
+            Route::post('/verifications/{verificationRequest}/approve', [AdminVerificationController::class, 'approve']);
+            Route::post('/verifications/{verificationRequest}/reject', [AdminVerificationController::class, 'reject']);
+            Route::post('/verifications/{verificationRequest}/request-info', [AdminVerificationController::class, 'requestInfo']);
+            // Stream applicant documents during moderation (admin-gated + audited).
+            Route::get('/documents/{document}/download', [AdminVerificationController::class, 'downloadDocument']);
+        });
 
         // Listing Moderation
-        Route::get('/listings/pending', [AdminListingModerationController::class, 'pending']);
-        Route::post('/listings/{listing}/approve', [AdminListingModerationController::class, 'approve']);
-        Route::post('/listings/{listing}/reject', [AdminListingModerationController::class, 'reject']);
+        Route::middleware('admin.can:moderate_listings')->group(function () {
+            Route::get('/listings/pending', [AdminListingModerationController::class, 'pending']);
+            Route::post('/listings/{listing}/approve', [AdminListingModerationController::class, 'approve']);
+            Route::post('/listings/{listing}/reject', [AdminListingModerationController::class, 'reject']);
+        });
 
         // Feature Management
-        Route::get('/landlords/{landlord}/features', [AdminFeatureController::class, 'index']);
-        Route::post('/landlords/{landlord}/features/{feature}/enable', [AdminFeatureController::class, 'enable']);
-        Route::post('/landlords/{landlord}/features/{feature}/disable', [AdminFeatureController::class, 'disable']);
+        Route::middleware('admin.can:manage_features')->group(function () {
+            Route::get('/landlords/{landlord}/features', [AdminFeatureController::class, 'index']);
+            Route::post('/landlords/{landlord}/features/{feature}/enable', [AdminFeatureController::class, 'enable']);
+            Route::post('/landlords/{landlord}/features/{feature}/disable', [AdminFeatureController::class, 'disable']);
+        });
 
         // Audit Logs — static paths MUST come before the {auditLog} wildcard
-        Route::get('/audit-logs', [AdminAuditController::class, 'index']);
-        Route::get('/audit-logs/summary', [AdminAuditController::class, 'summary']);
-        Route::get('/audit-logs/export', [AdminAuditController::class, 'export']);
-        Route::get('/audit-logs/{auditLog}', [AdminAuditController::class, 'show']);
+        Route::middleware('admin.can:view_audit')->group(function () {
+            Route::get('/audit-logs', [AdminAuditController::class, 'index']);
+            Route::get('/audit-logs/summary', [AdminAuditController::class, 'summary']);
+            Route::get('/audit-logs/export', [AdminAuditController::class, 'export']);
+            Route::get('/audit-logs/{auditLog}', [AdminAuditController::class, 'show']);
+        });
 
         // Contracts (Phase 3.1)
-        Route::get('/contracts', [AdminContractController::class, 'index']);
-        Route::get('/contracts/{contract}', [AdminContractController::class, 'show']);
-        Route::post('/contracts/{contract}/terminate', [AdminContractController::class, 'terminate']);
+        Route::middleware('admin.can:manage_contracts')->group(function () {
+            Route::get('/contracts', [AdminContractController::class, 'index']);
+            Route::get('/contracts/{contract}', [AdminContractController::class, 'show']);
+            Route::post('/contracts/{contract}/terminate', [AdminContractController::class, 'terminate']);
+        });
 
         // Ledger (Phase 3.2)
-        Route::get('/ledger', [AdminLedgerController::class, 'index']);
-        Route::get('/ledger/{ledgerEntry}', [AdminLedgerController::class, 'show']);
-        Route::post('/ledger/{ledgerEntry}/late-fee', [AdminLedgerController::class, 'generateLateFee']);
+        Route::middleware('admin.can:manage_ledger')->group(function () {
+            Route::get('/ledger', [AdminLedgerController::class, 'index']);
+            Route::get('/ledger/{ledgerEntry}', [AdminLedgerController::class, 'show']);
+            Route::post('/ledger/{ledgerEntry}/late-fee', [AdminLedgerController::class, 'generateLateFee']);
+        });
 
         // Reviews moderation (Phase 8)
-        Route::get('/reviews', [AdminReviewController::class, 'index']);
-        Route::post('/reviews/{review}/moderate', [AdminReviewController::class, 'moderate']);
+        Route::middleware('admin.can:moderate_reviews')->group(function () {
+            Route::get('/reviews', [AdminReviewController::class, 'index']);
+            Route::post('/reviews/{review}/moderate', [AdminReviewController::class, 'moderate']);
+        });
 
         // Admin Analytics (full platform view)
-        Route::prefix('analytics')->group(function () {
+        Route::middleware('admin.can:view_analytics')->prefix('analytics')->group(function () {
             Route::get('/notifications', [NotificationAnalyticsController::class, 'index']);
             Route::get('/financial', [FinancialAnalyticsController::class, 'index']);
             Route::get('/contracts', [ContractAnalyticsController::class, 'index']);

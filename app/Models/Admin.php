@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\AdminCapability;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,12 +14,18 @@ use Laravel\Sanctum\HasApiTokens;
  * Admin Model
  *
  * Completely separate from User model.
- * Phase 1: All admins are Super Admins.
- * Phase 4: RBAC expansion.
+ *
+ * Two tiers exist:
+ *  - Super Admin (is_super_admin=true): full platform authority. Holds ALL
+ *    capabilities implicitly and bypasses every capability check. Only a super
+ *    admin may manage the admin team (invite, promote, change capabilities).
+ *  - Regular Admin (is_super_admin=false): holds only the granular capabilities
+ *    stored in `capabilities` (see App\Enums\AdminCapability), enforced by the
+ *    EnsureAdminCan middleware on admin routes.
  */
-class Admin extends Authenticatable
+class Admin extends Authenticatable implements CanResetPasswordContract
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use CanResetPassword, HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'email',
@@ -24,6 +33,9 @@ class Admin extends Authenticatable
         'name',
         'is_super_admin',
         'is_active',
+        'capabilities',
+        'invited_at',
+        'invite_accepted_at',
     ];
 
     protected $hidden = [
@@ -35,6 +47,9 @@ class Admin extends Authenticatable
         'is_super_admin' => 'boolean',
         'is_active' => 'boolean',
         'last_login_at' => 'datetime',
+        'invited_at' => 'datetime',
+        'invite_accepted_at' => 'datetime',
+        'capabilities' => 'array',
         'password' => 'hashed',
     ];
 
@@ -47,6 +62,49 @@ class Admin extends Authenticatable
     }
 
     /**
+     * Does this admin hold the given capability?
+     *
+     * Super admins implicitly hold every capability. Regular admins hold only
+     * what is stored in `capabilities`. This is the ONE method the enforcement
+     * middleware and any service-level check should call.
+     */
+    public function hasCapability(AdminCapability|string $capability): bool
+    {
+        if ($this->is_super_admin === true) {
+            return true;
+        }
+
+        $value = $capability instanceof AdminCapability ? $capability->value : $capability;
+
+        return in_array($value, $this->capabilities ?? [], true);
+    }
+
+    /**
+     * The effective capability values this admin holds.
+     *
+     * Super admin => all capabilities (so the UI can render them as granted +
+     * locked). Regular admin => the stored subset.
+     *
+     * @return list<string>
+     */
+    public function grantedCapabilities(): array
+    {
+        if ($this->is_super_admin === true) {
+            return AdminCapability::values();
+        }
+
+        return array_values(array_intersect(AdminCapability::values(), $this->capabilities ?? []));
+    }
+
+    /**
+     * A pending invite = created via the invite flow and never accepted.
+     */
+    public function isPendingInvite(): bool
+    {
+        return $this->invited_at !== null && $this->invite_accepted_at === null;
+    }
+
+    /**
      * Update last login timestamp
      */
     public function recordLogin(): void
@@ -55,34 +113,37 @@ class Admin extends Authenticatable
     }
 
     /**
-     * Prevent deletion of admin accounts.
+     * Prevent deletion of established admin accounts.
      *
-     * Phase 1: All admins are super admins and no admin may delete another
-     * admin account. Granular super-admin RBAC (who, if anyone, may remove an
-     * admin) arrives in Phase 4 — until then this is a hard, model-level guard
-     * so NO caller (controller, job, tinker, future code) can delete an admin.
+     * Admin actions form a permanent audit trail, so an admin who has ever
+     * accepted their invite / logged in can NEVER be deleted (removing them is
+     * done via deactivation instead). The ONE exception is revoking a *pending
+     * invite* — an admin record that was created by the invite flow and has
+     * never been accepted or used to sign in. That carries no history, so a
+     * super admin may cleanly revoke it.
      *
-     * @throws \RuntimeException Always
+     * @throws \RuntimeException when the admin is established (not a pending invite)
      */
     public function delete()
     {
-        throw new \RuntimeException(
-            'Admin accounts cannot be deleted yet. Removing an admin will be '.
-            'gated behind super-admin RBAC (Phase 4); see App\\Models\\Admin.'
-        );
+        if (! $this->isPendingInvite() || $this->last_login_at !== null) {
+            throw new \RuntimeException(
+                'Established admin accounts cannot be deleted. Deactivate the '.
+                'admin instead. Only an unaccepted pending invite may be revoked.'
+            );
+        }
+
+        return parent::delete();
     }
 
     /**
-     * Prevent force-deletion of admin accounts (same guarantee as delete()).
+     * Force-deletion is never permitted (no soft deletes on admins anyway).
      *
      * @throws \RuntimeException Always
      */
     public function forceDelete()
     {
-        throw new \RuntimeException(
-            'Admin accounts cannot be deleted yet. Removing an admin will be '.
-            'gated behind super-admin RBAC (Phase 4); see App\\Models\\Admin.'
-        );
+        throw new \RuntimeException('Admin accounts cannot be force-deleted.');
     }
 
     /**

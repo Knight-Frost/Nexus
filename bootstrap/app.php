@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant' => \App\Http\Middleware\EnsureTenant::class,
             'landlord' => \App\Http\Middleware\EnsureLandlord::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'admin.can' => \App\Http\Middleware\EnsureAdminCan::class,
             'admin.or.landlord' => \App\Http\Middleware\EnsureAdminOrLandlord::class,
             'rate.limit.role' => \App\Http\Middleware\RateLimitByRole::class,
             'metrics' => \App\Http\Middleware\MetricsMiddleware::class,
