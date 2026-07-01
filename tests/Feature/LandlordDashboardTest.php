@@ -140,6 +140,14 @@ class LandlordDashboardTest extends TestCase
             'amount_cents' => 70000,
             'due_date' => now()->startOfMonth()->addDays(3),
         ]);
+        // A PAYMENT receipt (stored as a negative amount) due this month must NOT
+        // affect collected_this_month_cents, which is scoped to RENT obligations.
+        LedgerEntry::factory()->paid()->create([
+            'landlord_id' => $this->landlord->id,
+            'type' => 'payment',
+            'amount_cents' => -70000,
+            'due_date' => now()->startOfMonth()->addDays(3),
+        ]);
 
         Sanctum::actingAs($this->landlord, [], 'sanctum');
 

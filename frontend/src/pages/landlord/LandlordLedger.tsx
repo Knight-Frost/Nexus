@@ -15,10 +15,9 @@ import {
 } from '@/lib/statusMaps';
 import { paginate, rangeLabel } from '@/lib/paginate';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
+import { DetailDrawer } from '@/components/ui/Drawer';
+import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/ResponsiveTable';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import {
   CommandBar,
@@ -291,6 +290,116 @@ export function LandlordLedger() {
   const collectedRole = getCollectedVariant(kpi.collectedThisMonth, kpi.overdueTotal);
   const ledgerHealthRole = getLedgerHealthVariant(kpi.outstanding + kpi.overdueTotal, kpi.overdueTotal);
 
+  /* ── Ledger table columns (shared desktop table + mobile stacked cards) ── */
+  const columns: ResponsiveColumn<LedgerEntry>[] = [
+    {
+      key: 'date',
+      header: 'Date',
+      cell: (entry) => (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm text-ink-600">
+          <IconCalendar size={13} className="shrink-0 text-ink-400" />
+          {formatDate(entry.due_date ?? entry.created_at)}
+        </span>
+      ),
+    },
+    {
+      key: 'tenant',
+      header: 'Tenant / Unit',
+      primary: true,
+      cell: (entry) => {
+        const unit = entry.contract?.listing?.unit;
+        const prop = unit?.property;
+        return (
+          <div>
+            <p className="truncate text-sm font-medium text-ink-900">
+              {entry.tenant?.full_name ?? '—'}
+            </p>
+            {unit && (
+              <p className="mt-0.5 truncate text-xs text-ink-500">
+                Unit {unit.unit_number}
+                {prop ? ` · ${prop.name}` : ''}
+              </p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'type',
+      header: 'Entry type',
+      cell: (entry) => (
+        <span className="inline-flex items-center gap-1.5 text-sm text-ink-700">
+          <span className="text-ink-400">{typeIcon(entry.type)}</span>
+          {ledgerTypeLabel[entry.type]}
+        </span>
+      ),
+    },
+    {
+      key: 'reference',
+      header: 'Reference',
+      hideBelow: 'lg',
+      cell: (entry) => (
+        <span className="font-mono text-xs text-ink-500">{entry.reference ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      align: 'right',
+      cell: (entry) => {
+        const amountTone = ledgerSignedTone(entry.type);
+        const amountClass =
+          amountTone === 'success'
+            ? 'text-success-600'
+            : amountTone === 'info'
+              ? 'text-info-600'
+              : 'text-danger-700';
+        return (
+          <span className={`font-mono text-sm font-semibold tabular-nums ${amountClass}`}>
+            {ledgerIsCredit(entry.type) ? '-' : ''}
+            {formatCents(entry.amount_cents)}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (entry) => (
+        <SemanticBadge role={getLedgerVariant(entry.status)}>
+          {humanize(entry.status)}
+        </SemanticBadge>
+      ),
+    },
+    {
+      key: 'balance',
+      header: 'Balance after',
+      align: 'right',
+      hideBelow: 'xl',
+      cell: (entry) => (
+        <span className="font-mono text-sm tabular-nums text-ink-700">
+          {entry.balance_after_cents != null ? formatCents(entry.balance_after_cents) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      cell: (entry) => (
+        <ActionMenu
+          items={[
+            {
+              label: 'View details',
+              icon: <IconFileText size={15} />,
+              onClick: () => setViewing(entry),
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="animate-rise space-y-10">
       {/* Page header */}
@@ -406,138 +515,36 @@ export function LandlordLedger() {
           description="Try adjusting your search, filter, or date range."
         />
       ) : (
-        <Card>
-          <CardBody className="p-0">
-            {/* Table header row */}
-            <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3">
-              <p className="text-sm font-semibold text-ink-800">Ledger entries</p>
-              <p className="text-xs text-ink-500">
-                Showing {slice.from}–{slice.to} of {slice.total} {slice.total === 1 ? 'entry' : 'entries'}
-              </p>
-            </div>
+        <div className="space-y-4">
+          {/* Result count */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink-800">Ledger entries</p>
+            <p className="text-xs text-ink-500">
+              Showing {slice.from} to {slice.to} of {slice.total} {slice.total === 1 ? 'entry' : 'entries'}
+            </p>
+          </div>
 
-            <Table>
-              <THead>
-                <TH>Date</TH>
-                <TH>Tenant / Unit</TH>
-                <TH>Entry type</TH>
-                <TH>Reference</TH>
-                <TH className="text-right">Amount</TH>
-                <TH>Status</TH>
-                <TH className="text-right">Balance after</TH>
-                <TH />
-              </THead>
-              <TBody>
-                {slice.items.map((entry) => {
-                  const unit = entry.contract?.listing?.unit;
-                  const prop = unit?.property;
-                  const isCredit = ledgerIsCredit(entry.type);
-                  const amountTone = ledgerSignedTone(entry.type);
+          <ResponsiveTable
+            caption="Ledger entries"
+            columns={columns}
+            rows={slice.items}
+            keyFn={(entry) => entry.id}
+          />
 
-                  const amountClass =
-                    amountTone === 'success'
-                      ? 'text-success-600'
-                      : amountTone === 'info'
-                        ? 'text-info-600'
-                        : 'text-danger-700';
-
-                  const menuItems = [
-                    {
-                      label: 'View details',
-                      icon: <IconFileText size={15} />,
-                      onClick: () => setViewing(entry),
-                    },
-                  ];
-
-                  return (
-                    <TR key={entry.id}>
-                      {/* Date */}
-                      <TD className="whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 text-sm text-ink-600">
-                          <IconCalendar size={13} className="shrink-0 text-ink-400" />
-                          {formatDate(entry.due_date ?? entry.created_at)}
-                        </span>
-                      </TD>
-
-                      {/* Tenant / Unit */}
-                      <TD>
-                        <div className="min-w-[10rem]">
-                          <p className="text-sm font-medium text-ink-900">
-                            {entry.tenant?.full_name ?? '—'}
-                          </p>
-                          {unit && (
-                            <p className="mt-0.5 text-xs text-ink-500">
-                              Unit {unit.unit_number}
-                              {prop ? ` · ${prop.name}` : ''}
-                            </p>
-                          )}
-                        </div>
-                      </TD>
-
-                      {/* Entry type */}
-                      <TD>
-                        <span className="inline-flex items-center gap-1.5 text-sm text-ink-700">
-                          <span className="text-ink-400">{typeIcon(entry.type)}</span>
-                          {ledgerTypeLabel[entry.type]}
-                        </span>
-                      </TD>
-
-                      {/* Reference */}
-                      <TD>
-                        <span className="font-mono text-xs text-ink-500">
-                          {entry.reference ?? '—'}
-                        </span>
-                      </TD>
-
-                      {/* Amount */}
-                      <TD className="text-right">
-                        <span className={`font-display text-sm font-semibold tabular-nums ${amountClass}`}>
-                          {isCredit ? '-' : ''}
-                          {formatCents(entry.amount_cents)}
-                        </span>
-                      </TD>
-
-                      {/* Status — SemanticBadge from getLedgerVariant */}
-                      <TD>
-                        <SemanticBadge role={getLedgerVariant(entry.status)}>
-                          {humanize(entry.status)}
-                        </SemanticBadge>
-                      </TD>
-
-                      {/* Balance after entry */}
-                      <TD className="text-right">
-                        <span className="font-display text-sm tabular-nums text-ink-700">
-                          {entry.balance_after_cents != null
-                            ? formatCents(entry.balance_after_cents)
-                            : '—'}
-                        </span>
-                      </TD>
-
-                      {/* Actions */}
-                      <TD className="text-right">
-                        <ActionMenu items={menuItems} />
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </Table>
-
-            {/* Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
-              <p className="text-xs text-ink-500">{rangeLabel(slice, 'entry', 'entries')}</p>
-              <Pagination slice={slice} onPage={setPage} />
-            </div>
-          </CardBody>
-        </Card>
+          {/* Footer */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink-500">{rangeLabel(slice, 'entry', 'entries')}</p>
+            <Pagination slice={slice} onPage={setPage} />
+          </div>
+        </div>
       )}
 
-      {/* Read-only entry detail modal */}
-      <Modal
+      {/* Read-only entry detail drawer */}
+      <DetailDrawer
         open={viewing !== null}
         onClose={() => setViewing(null)}
+        eyebrow="LEDGER"
         title="Ledger entry"
-        size="md"
         footer={
           <Button variant="secondary" onClick={() => setViewing(null)}>
             Close
@@ -603,7 +610,7 @@ export function LandlordLedger() {
                   <div className="col-span-2">
                     <dt className="text-xs text-ink-400">Billing period</dt>
                     <dd className="mt-0.5 text-sm text-ink-800">
-                      {formatDate(e.billing_period_start)} – {formatDate(e.billing_period_end ?? e.billing_period_start)}
+                      {formatDate(e.billing_period_start)} to {formatDate(e.billing_period_end ?? e.billing_period_start)}
                     </dd>
                   </div>
                 )}
@@ -624,7 +631,7 @@ export function LandlordLedger() {
             </div>
           );
         })()}
-      </Modal>
+      </DetailDrawer>
     </div>
   );
 }

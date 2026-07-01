@@ -43,7 +43,7 @@ const STATUS_COPY: Record<
     label: 'Not submitted',
     role: 'neutral',
     headline: 'Verify your identity to build trust with tenants',
-    sub: 'Verified landlords get a trust badge on their listings. Upload a government-issued identity document and submit your request. Admin review usually takes 1–2 business days.',
+    sub: 'Verified landlords get a trust badge on their listings. Upload a government-issued identity document and submit your request. Admin review usually takes one to two business days.',
   },
   pending: {
     label: 'Pending',
@@ -258,7 +258,7 @@ function SubmitSection({
     setSubmitting(true);
     try {
       await landlordApi.submitVerification(note || undefined);
-      toast('Verification request submitted — pending review.', 'success');
+      toast('Verification request submitted. We\'ll notify you once the review is complete.', 'success');
       onSubmitted();
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Could not submit. Please try again.';
@@ -385,7 +385,7 @@ export function LandlordVerification() {
 
           {showPendingNote && (
             <div className="lv-pending-notice">
-              Your request is in the queue — no action needed right now.
+              Your request is in the queue. No action needed right now.
               We'll notify you when the review is complete.
             </div>
           )}

@@ -103,15 +103,8 @@ function initialsOf(name: string): string {
    TOP UTILITY BAR — real current date + portfolio entry points.
    ════════════════════════════════════════════════════════════════════════ */
 function UtilityBar() {
-  const now = useNow();
-  const today = now.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
   return (
     <div className="ld-util">
-      <span className="ld-util-date">{today}</span>
       <div className="ld-util-acts">
         <Link to="/app/properties">
           <Button variant="secondary" size="sm" leftIcon={<IconPlus size={15} />}>
@@ -138,7 +131,7 @@ function heroSubtitle(d: LandlordDashboardData): string {
     `${count} ${count === 1 ? one : many}`;
 
   if (d.ledger.overdue_cents > 0) {
-    return `${formatCents(d.ledger.overdue_cents)} in rent is overdue — worth a look today.`;
+    return `${formatCents(d.ledger.overdue_cents)} in rent is overdue. Review it today.`;
   }
   if (d.applications.awaiting_review > 0) {
     return `You have ${n(d.applications.awaiting_review, 'application', 'applications')} awaiting your review.`;
@@ -168,6 +161,11 @@ function DashHero({ firstName, data }: { firstName: string; data: LandlordDashbo
   const now = useNow();
   const hour = now.getHours();
   const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+  const today = now.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
   return (
     <header className="ld-hero">
@@ -176,6 +174,10 @@ function DashHero({ firstName, data }: { firstName: string; data: LandlordDashbo
         <div className="ld-hero-scrim" />
         <div className="ld-hero-wash" />
         <div className="ld-hero-grain u-grain" />
+      </div>
+
+      <div className="ld-hero-top">
+        <span className="ld-hero-date">{today}</span>
       </div>
 
       <div className="ld-hero-body">
@@ -276,7 +278,7 @@ function FinancialMetrics({
             <CommandCard
               label="Outstanding balance"
               value={formatCents(ledger.outstanding_cents)}
-              sub={`${formatCents(ledger.overdue_cents)} overdue — action needed`}
+              sub={`${formatCents(ledger.overdue_cents)} overdue. Action needed.`}
               icon={<IconAlertTriangle size={18} />}
               role="danger"
               className="h-full"
@@ -417,7 +419,7 @@ function NeedsAttention({
             value={String(contracts.expiring_soon)}
             sub={
               contracts.expiring_soon > 0
-                ? 'Expiring soon — review needed'
+                ? 'Expiring soon. Review now.'
                 : 'No leases expiring soon'
             }
             icon={<IconCalendar size={18} />}
@@ -845,7 +847,7 @@ export function LandlordDashboard() {
     return (
       <ErrorState
         title="Could not load your dashboard"
-        message="Your data is safe — please try again."
+        message="Your data is safe. Please try again."
         onRetry={dash.reload}
       />
     );

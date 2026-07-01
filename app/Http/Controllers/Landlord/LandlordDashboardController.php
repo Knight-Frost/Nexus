@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Landlord;
 
 use App\Enums\ContractStatus;
 use App\Enums\LedgerStatus;
+use App\Enums\LedgerType;
 use App\Enums\ListingStatus;
 use App\Enums\MaintenanceStatus;
 use App\Enums\UnitAvailabilityStatus;
@@ -85,8 +86,11 @@ class LandlordDashboardController extends Controller
 
         // why: ledger entries are immutable and carry no paid_at timestamp, so
         // "collected this month" is measured against due_date — the obligation's
-        // period — for entries now marked paid within the current calendar month.
+        // period — for RENT entries now marked paid within the current calendar
+        // month. Scoped to RENT obligations (not negative PAYMENT receipts) so the
+        // figure is the positive rent collected.
         $collectedThisMonthCents = (int) LedgerEntry::byLandlord($landlordId)
+            ->where('type', LedgerType::RENT->value)
             ->where('status', LedgerStatus::PAID)
             ->whereBetween('due_date', [now()->startOfMonth(), now()->endOfMonth()])
             ->sum('amount_cents');
@@ -114,6 +118,7 @@ class LandlordDashboardController extends Controller
             $rentTrend[] = [
                 'month' => $monthStart->format('M'),
                 'collected_cents' => (int) LedgerEntry::byLandlord($landlordId)
+                    ->where('type', LedgerType::RENT->value)
                     ->where('status', LedgerStatus::PAID)
                     ->whereBetween('due_date', $window)
                     ->sum('amount_cents'),

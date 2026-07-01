@@ -13,7 +13,7 @@ import {
   DrawerFooter,
 } from '@/components/ui/Drawer';
 import { StepIndicator } from '@/components/ui/StepIndicator';
-import { Modal } from '@/components/ui/Modal';
+import { DestructiveConfirmDialog } from '@/components/ui/DestructiveConfirmDialog';
 import { IconArrowRight, IconArrowLeft } from '@/components/ui/icons';
 import { PROPERTY_TYPES } from './property-constants';
 
@@ -478,28 +478,17 @@ export function PropertyFormDrawer({
       </Drawer>
 
       {/* Unsaved-changes guard */}
-      <Modal
+      <DestructiveConfirmDialog
         open={showDiscard}
         onClose={() => setShowDiscard(false)}
+        onConfirm={() => {
+          setShowDiscard(false);
+          onClose();
+        }}
         title="Discard changes?"
         description="You have unsaved details. If you leave now, they’ll be lost."
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowDiscard(false)}>
-              Keep editing
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setShowDiscard(false);
-                onClose();
-              }}
-            >
-              Discard
-            </Button>
-          </>
-        }
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
       />
     </>
   );

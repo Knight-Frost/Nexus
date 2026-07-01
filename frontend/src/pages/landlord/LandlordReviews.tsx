@@ -16,6 +16,7 @@ import { formatDate, timeAgo } from '@/lib/format';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
 import { Field, Textarea } from '@/components/ui/Field';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { StarRating } from '@/components/ui/StarRating';
@@ -150,7 +151,7 @@ function ReviewCard({ review, onResponded }: ReviewCardProps) {
     <div className="lr-review-card">
       {/* Header */}
       <div className="lr-review-header">
-        <div className="lr-reviewer-avatar">{reviewerName.charAt(0).toUpperCase()}</div>
+        <Avatar name={reviewerName} src={review.reviewer?.avatar_url} className="lr-reviewer-avatar" />
         <div className="lr-reviewer-info">
           <span className="lr-reviewer-name">{reviewerName}</span>
           {review.property && (

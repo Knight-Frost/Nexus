@@ -91,16 +91,9 @@
 .ld-util {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   flex-wrap: wrap;
-}
-.ld-util-date {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-ink-500);
 }
 .ld-util-acts {
   display: flex;
@@ -111,14 +104,32 @@
 /* ════ HERO ══════════════════════════════════════════════════════════════ */
 .ld-hero {
   position: relative;
-  min-height: clamp(300px, 38vh, 380px);
+  /* matches the tenant hero (.td-hero) so both greeting cards are the same size */
+  min-height: clamp(420px, 52vh, 520px);
   border-radius: var(--radius-2xl);
   overflow: hidden;
   display: flex;
-  align-items: center;
-  padding: clamp(28px, 4vw, 48px);
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(22px, 3vw, 34px);
   isolation: isolate;
   box-shadow: var(--shadow-lg);
+}
+/* top utility line inside the hero — holds the live date over the photo */
+.ld-hero-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ld-hero-date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.4);
 }
 .ld-hero-stage {
   position: absolute;

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useApi } from '@/hooks/useApi';
 import { landlordApi } from '@/lib/endpoints';
 import { fieldErrors } from '@/lib/api';
-import type { ApiError, Listing, ListingStatus, MediaAsset, Unit } from '@/lib/types';
+import type { ApiError, Listing, ListingStatus, MediaAsset } from '@/lib/types';
 import {
   formatCedisDecimal,
   formatDate,
@@ -13,10 +13,11 @@ import {
 } from '@/lib/format';
 import { paginate, rangeLabel } from '@/lib/paginate';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { Field, Input, Select, Textarea } from '@/components/ui/Field';
+import { RecordList, RecordCard, RecordRelated } from '@/components/ui/RecordCard';
+import { DetailDrawer } from '@/components/ui/Drawer';
+import { DestructiveConfirmDialog } from '@/components/ui/DestructiveConfirmDialog';
+import { Field, Input, Textarea } from '@/components/ui/Field';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import {
   CommandBar,
@@ -68,9 +69,6 @@ const SORT_OPTIONS: SelectOption<SortKey>[] = [
 
 const PER_PAGE = 8;
 
-/** Statuses that block a unit from receiving a new listing. */
-const LIVE_LISTING_STATUSES: ListingStatus[] = ['draft', 'pending_review', 'active', 'inactive'];
-
 interface ListingForm {
   unit_id: string;
   title: string;
@@ -118,7 +116,6 @@ export function LandlordListings() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { data, loading, error, reload } = useApi(() => landlordApi.listings(), []);
-  const unitsApi = useApi(() => landlordApi.units(), []);
   // Real application counts per listing (no faked analytics) — grouped client-side.
   const appsApi = useApi(() => landlordApi.applications(), []);
 
@@ -173,15 +170,6 @@ export function LandlordListings() {
     for (const a of appsApi.data ?? []) map.set(a.listing_id, (map.get(a.listing_id) ?? 0) + 1);
     return map;
   }, [appsApi.data]);
-
-  /** Units with no current (non-rejected/archived) listing can receive a new one. */
-  const eligibleUnits = useMemo<Unit[]>(() => {
-    const units = unitsApi.data ?? [];
-    const blocked = new Set(
-      listings.filter((l) => LIVE_LISTING_STATUSES.includes(l.status)).map((l) => l.unit_id),
-    );
-    return units.filter((u) => !blocked.has(u.id));
-  }, [unitsApi.data, listings]);
 
   const tabCounts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -250,11 +238,10 @@ export function LandlordListings() {
   function update<K extends keyof ListingForm>(key: K, value: ListingForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+  // Create now opens the full-page, multi-step listing builder (route-based).
+  // The modal below is retained only for EDITING an existing listing.
   function openCreate() {
-    setEditing(null);
-    setForm(emptyListingForm());
-    setFormErrors({});
-    setFormOpen(true);
+    navigate('/app/listings/create');
   }
   function openEdit(listing: Listing) {
     setEditing(listing);
@@ -265,7 +252,9 @@ export function LandlordListings() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const localErrors = validateListing(form, !editing);
+    // Edit-only path — create navigates to /app/listings/create (route-based multi-step flow).
+    if (!editing) return;
+    const localErrors = validateListing(form, false);
     if (Object.keys(localErrors).length > 0) {
       setFormErrors(localErrors);
       return;
@@ -281,16 +270,10 @@ export function LandlordListings() {
       move_in_date: form.move_in_date || null,
     };
     try {
-      if (editing) {
-        await landlordApi.updateListing(editing.id, payload);
-        toast('Listing updated', 'success');
-      } else {
-        await landlordApi.createListing(Number(form.unit_id), payload);
-        toast('Listing created as draft', 'success');
-      }
+      await landlordApi.updateListing(editing.id, payload);
+      toast('Listing updated', 'success');
       setFormOpen(false);
       reload();
-      unitsApi.reload();
     } catch (err) {
       const e2 = err as ApiError;
       const fe = fieldErrors(e2);
@@ -325,7 +308,6 @@ export function LandlordListings() {
       toast('Listing deleted', 'success');
       setToDelete(null);
       reload();
-      unitsApi.reload();
     } catch (err) {
       toast((err as ApiError).message, 'error');
     } finally {
@@ -436,216 +418,188 @@ export function LandlordListings() {
           description="Try a different status filter or search term."
         />
       ) : (
-        <Card>
-          <CardBody className="p-0">
-            <ul className="divide-y divide-ink-200">
-              {slice.items.map((listing) => {
-                const isBusy = busyId === listing.id;
-                const canSubmit = listing.status === 'draft';
-                const isEditable = listing.status === 'draft' || listing.status === 'rejected' || listing.status === 'inactive';
-                const canDelete = listing.status !== 'active' && listing.status !== 'pending_review';
-                const apps = appCountByListing.get(listing.id) ?? 0;
-                const rent = listing.unit?.rent_amount;
+        /* Record list — one standalone card per listing. No table shell, no
+           horizontal scroll: thumbnail + identity + rent/engagement + status +
+           actions all stay visible (stacking on mobile, inline columns on
+           desktop). */
+        <div className="space-y-5">
+          <RecordList>
+            {slice.items.map((listing) => {
+              const isBusy = busyId === listing.id;
+              const canSubmit = listing.status === 'draft';
+              const isEditable = listing.status === 'draft' || listing.status === 'rejected' || listing.status === 'inactive';
+              const canDelete = listing.status !== 'active' && listing.status !== 'pending_review';
+              const apps = appCountByListing.get(listing.id) ?? 0;
+              const rent = listing.unit?.rent_amount;
 
-                const menuItems = [
-                  { label: 'Open public page', icon: <IconEye size={15} />, onClick: () => navigate(`/app/listing/${listing.id}`) },
-                  { label: 'Quick view', icon: <IconFileText size={15} />, onClick: () => setViewing(listing) },
-                  { label: 'Manage photos', icon: <IconImage size={15} />, onClick: () => openGallery(listing) },
-                  ...(canSubmit ? [{ label: 'Submit for review', icon: <IconCheckCircle size={15} />, onClick: () => handleSubmit(listing) }] : []),
-                  ...(isEditable ? [{ label: 'Edit listing', icon: <IconEdit size={15} />, onClick: () => openEdit(listing) }] : []),
-                  ...(canDelete ? [{ label: 'Delete', icon: <IconTrash size={15} />, danger: true, onClick: () => setToDelete(listing) }] : []),
-                ];
+              const menuItems = [
+                { label: 'Open public page', icon: <IconEye size={15} />, onClick: () => navigate(`/app/listing/${listing.id}`) },
+                { label: 'Quick view', icon: <IconFileText size={15} />, onClick: () => setViewing(listing) },
+                { label: 'Manage photos', icon: <IconImage size={15} />, onClick: () => openGallery(listing) },
+                ...(canSubmit ? [{ label: 'Submit for review', icon: <IconCheckCircle size={15} />, onClick: () => handleSubmit(listing) }] : []),
+                ...(isEditable ? [{ label: 'Edit listing', icon: <IconEdit size={15} />, onClick: () => openEdit(listing) }] : []),
+                ...(canDelete ? [{ label: 'Delete', icon: <IconTrash size={15} />, danger: true, onClick: () => setToDelete(listing) }] : []),
+              ];
 
-                return (
-                  <li key={listing.id} className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60">
+              return (
+                <RecordCard
+                  key={listing.id}
+                  onClick={() => setViewing(listing)}
+                  leading={
                     <Thumbnail src={storageUrl(listing.primary_photo?.path)} alt={listing.title} seed={listing.title} size={64} />
-
-                    {/* Identity */}
-                    <div className="min-w-[14rem] flex-1">
-                      <p className="font-display text-base font-semibold leading-snug text-ink-900">{listing.title}</p>
-                      <p className="mt-0.5 text-xs text-ink-500">
+                  }
+                  title={listing.title}
+                  titleMeta={
+                    listing.featured ? <SemanticBadge role="info">Featured</SemanticBadge> : undefined
+                  }
+                  subtitle={
+                    <>
+                      <span>
                         {listing.unit ? `Unit ${listing.unit.unit_number}` : `Unit #${listing.unit_id}`}
                         {listing.unit?.property ? ` · ${listing.unit.property.name}, ${listing.unit.property.city}` : ''}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <SemanticBadge role={getListingModerationVariant(listing.status)}>
-                          {humanize(listing.status)}
-                        </SemanticBadge>
-                        {listing.featured && (
-                          <SemanticBadge role="info">Featured</SemanticBadge>
-                        )}
-                        {listing.status === 'rejected' && listing.rejection_reason && (
-                          <span className="inline-flex items-center gap-1 text-xs text-danger-600">
-                            <IconAlertTriangle size={12} /> Rejected
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Rent */}
-                    <div className="min-w-[7rem]">
-                      <p className="font-display text-sm font-semibold" style={{ color: 'var(--color-money)' }}>
-                        {rent ? `${formatCedisDecimal(rent)}/mo` : '—'}
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-400">Updated {timeAgo(listing.updated_at)}</p>
-                    </div>
-
-                    {/* Engagement — all real */}
-                    <div className="hidden gap-5 sm:flex">
-                      <div className="text-center">
-                        <p className="flex items-center justify-center gap-1 text-sm font-semibold text-ink-800 tabular-nums">
+                      </span>
+                      {listing.status === 'rejected' && listing.rejection_reason && (
+                        <span className="flex items-center gap-1 text-danger-600">
+                          <IconAlertTriangle size={12} className="shrink-0" /> Rejected
+                        </span>
+                      )}
+                    </>
+                  }
+                  related={
+                    <RecordRelated
+                      title={rent ? `${formatCedisDecimal(rent)}/mo` : '—'}
+                      lines={['Monthly rent']}
+                    />
+                  }
+                  indicator={
+                    <div className="flex gap-5">
+                      <div>
+                        <p className="flex items-center gap-1 text-sm font-semibold text-ink-800 tabular-nums">
                           <IconEye size={13} className="text-ink-400" />
                           {listing.view_count}
                         </p>
                         <p className="text-[11px] text-ink-400">Views</p>
                       </div>
-                      <div className="text-center">
-                        <p className="flex items-center justify-center gap-1 text-sm font-semibold text-ink-800 tabular-nums">
+                      <div>
+                        <p className="flex items-center gap-1 text-sm font-semibold text-ink-800 tabular-nums">
                           <IconUsers size={13} className="text-ink-400" />
                           {apps}
                         </p>
                         <p className="text-[11px] text-ink-400">Applications</p>
                       </div>
                     </div>
+                  }
+                  status={
+                    <SemanticBadge role={getListingModerationVariant(listing.status)}>
+                      {humanize(listing.status)}
+                    </SemanticBadge>
+                  }
+                  timestamp={<>Updated {timeAgo(listing.updated_at)}</>}
+                  primaryAction={
+                    isEditable ? (
+                      <Button variant="secondary" size="sm" leftIcon={<IconEdit size={14} />} disabled={isBusy} onClick={() => openEdit(listing)}>
+                        Edit
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" size="sm" leftIcon={<IconEye size={14} />} onClick={() => navigate(`/app/listing/${listing.id}`)}>
+                        View details
+                      </Button>
+                    )
+                  }
+                  menu={<ActionMenu items={menuItems} />}
+                />
+              );
+            })}
+          </RecordList>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      {isEditable ? (
-                        <Button variant="secondary" size="sm" leftIcon={<IconEdit size={14} />} disabled={isBusy} onClick={() => openEdit(listing)}>
-                          Edit
-                        </Button>
-                      ) : (
-                        <Button variant="secondary" size="sm" leftIcon={<IconEye size={14} />} onClick={() => navigate(`/app/listing/${listing.id}`)}>
-                          View details
-                        </Button>
-                      )}
-                      <ActionMenu items={menuItems} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {/* Footer: truthful range + pagination */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
-              <p className="text-xs text-ink-500">{rangeLabel(slice, 'listing')}</p>
-              <Pagination slice={slice} onPage={setPage} />
-            </div>
-          </CardBody>
-        </Card>
+          {/* Pagination — sits below the cards, never inside a table shell. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink-500">{rangeLabel(slice, 'listing')}</p>
+            <Pagination slice={slice} onPage={setPage} />
+          </div>
+        </div>
       )}
 
-      {/* Create / Edit listing modal (unchanged behavior) */}
-      <Modal
+      {/* Edit listing drawer (create navigates to /app/listings/create) */}
+      <DetailDrawer
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        title={editing ? 'Edit listing' : 'Create listing'}
-        description={
-          editing
-            ? 'Update the listing details. Rejected listings return to draft for resubmission.'
-            : 'Pick a unit and describe the home you want to publish.'
-        }
-        size="lg"
+        eyebrow="LISTING"
+        title="Edit listing"
+        description="Update the listing details. Rejected listings return to draft for resubmission."
         footer={
           <>
             <Button variant="secondary" onClick={() => setFormOpen(false)} disabled={saving}>Cancel</Button>
-            <Button type="submit" form="listing-form" loading={saving} disabled={!editing && eligibleUnits.length === 0}>
-              {editing ? 'Save changes' : 'Create draft'}
-            </Button>
+            <Button type="submit" form="listing-form" loading={saving}>Save changes</Button>
           </>
         }
       >
-        {!editing && eligibleUnits.length === 0 ? (
-          <div className="rounded-xl bg-ink-50 px-4 py-6 text-center text-sm text-ink-600">
-            <p className="font-medium text-ink-800">No units available to list.</p>
-            <p className="mt-1 text-ink-500">Every unit already has a live listing. Add a unit to a property first.</p>
-            <div className="mt-4">
-              <Link to="/app/properties"><Button size="sm" variant="secondary">Go to Properties</Button></Link>
-            </div>
+        <form id="listing-form" onSubmit={handleSave} className="space-y-4">
+          {/* Unit — read-only in edit mode */}
+          <Field label="Unit">
+            {(fid) => (
+              <Input
+                id={fid}
+                value={
+                  editingUnit
+                    ? `Unit ${editingUnit.unit_number}` + (editingUnit.internal_name ? ` · ${editingUnit.internal_name}` : '')
+                    : `Unit #${editing?.unit_id ?? ''}`
+                }
+                disabled
+              />
+            )}
+          </Field>
+
+          <Field label="Title" error={formErrors.title} required>
+            {(fid, invalid) => (
+              <Input id={fid} invalid={invalid} placeholder="e.g. Bright 2-bed apartment in East Legon" value={form.title} onChange={(e) => update('title', e.target.value)} />
+            )}
+          </Field>
+
+          <Field label="Description" error={formErrors.description} hint={`At least 50 characters · ${form.description.trim().length}/50`} required>
+            {(fid, invalid) => (
+              <Textarea id={fid} invalid={invalid} rows={5} placeholder="Describe the home, the neighbourhood, and what makes it a great rental…" value={form.description} onChange={(e) => update('description', e.target.value)} />
+            )}
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Lease duration (months)" error={formErrors.lease_duration_months}>
+              {(fid, invalid) => (
+                <Input id={fid} type="number" min="1" invalid={invalid} placeholder="e.g. 12" value={form.lease_duration_months} onChange={(e) => update('lease_duration_months', e.target.value)} />
+              )}
+            </Field>
+            <Field label="Available move-in date" error={formErrors.move_in_date}>
+              {(fid, invalid) => (
+                <Input id={fid} type="date" invalid={invalid} value={form.move_in_date} onChange={(e) => update('move_in_date', e.target.value)} />
+              )}
+            </Field>
           </div>
-        ) : (
-          <form id="listing-form" onSubmit={handleSave} className="space-y-4">
-            {editing ? (
-              <Field label="Unit">
-                {(fid) => (
-                  <Input
-                    id={fid}
-                    value={
-                      editingUnit
-                        ? `Unit ${editingUnit.unit_number}` + (editingUnit.internal_name ? ` · ${editingUnit.internal_name}` : '')
-                        : `Unit #${editing.unit_id}`
-                    }
-                    disabled
-                  />
-                )}
-              </Field>
-            ) : (
-              <Field label="Unit to list" error={formErrors.unit_id} required>
-                {(fid, invalid) => (
-                  <Select id={fid} invalid={invalid} value={form.unit_id} onChange={(e) => update('unit_id', e.target.value)}>
-                    <option value="">Select a unit…</option>
-                    {eligibleUnits.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        Unit {u.unit_number}
-                        {u.internal_name ? ` · ${u.internal_name}` : ''} — {formatCedisDecimal(u.rent_amount)}/mo
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
+
+          <Field label="Pets" error={formErrors.pets_allowed}>
+            {(fid) => (
+              <label htmlFor={fid} className="flex items-center gap-2 text-sm text-ink-700">
+                <input id={fid} type="checkbox" className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={form.pets_allowed} onChange={(e) => update('pets_allowed', e.target.checked)} />
+                Pets allowed
+              </label>
             )}
+          </Field>
 
-            <Field label="Title" error={formErrors.title} required>
+          {form.pets_allowed && (
+            <Field label="Pet policy" error={formErrors.pet_policy}>
               {(fid, invalid) => (
-                <Input id={fid} invalid={invalid} placeholder="e.g. Bright 2-bed apartment in East Legon" value={form.title} onChange={(e) => update('title', e.target.value)} />
+                <Input id={fid} invalid={invalid} placeholder="e.g. Cats and small dogs welcome, GH₵ 500 pet deposit" value={form.pet_policy} onChange={(e) => update('pet_policy', e.target.value)} />
               )}
             </Field>
+          )}
+        </form>
+      </DetailDrawer>
 
-            <Field label="Description" error={formErrors.description} hint={`At least 50 characters · ${form.description.trim().length}/50`} required>
-              {(fid, invalid) => (
-                <Textarea id={fid} invalid={invalid} rows={5} placeholder="Describe the home, the neighbourhood, and what makes it a great rental…" value={form.description} onChange={(e) => update('description', e.target.value)} />
-              )}
-            </Field>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Lease duration (months)" error={formErrors.lease_duration_months}>
-                {(fid, invalid) => (
-                  <Input id={fid} type="number" min="1" invalid={invalid} placeholder="e.g. 12" value={form.lease_duration_months} onChange={(e) => update('lease_duration_months', e.target.value)} />
-                )}
-              </Field>
-              <Field label="Available move-in date" error={formErrors.move_in_date}>
-                {(fid, invalid) => (
-                  <Input id={fid} type="date" invalid={invalid} value={form.move_in_date} onChange={(e) => update('move_in_date', e.target.value)} />
-                )}
-              </Field>
-            </div>
-
-            <Field label="Pets" error={formErrors.pets_allowed}>
-              {(fid) => (
-                <label htmlFor={fid} className="flex items-center gap-2 text-sm text-ink-700">
-                  <input id={fid} type="checkbox" className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" checked={form.pets_allowed} onChange={(e) => update('pets_allowed', e.target.checked)} />
-                  Pets allowed
-                </label>
-              )}
-            </Field>
-
-            {form.pets_allowed && (
-              <Field label="Pet policy" error={formErrors.pet_policy}>
-                {(fid, invalid) => (
-                  <Input id={fid} invalid={invalid} placeholder="e.g. Cats and small dogs welcome, GH₵ 500 pet deposit" value={form.pet_policy} onChange={(e) => update('pet_policy', e.target.value)} />
-                )}
-              </Field>
-            )}
-          </form>
-        )}
-      </Modal>
-
-      {/* Read-only details modal */}
-      <Modal
+      {/* Quick view — read-only details drawer */}
+      <DetailDrawer
         open={viewing !== null}
         onClose={() => setViewing(null)}
+        eyebrow="LISTING"
         title={viewing?.title ?? 'Listing'}
-        size="lg"
         footer={<Button variant="secondary" onClick={() => setViewing(null)}>Close</Button>}
       >
         {viewing && (
@@ -672,29 +626,25 @@ export function LandlordListings() {
             )}
           </div>
         )}
-      </Modal>
+      </DetailDrawer>
 
       {/* Delete confirmation */}
-      <Modal
+      <DestructiveConfirmDialog
         open={toDelete !== null}
         onClose={() => setToDelete(null)}
+        onConfirm={handleDelete}
         title="Delete listing"
         description={toDelete ? `Delete "${toDelete.title}"? This cannot be undone.` : undefined}
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setToDelete(null)} disabled={busyAction === 'delete'}>Cancel</Button>
-            <Button variant="danger" onClick={handleDelete} loading={busyAction === 'delete'}>Delete</Button>
-          </>
-        }
+        confirmLabel="Delete"
+        loading={busyAction === 'delete'}
       />
 
-      {/* Listing gallery modal */}
-      <Modal
+      {/* Listing gallery drawer */}
+      <DetailDrawer
         open={galleryListing !== null}
         onClose={() => setGalleryListing(null)}
-        title={galleryListing ? `Photos — ${galleryListing.title}` : 'Photos'}
-        size="lg"
+        title={galleryListing ? `Photos: ${galleryListing.title}` : 'Photos'}
+        widthClass="sm:max-w-[820px]"
         footer={<Button variant="secondary" onClick={() => setGalleryListing(null)}>Close</Button>}
       >
         {galleryListing && (
@@ -705,7 +655,7 @@ export function LandlordListings() {
             onRefetch={() => loadGallery(galleryListing.id)}
           />
         )}
-      </Modal>
+      </DetailDrawer>
     </div>
   );
 }

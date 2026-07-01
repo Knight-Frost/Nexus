@@ -10,9 +10,9 @@ import {
   maintenanceCategoryLabel,
 } from '@/lib/statusMaps';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
+import { RecordList, RecordCard } from '@/components/ui/RecordCard';
+import { DetailDrawer } from '@/components/ui/Drawer';
 import { Textarea } from '@/components/ui/Field';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import {
@@ -40,6 +40,7 @@ import type { MaintenanceRequest, MaintenanceStatus, MaintenancePriority } from 
 import {
   StatusCard,
   SemanticBadge,
+  IconTile,
   DashboardSection,
   DataCardGrid,
   getMaintenanceVariant,
@@ -337,89 +338,96 @@ export function LandlordMaintenance() {
           description="Try a different status, priority filter, or search term."
         />
       ) : (
-        <Card>
-          <CardBody className="p-0">
-            <ul className="divide-y divide-ink-200">
-              {slice.items.map((req) => {
-                const transitions = transitionsFor(req.status);
-                const locationParts = [
+        /* Record list — one standalone card per request. No table shell, no
+           horizontal scroll: identity + location + priority + status + actions
+           stay visible (stacking on mobile, inline columns on desktop). */
+        <div className="space-y-5">
+          <RecordList>
+            {slice.items.map((req) => {
+              const transitions = transitionsFor(req.status);
+              const location =
+                [
                   req.unit?.unit_number ? `Unit ${req.unit.unit_number}` : null,
                   req.property?.name ?? null,
-                ].filter(Boolean);
-                const location = locationParts.join(' · ');
-                // Semantic role driven by real priority + status
-                const role = getMaintenanceVariant(req.priority, req.status);
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || '—';
+              // Semantic role driven by real priority + status
+              const role = getMaintenanceVariant(req.priority, req.status);
 
-                const menuItems = [
-                  {
-                    label: 'View details',
-                    icon: <IconEye size={15} />,
-                    onClick: () => setDetailTarget(req),
-                  },
-                  ...transitions.map((t) => ({
-                    label: t.label,
-                    onClick: () => handleTransition(req, t),
-                  })),
-                ];
+              const menuItems = [
+                {
+                  label: 'View details',
+                  icon: <IconEye size={15} />,
+                  onClick: () => setDetailTarget(req),
+                },
+                ...transitions.map((t) => ({
+                  label: t.label,
+                  onClick: () => handleTransition(req, t),
+                })),
+              ];
 
-                return (
-                  <li key={req.id} className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60">
-                    {/* Category icon tile — uses the role color from maintenance variant */}
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${
-                        role === 'danger'
-                          ? 'border-danger-200 bg-danger-50 text-danger-600'
-                          : role === 'warning'
-                          ? 'border-warning-200 bg-warning-50 text-warning-600'
-                          : role === 'success'
-                          ? 'border-success-200 bg-success-50 text-success-600'
-                          : 'border-ink-200 bg-surface text-ink-500'
-                      }`}
-                    >
-                      <CategoryIcon category={req.category} size={18} />
-                    </div>
-
-                    {/* Identity */}
-                    <div className="min-w-[14rem] flex-1">
-                      <p className="font-display text-base font-semibold leading-snug text-ink-900">{req.title}</p>
-                      <p className="mt-0.5 text-xs text-ink-500">
-                        {location || '—'}
-                      </p>
-                    </div>
-
-                    {/* Category + Priority */}
-                    <div className="hidden min-w-[8rem] flex-col gap-1 sm:flex">
-                      <p className="text-xs text-ink-400">{maintenanceCategoryLabel[req.category]}</p>
+              return (
+                <RecordCard
+                  key={req.id}
+                  onClick={() => setDetailTarget(req)}
+                  leading={
+                    <IconTile
+                      icon={<CategoryIcon category={req.category} size={18} />}
+                      role={role}
+                    />
+                  }
+                  title={req.title}
+                  subtitle={
+                    <>
+                      <span className="text-ink-500">{location}</span>
+                      <span className="text-ink-400">
+                        {maintenanceCategoryLabel[req.category]}
+                      </span>
+                    </>
+                  }
+                  related={
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs text-ink-400">Priority</p>
                       <SemanticBadge role={role}>
                         {maintenancePriorityLabel[req.priority]}
                       </SemanticBadge>
                     </div>
-
-                    {/* Status */}
-                    <div className="hidden min-w-[6rem] sm:block">
-                      <StatusChip tone={maintenanceStatusTone[req.status]}>
-                        {maintenanceStatusLabel[req.status]}
-                      </StatusChip>
-                    </div>
-
-                    {/* Submitted / last activity */}
-                    <div className="hidden min-w-[9rem] flex-col gap-0.5 lg:flex">
+                  }
+                  indicator={
+                    <div className="flex flex-col gap-0.5">
                       <p className="text-xs font-medium text-ink-700">
                         {formatDateTime(req.submitted_at ?? req.created_at)}
                       </p>
-                      {req.resolved_at && (
-                        <p className="text-[11px] text-ink-400">Resolved {timeAgo(req.resolved_at)}</p>
-                      )}
-                      {!req.resolved_at && req.acknowledged_at && (
-                        <p className="text-[11px] text-ink-400">Acknowledged {timeAgo(req.acknowledged_at)}</p>
-                      )}
-                      {!req.resolved_at && !req.acknowledged_at && (
-                        <p className="text-[11px] text-ink-400">Submitted {timeAgo(req.submitted_at ?? req.created_at)}</p>
+                      {req.resolved_at ? (
+                        <p className="text-[11px] text-ink-400">
+                          Resolved {timeAgo(req.resolved_at)}
+                        </p>
+                      ) : req.acknowledged_at ? (
+                        <p className="text-[11px] text-ink-400">
+                          Acknowledged {timeAgo(req.acknowledged_at)}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-ink-400">
+                          Submitted {timeAgo(req.submitted_at ?? req.created_at)}
+                        </p>
                       )}
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2">
+                  }
+                  status={
+                    <StatusChip tone={maintenanceStatusTone[req.status]}>
+                      {maintenanceStatusLabel[req.status]}
+                    </StatusChip>
+                  }
+                  primaryAction={
+                    transitions.length > 0 ? (
+                      <Button
+                        size="sm"
+                        onClick={() => handleTransition(req, transitions[0])}
+                      >
+                        {transitions[0].label}
+                      </Button>
+                    ) : (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -428,36 +436,28 @@ export function LandlordMaintenance() {
                       >
                         View
                       </Button>
-                      {transitions.length > 0 && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleTransition(req, transitions[0])}
-                        >
-                          {transitions[0].label}
-                        </Button>
-                      )}
-                      <ActionMenu items={menuItems} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                    )
+                  }
+                  menu={<ActionMenu items={menuItems} />}
+                />
+              );
+            })}
+          </RecordList>
 
-            {/* Footer */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
-              <p className="text-xs text-ink-500">{rangeLabel(slice, 'request')}</p>
-              <Pagination slice={slice} onPage={setPage} />
-            </div>
-          </CardBody>
-        </Card>
+          {/* Pagination — below the cards, never inside a table shell. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink-500">{rangeLabel(slice, 'request')}</p>
+            <Pagination slice={slice} onPage={setPage} />
+          </div>
+        </div>
       )}
 
-      {/* Read-only detail modal */}
-      <Modal
+      {/* Read-only detail drawer */}
+      <DetailDrawer
         open={detailTarget !== null}
         onClose={() => setDetailTarget(null)}
+        eyebrow="MAINTENANCE"
         title={detailTarget?.title ?? 'Request details'}
-        size="lg"
         footer={
           <Button variant="secondary" onClick={() => setDetailTarget(null)}>
             Close
@@ -540,15 +540,15 @@ export function LandlordMaintenance() {
             )}
           </div>
         )}
-      </Modal>
+      </DetailDrawer>
 
-      {/* Status-update modal (PRESERVED — resolution_notes flow) */}
-      <Modal
+      {/* Status-update drawer (resolution_notes flow — PRESERVED) */}
+      <DetailDrawer
         open={updateTarget !== null}
-        onClose={() => (updating ? undefined : setUpdateTarget(null))}
+        onClose={() => { if (!updating) setUpdateTarget(null); }}
+        eyebrow="MAINTENANCE"
         title={updateTarget?.transition.label ?? 'Update status'}
         description={updateTarget?.req.title}
-        size="sm"
         footer={
           <>
             <Button
@@ -579,7 +579,7 @@ export function LandlordMaintenance() {
           onChange={(e) => setResolveNotes(e.target.value)}
           disabled={updating}
         />
-      </Modal>
+      </DetailDrawer>
     </div>
   );
 }

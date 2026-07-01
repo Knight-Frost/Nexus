@@ -8,9 +8,10 @@ import { formatDate, timeAgo, storageUrl } from '@/lib/format';
 import { paginate, rangeLabel } from '@/lib/paginate';
 import { applicationStatusLabel, applicationStatusTone } from '@/lib/statusMaps';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
+import { Avatar } from '@/components/ui/Avatar';
+import { RecordList, RecordCard, RecordRelated } from '@/components/ui/RecordCard';
+import { DetailDrawer } from '@/components/ui/Drawer';
 import { Field, Textarea } from '@/components/ui/Field';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import {
@@ -64,20 +65,14 @@ function isDecidable(status: ApplicationStatus): boolean {
   return (DECIDABLE_STATUSES as string[]).includes(status);
 }
 
-/* ---- Avatar initials ----------------------------------------------------- */
-function AvatarCircle({ name }: { name: string }) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const letters =
-    parts.length >= 2
-      ? parts[0][0] + parts[parts.length - 1][0]
-      : (parts[0] ?? '#').slice(0, 2);
+/* ---- Avatar (photo when available, else initials) ------------------------ */
+function AvatarCircle({ name, src }: { name: string; src?: string | null }) {
   return (
-    <div
-      aria-hidden="true"
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700 select-none"
-    >
-      {letters.toUpperCase()}
-    </div>
+    <Avatar
+      name={name}
+      src={src}
+      className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-sm font-semibold text-brand-700 select-none"
+    />
   );
 }
 
@@ -474,7 +469,9 @@ export function Applicants() {
         />
       </CommandBar>
 
-      {/* Table */}
+      {/* Record list — one standalone card per applicant. No table shell, no
+          horizontal scroll: identity + listing + readiness + status + action
+          all stay visible (stacking on mobile, inline columns on desktop). */}
       {slice.total === 0 ? (
         <EmptyState
           icon={<IconUsers size={26} />}
@@ -482,194 +479,129 @@ export function Applicants() {
           description="Try adjusting the search term or filter."
         />
       ) : (
-        <Card>
-          <CardBody className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-ink-200 bg-ink-50/50">
-                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500">
-                      Applicant
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500 hidden sm:table-cell">
-                      Listing &amp; Unit
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500 hidden md:table-cell">
-                      Readiness
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-ink-500 hidden lg:table-cell">
-                      Submitted
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-ink-500">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-200">
-                  {slice.items.map((app) => {
-                    const tenant = app.tenant;
-                    const name = tenant?.full_name ?? `Applicant #${app.id}`;
-                    const listing = app.listing;
-                    const unit = listing?.unit;
-                    const property = unit?.property;
-                    const decidable = isDecidable(app.status);
-                    const isBusy = decidingId === app.id;
+        <div className="space-y-5">
+          <RecordList>
+            {slice.items.map((app) => {
+              const tenant = app.tenant;
+              const name = tenant?.full_name ?? `Applicant #${app.id}`;
+              const listing = app.listing;
+              const unit = listing?.unit;
+              const property = unit?.property;
+              const decidable = isDecidable(app.status);
+              const isBusy = decidingId === app.id;
 
-                    const menuItems = [
-                      ...(decidable
-                        ? [
-                            {
-                              label: 'Approve',
-                              icon: <IconCheck size={14} />,
-                              onClick: () => openReview(app, 'approve'),
-                            },
-                            {
-                              label: 'Decline',
-                              icon: <IconX size={14} />,
-                              danger: true,
-                              onClick: () => openReview(app, 'reject'),
-                            },
-                          ]
-                        : []),
-                    ];
+              const menuItems = decidable
+                ? [
+                    {
+                      label: 'Approve',
+                      icon: <IconCheck size={14} />,
+                      onClick: () => openReview(app, 'approve'),
+                    },
+                    {
+                      label: 'Decline',
+                      icon: <IconX size={14} />,
+                      danger: true,
+                      onClick: () => openReview(app, 'reject'),
+                    },
+                  ]
+                : [];
 
-                    return (
-                      <tr
-                        key={app.id}
-                        className="transition-colors hover:bg-ink-50/60"
+              return (
+                <RecordCard
+                  key={app.id}
+                  onClick={() => openReview(app)}
+                  leading={<AvatarCircle name={name} src={app.tenant?.avatar_url} />}
+                  title={name}
+                  titleMeta={
+                    tenant?.identity_verified ? (
+                      <IconShield
+                        size={13}
+                        className="text-success-500"
+                        title="Identity verified"
+                      />
+                    ) : undefined
+                  }
+                  subtitle={
+                    <>
+                      {tenant?.email && (
+                        <span className="flex items-center gap-1 text-ink-500">
+                          <IconMail size={11} className="shrink-0" />
+                          {tenant.email}
+                        </span>
+                      )}
+                      {tenant?.phone && (
+                        <span className="flex items-center gap-1 text-ink-400">
+                          <IconPhone size={11} className="shrink-0" />
+                          {tenant.phone}
+                        </span>
+                      )}
+                    </>
+                  }
+                  related={
+                    <RecordRelated
+                      thumbnail={
+                        <Thumbnail
+                          src={storageUrl(listing?.primary_photo?.path)}
+                          alt={listing?.title ?? 'Listing'}
+                          seed={listing?.title ?? ''}
+                          size={44}
+                        />
+                      }
+                      title={listing?.title ?? `Listing #${app.listing_id}`}
+                      lines={[
+                        [unit ? `Unit ${unit.unit_number}` : null, property?.name]
+                          .filter(Boolean)
+                          .join(' · ') || '—',
+                      ]}
+                    />
+                  }
+                  indicator={<ReadinessCell readiness={app.readiness} />}
+                  status={
+                    <SemanticBadge role={getApplicationVariant(app.status)}>
+                      {applicationStatusLabel[app.status]}
+                    </SemanticBadge>
+                  }
+                  timestamp={
+                    <>
+                      {formatDate(app.submitted_at ?? app.created_at)} ·{' '}
+                      {timeAgo(app.submitted_at ?? app.created_at)}
+                    </>
+                  }
+                  primaryAction={
+                    decidable ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={isBusy}
+                        disabled={decidingId !== null}
+                        onClick={() => openReview(app)}
                       >
-                        {/* Applicant */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <AvatarCircle name={name} />
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className="font-medium text-ink-900 leading-snug">{name}</p>
-                                {tenant?.identity_verified && (
-                                  <IconShield
-                                    size={13}
-                                    className="shrink-0 text-success-500"
-                                    title="Identity verified"
-                                  />
-                                )}
-                              </div>
-                              {tenant?.email && (
-                                <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-500 truncate">
-                                  <IconMail size={11} className="shrink-0" />
-                                  {tenant.email}
-                                </p>
-                              )}
-                              {tenant?.phone && (
-                                <p className="flex items-center gap-1 text-xs text-ink-400 truncate">
-                                  <IconPhone size={11} className="shrink-0" />
-                                  {tenant.phone}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
+                        Review
+                      </Button>
+                    ) : undefined
+                  }
+                  menu={menuItems.length > 0 ? <ActionMenu items={menuItems} /> : undefined}
+                />
+              );
+            })}
+          </RecordList>
 
-                        {/* Listing & Unit */}
-                        <td className="px-4 py-4 hidden sm:table-cell">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Thumbnail
-                              src={storageUrl(listing?.primary_photo?.path)}
-                              alt={listing?.title ?? 'Listing'}
-                              seed={listing?.title ?? ''}
-                              size={48}
-                            />
-                            <div className="min-w-0">
-                              <p className="font-medium text-ink-900 leading-snug truncate max-w-[12rem]">
-                                {listing?.title ?? `Listing #${app.listing_id}`}
-                              </p>
-                              <p className="mt-0.5 text-xs text-ink-500 truncate max-w-[12rem]">
-                                {unit ? `Unit ${unit.unit_number}` : ''}
-                                {property ? ` · ${property.name}` : ''}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Readiness */}
-                        <td className="px-4 py-4 hidden md:table-cell">
-                          <ReadinessCell readiness={app.readiness} />
-                        </td>
-
-                        {/* Status — SemanticBadge driven by getApplicationVariant */}
-                        <td className="px-4 py-4">
-                          <SemanticBadge role={getApplicationVariant(app.status)}>
-                            {applicationStatusLabel[app.status]}
-                          </SemanticBadge>
-                        </td>
-
-                        {/* Submitted */}
-                        <td className="px-4 py-4 hidden lg:table-cell">
-                          <p className="text-sm text-ink-700">
-                            {formatDate(app.submitted_at ?? app.created_at)}
-                          </p>
-                          <p className="text-xs text-ink-400">
-                            {timeAgo(app.submitted_at ?? app.created_at)}
-                          </p>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            {decidable ? (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                loading={isBusy}
-                                disabled={decidingId !== null}
-                                onClick={() => openReview(app)}
-                              >
-                                Review
-                              </Button>
-                            ) : (
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-1 text-xs font-medium',
-                                  app.status === 'approved'
-                                    ? 'text-success-600'
-                                    : app.status === 'rejected'
-                                    ? 'text-danger-600'
-                                    : 'text-ink-400',
-                                )}
-                              >
-                                {app.status === 'approved' && <IconCheckCircle size={13} />}
-                                {app.status === 'rejected' && <IconXCircle size={13} />}
-                                {applicationStatusLabel[app.status]}
-                              </span>
-                            )}
-                            {menuItems.length > 0 && <ActionMenu items={menuItems} />}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer: range + pagination */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
-              <p className="text-xs text-ink-500">{rangeLabel(slice, 'applicant')}</p>
-              <Pagination slice={slice} onPage={setPage} />
-            </div>
-          </CardBody>
-        </Card>
+          {/* Pagination — sits below the cards, never inside a table shell. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink-500">{rangeLabel(slice, 'applicant')}</p>
+            <Pagination slice={slice} onPage={setPage} />
+          </div>
+        </div>
       )}
 
-      {/* Review / decision modal */}
-      <Modal
+      {/* Review / decision drawer */}
+      <DetailDrawer
         open={reviewTarget !== null}
         onClose={closeReview}
+        eyebrow="APPLICATION"
         title={
           reviewTarget
-            ? `Review — ${reviewTarget.tenant?.full_name ?? `Applicant #${reviewTarget.id}`}`
+            ? `Review application: ${reviewTarget.tenant?.full_name ?? `Applicant #${reviewTarget.id}`}`
             : 'Review application'
         }
         description={
@@ -677,35 +609,36 @@ export function Applicants() {
             ? `Application for ${reviewTarget.listing?.title ?? `Listing #${reviewTarget.listing_id}`}`
             : undefined
         }
-        size="sm"
         footer={
           reviewTarget && isDecidable(reviewTarget.status) ? (
             <>
               <Button variant="secondary" onClick={closeReview} disabled={decidingId !== null}>
                 Cancel
               </Button>
-              {modalDecision !== 'reject' && (
-                <Button
-                  leftIcon={<IconCheck size={14} />}
-                  onClick={handleModalApprove}
-                  loading={decidingId === reviewTarget?.id}
-                  disabled={decidingId !== null}
-                  className="bg-success-600 text-white hover:bg-success-500"
-                >
-                  Approve
-                </Button>
-              )}
-              {modalDecision !== 'approve' && (
-                <Button
-                  variant="danger"
-                  leftIcon={<IconX size={14} />}
-                  onClick={handleModalReject}
-                  loading={decidingId === reviewTarget?.id}
-                  disabled={decidingId !== null}
-                >
-                  {modalDecision === 'reject' ? 'Confirm rejection' : 'Decline'}
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {modalDecision !== 'reject' && (
+                  <Button
+                    leftIcon={<IconCheck size={14} />}
+                    onClick={handleModalApprove}
+                    loading={decidingId === reviewTarget?.id}
+                    disabled={decidingId !== null}
+                    className="bg-success-600 text-white hover:bg-success-500"
+                  >
+                    Approve
+                  </Button>
+                )}
+                {modalDecision !== 'approve' && (
+                  <Button
+                    variant="danger"
+                    leftIcon={<IconX size={14} />}
+                    onClick={handleModalReject}
+                    loading={decidingId === reviewTarget?.id}
+                    disabled={decidingId !== null}
+                  >
+                    {modalDecision === 'reject' ? 'Confirm rejection' : 'Decline'}
+                  </Button>
+                )}
+              </div>
             </>
           ) : (
             <Button variant="secondary" onClick={closeReview}>
@@ -736,7 +669,7 @@ export function Applicants() {
               )}
             </div>
 
-            {/* Readiness in modal */}
+            {/* Readiness in drawer */}
             {reviewTarget.readiness && (
               <div>
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-500">
@@ -780,7 +713,7 @@ export function Applicants() {
             )}
           </div>
         )}
-      </Modal>
+      </DetailDrawer>
     </div>
   );
 }

@@ -15,8 +15,9 @@ import { Link, useNavigate } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
-import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
+import { Avatar } from '@/components/ui/Avatar';
+import { DetailDrawer } from '@/components/ui/Drawer';
+import { RecordList, RecordCard, RecordRelated } from '@/components/ui/RecordCard';
 import {
   EmptyState,
   ErrorState,
@@ -76,7 +77,7 @@ type SortKey = 'newest' | 'name_az' | 'rent_high';
 
 const SORT_OPTIONS: SelectOption<SortKey>[] = [
   { value: 'newest', label: 'Newest first' },
-  { value: 'name_az', label: 'Name A–Z' },
+  { value: 'name_az', label: 'Name A to Z' },
   { value: 'rent_high', label: 'Rent high→low' },
 ];
 
@@ -94,6 +95,7 @@ interface NextPayment {
 interface ActiveTenancy {
   contract: Contract;
   tenantName: string;
+  tenantAvatar: string | null;
   tenantEmail: string | null;
   isVerified: boolean;
   property: string;
@@ -180,21 +182,15 @@ function deriveMonthsLeft(endDate: string | null | undefined): number | null {
   return Math.round(days / 30);
 }
 
-/* ── Avatar initials ────────────────────────────────────────────────────────── */
+/* ── Avatar (photo when available, else initials) ───────────────────────────── */
 
-function Initials({ name }: { name: string }) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const letters =
-    parts.length >= 2
-      ? parts[0][0] + parts[parts.length - 1][0]
-      : (parts[0]?.slice(0, 2) ?? '–');
+function Initials({ name, src }: { name: string; src?: string | null }) {
   return (
-    <span
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 font-mono text-xs font-semibold text-brand-700"
-      aria-hidden="true"
-    >
-      {letters.toUpperCase()}
-    </span>
+    <Avatar
+      name={name}
+      src={src}
+      className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-mono text-xs font-semibold text-brand-700"
+    />
   );
 }
 
@@ -340,6 +336,7 @@ export function TenantManagement() {
         return {
           contract,
           tenantName: contract.tenant?.full_name ?? 'Tenant unavailable',
+          tenantAvatar: contract.tenant?.avatar_url ?? null,
           tenantEmail: contract.tenant?.email ?? null,
           isVerified: contract.tenant?.identity_verified ?? false,
           property,
@@ -570,7 +567,7 @@ export function TenantManagement() {
                 {awaitingSignature.length} contract
                 {awaitingSignature.length !== 1 ? 's' : ''}
               </span>{' '}
-              awaiting signature — send reminders to help move contracts forward.
+              awaiting signature. Send reminders to move contracts forward.
             </p>
           </div>
           <Button
@@ -651,77 +648,71 @@ export function TenantManagement() {
                   <p className="text-sm text-ink-500">No contracts awaiting signature.</p>
                 </div>
               ) : (
-                <Table>
-                  <THead>
-                    <TR>
-                      <TH>Tenant</TH>
-                      <TH>Property &amp; Unit</TH>
-                      <TH>Monthly rent</TH>
-                      <TH>Lease period</TH>
-                      <TH className="text-right">Actions</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
+                <div className="p-4">
+                  <RecordList>
                     {awaitingSignature.map((c) => {
                       const { property, city, unit, photoPath, listingTitle } =
                         contractLocation(c);
+                      const tenantName = c.tenant?.full_name ?? 'Tenant unavailable';
                       return (
-                        <TR key={c.id}>
-                          <TD>
-                            <div className="flex items-center gap-2.5">
-                              <Initials name={c.tenant?.full_name ?? 'Tenant'} />
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-ink-900">
-                                  {c.tenant?.full_name ?? 'Tenant unavailable'}
-                                </p>
-                                {c.tenant?.email && (
-                                  <p className="truncate text-xs text-ink-500">{c.tenant.email}</p>
-                                )}
-                              </div>
+                        <RecordCard
+                          key={c.id}
+                          leading={<Initials name={c.tenant?.full_name ?? 'Tenant'} src={c.tenant?.avatar_url} />}
+                          title={tenantName}
+                          subtitle={c.tenant?.email ? <span>{c.tenant.email}</span> : undefined}
+                          related={
+                            <RecordRelated
+                              thumbnail={
+                                <Thumbnail
+                                  src={storageUrl(photoPath)}
+                                  alt={listingTitle ?? property}
+                                  seed={property}
+                                  size={36}
+                                />
+                              }
+                              title={property}
+                              lines={[
+                                [unit ? `Unit ${unit}` : null, city].filter(Boolean).join(' · ') ||
+                                  undefined,
+                                <span
+                                  key="rent"
+                                  style={{ color: 'var(--color-money)' }}
+                                  className="font-semibold text-xs"
+                                >
+                                  {formatCents(c.rent_amount)}/mo
+                                </span>,
+                              ]}
+                            />
+                          }
+                          indicator={
+                            <div>
+                              <p className="text-xs text-ink-400 mb-0.5">Monthly rent</p>
+                              <span
+                                className="text-sm font-semibold tabular-nums"
+                                style={{ color: 'var(--color-money)' }}
+                              >
+                                {formatCents(c.rent_amount)}
+                              </span>
                             </div>
-                          </TD>
-                          <TD>
-                            <div className="flex items-center gap-2.5">
-                              <Thumbnail
-                                src={storageUrl(photoPath)}
-                                alt={listingTitle ?? property}
-                                seed={property}
-                                size={36}
-                              />
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-ink-900">
-                                  {property}
-                                </p>
-                                <p className="truncate text-xs text-ink-500">
-                                  {unit ? `Unit ${unit}` : '—'}
-                                  {city ? ` · ${city}` : ''}
-                                </p>
-                              </div>
-                            </div>
-                          </TD>
-                          <TD>
-                            <span
-                              className="text-sm font-semibold tabular-nums"
-                              style={{ color: 'var(--color-money)' }}
-                            >
-                              {formatCents(c.rent_amount)}
+                          }
+                          status={<SemanticBadge role="warning">Awaiting signature</SemanticBadge>}
+                          timestamp={
+                            <span>
+                              {formatDate(c.start_date)} to {formatDate(c.end_date)}
                             </span>
-                          </TD>
-                          <TD className="text-sm text-ink-700">
-                            {formatDate(c.start_date)} – {formatDate(c.end_date)}
-                          </TD>
-                          <TD className="text-right">
+                          }
+                          primaryAction={
                             <Link to={`/app/contracts/${c.id}`}>
                               <Button variant="secondary" size="sm">
                                 View contract
                               </Button>
                             </Link>
-                          </TD>
-                        </TR>
+                          }
+                        />
                       );
                     })}
-                  </TBody>
-                </Table>
+                  </RecordList>
+                </div>
               )
             ) : filtered.length === 0 ? (
               <div className="px-5 py-12 text-center">
@@ -732,174 +723,111 @@ export function TenantManagement() {
                 </p>
               </div>
             ) : (
-              <>
-                <Table>
-                  <THead>
-                    <TR>
-                      <TH>Tenant</TH>
-                      <TH>Property &amp; Unit</TH>
-                      <TH>Lease period</TH>
-                      <TH>Monthly rent</TH>
-                      <TH>Next payment due</TH>
-                      <TH>Payment status</TH>
-                      <TH>Contract</TH>
-                      <TH>Balance</TH>
-                      <TH className="text-right">Actions</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {slice.items.map((t) => {
-                      const daysLeft = daysUntil(t.contract.end_date);
-                      const monthsLeftLabel =
-                        daysLeft !== null && daysLeft >= 0
-                          ? `${t.monthsLeft ?? 0} month${t.monthsLeft !== 1 ? 's' : ''} left`
-                          : 'Expired';
+              <div className="p-4 space-y-3">
+                <RecordList>
+                  {slice.items.map((t) => {
+                    const daysLeft = daysUntil(t.contract.end_date);
+                    const monthsLeftLabel =
+                      daysLeft !== null && daysLeft >= 0
+                        ? `${t.monthsLeft ?? 0} month${t.monthsLeft !== 1 ? 's' : ''} left`
+                        : 'Expired';
 
-                      const menuItems = [
-                        {
-                          label: 'View contract',
-                          onClick: () => navigate(`/app/contracts/${t.contract.id}`),
-                        },
-                        {
-                          label: 'Open ledger',
-                          onClick: () => navigate('/app/ledger'),
-                        },
-                        {
-                          label: 'Lease summary',
-                          onClick: () => setLeaseTarget(t),
-                        },
-                      ];
+                    const menuItems = [
+                      {
+                        label: 'View contract',
+                        onClick: () => navigate(`/app/contracts/${t.contract.id}`),
+                      },
+                      {
+                        label: 'Open ledger',
+                        onClick: () => navigate('/app/ledger'),
+                      },
+                      {
+                        label: 'Lease summary',
+                        onClick: () => setLeaseTarget(t),
+                      },
+                    ];
 
-                      return (
-                        <TR key={t.contract.id}>
-                          {/* Tenant */}
-                          <TD>
-                            <div className="flex items-center gap-2.5">
-                              <Initials name={t.tenantName} />
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <p className="truncate text-sm font-medium text-ink-900">
-                                    {t.tenantName}
-                                  </p>
-                                  {t.isVerified && (
-                                    <SemanticBadge role="success" size="sm">Verified</SemanticBadge>
-                                  )}
-                                </div>
-                                {t.tenantEmail && (
-                                  <p className="truncate text-xs text-ink-500">{t.tenantEmail}</p>
-                                )}
-                              </div>
-                            </div>
-                          </TD>
-
-                          {/* Property & Unit */}
-                          <TD>
-                            <div className="flex items-center gap-2.5">
+                    return (
+                      <RecordCard
+                        key={t.contract.id}
+                        leading={<Initials name={t.tenantName} src={t.tenantAvatar} />}
+                        title={t.tenantName}
+                        titleMeta={t.isVerified ? <SemanticBadge role="success" size="sm">Verified</SemanticBadge> : undefined}
+                        subtitle={t.tenantEmail ? <span>{t.tenantEmail}</span> : undefined}
+                        related={
+                          <RecordRelated
+                            thumbnail={
                               <Thumbnail
                                 src={storageUrl(t.listingPhotoPath)}
                                 alt={t.listingTitle ?? t.property}
                                 seed={t.property}
                                 size={36}
                               />
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-ink-900">
-                                  {t.property}
-                                </p>
-                                <p className="truncate text-xs text-ink-500">
-                                  {t.unit ? `Unit ${t.unit}` : '—'}
-                                  {t.propertyCity ? ` · ${t.propertyCity}` : ''}
-                                </p>
-                              </div>
+                            }
+                            title={t.property}
+                            lines={[
+                              [t.unit ? `Unit ${t.unit}` : null, t.propertyCity].filter(Boolean).join(' · ') || undefined,
+                              <span key="rent" style={{ color: 'var(--color-money)' }} className="font-semibold text-xs">{formatCents(t.contract.rent_amount)}/mo</span>,
+                            ]}
+                          />
+                        }
+                        indicator={
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-xs text-ink-400 mb-0.5">Next payment</p>
+                              <NextPaymentCell nextPayment={t.nextPayment} />
                             </div>
-                          </TD>
-
-                          {/* Lease period */}
-                          <TD>
-                            <p className="text-sm text-ink-700">
-                              {formatDate(t.contract.start_date)} –{' '}
-                              {formatDate(t.contract.end_date)}
-                            </p>
-                            <p
-                              className="text-xs"
-                              style={{
-                                color: t.isEndingSoon
-                                  ? 'var(--color-warning-600)'
-                                  : 'var(--color-ink-400)',
-                              }}
-                            >
-                              {monthsLeftLabel}
-                            </p>
-                          </TD>
-
-                          {/* Monthly rent */}
-                          <TD>
-                            <span
-                              className="text-sm font-semibold tabular-nums"
-                              style={{ color: 'var(--color-money)' }}
-                            >
-                              {formatCents(t.contract.rent_amount)}
-                            </span>
-                          </TD>
-
-                          {/* Next payment due */}
-                          <TD>
-                            <NextPaymentCell nextPayment={t.nextPayment} />
-                          </TD>
-
-                          {/* Payment status */}
-                          <TD>
+                            {t.outstandingCents > 0 && (
+                              <div>
+                                <p className="text-xs text-ink-400 mb-0.5">Balance</p>
+                                <BalanceCell cents={t.outstandingCents} />
+                              </div>
+                            )}
+                          </div>
+                        }
+                        status={
+                          <div className="flex flex-col gap-1.5 items-start">
                             <PaymentChip status={t.paymentStatus} />
-                          </TD>
-
-                          {/* Contract status */}
-                          <TD>
                             <SemanticBadge role={getContractVariant(t.contract.status)}>
                               {humanize(t.contract.status)}
                             </SemanticBadge>
-                          </TD>
-
-                          {/* Balance */}
-                          <TD>
-                            <BalanceCell cents={t.outstandingCents} />
-                          </TD>
-
-                          {/* Actions */}
-                          <TD className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Link to={`/app/contracts/${t.contract.id}`}>
-                                <Button variant="secondary" size="sm">
-                                  View profile
-                                </Button>
-                              </Link>
-                              <Link to="/app/ledger">
-                                <Button variant="ghost" size="sm">
-                                  Open ledger
-                                </Button>
-                              </Link>
-                              <ActionMenu items={menuItems} />
-                            </div>
-                          </TD>
-                        </TR>
-                      );
-                    })}
-                  </TBody>
-                </Table>
+                          </div>
+                        }
+                        timestamp={
+                          <span
+                            style={{ color: t.isEndingSoon ? 'var(--color-warning-600)' : undefined }}
+                          >
+                            {formatDate(t.contract.start_date)} to {formatDate(t.contract.end_date)}
+                            {' · '}{monthsLeftLabel}
+                          </span>
+                        }
+                        primaryAction={
+                          <Link to={`/app/contracts/${t.contract.id}`}>
+                            <Button variant="secondary" size="sm">View profile</Button>
+                          </Link>
+                        }
+                        menu={<ActionMenu items={menuItems} />}
+                      />
+                    );
+                  })}
+                </RecordList>
 
                 {/* Footer: range label + pagination */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 pt-3">
                   <p className="text-xs text-ink-500">{rangeLabel(slice, 'tenant')}</p>
                   <Pagination slice={slice} onPage={setPage} />
                 </div>
-              </>
+              </div>
             )}
           </CardBody>
         </Card>
       )}
 
-      {/* ── Lease detail modal (preserved from original) ─────────────────── */}
-      <Modal
+      {/* ── Lease detail drawer ───────────────────────────────────────────── */}
+      <DetailDrawer
         open={leaseTarget !== null}
         onClose={() => setLeaseTarget(null)}
+        eyebrow="LEASE"
         title="Lease Summary"
         description={
           leaseTarget
@@ -908,9 +836,8 @@ export function TenantManagement() {
               }`
             : undefined
         }
-        size="sm"
         footer={
-          leaseTarget && (
+          leaseTarget ? (
             <>
               <Button variant="secondary" onClick={() => setLeaseTarget(null)}>
                 Close
@@ -919,7 +846,7 @@ export function TenantManagement() {
                 <Button>View full lease</Button>
               </Link>
             </>
-          )
+          ) : undefined
         }
       >
         {leaseTarget && (
@@ -972,7 +899,7 @@ export function TenantManagement() {
             </div>
           </dl>
         )}
-      </Modal>
+      </DetailDrawer>
     </div>
   );
 }

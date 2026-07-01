@@ -16,9 +16,9 @@ import { formatCedisDecimal, humanize } from '@/lib/format';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
+import { DetailDrawer } from '@/components/ui/Drawer';
 import { Field, Input, Select, Textarea } from '@/components/ui/Field';
-import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
+import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/ResponsiveTable';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { IconChevronRight, IconEdit, IconHome, IconImage, IconPlus } from '@/components/ui/icons';
 import { useToast } from '@/components/ui/toast';
@@ -301,6 +301,69 @@ export function PropertyDetail() {
     }
   }
 
+  const unitColumns: ResponsiveColumn<Unit>[] = [
+    {
+      key: 'num',
+      header: 'Unit #',
+      primary: true,
+      cell: (u) => (
+        <>
+          {u.unit_number}
+          {u.internal_name && (
+            <span className="ml-1 text-xs text-ink-400">({u.internal_name})</span>
+          )}
+        </>
+      ),
+    },
+    { key: 'beds', header: 'Beds', hideBelow: 'lg', cell: (u) => u.bedrooms },
+    { key: 'baths', header: 'Baths', hideBelow: 'lg', cell: (u) => u.bathrooms },
+    {
+      key: 'rent',
+      header: 'Rent / mo',
+      align: 'right',
+      cell: (u) => (
+        <span className="font-mono tabular-nums text-[var(--color-money)]">
+          {formatCedisDecimal(u.rent_amount)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (u) => (
+        <SemanticBadge role={availabilityRole(u.availability_status)}>
+          {humanize(u.availability_status)}
+        </SemanticBadge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      cell: (u) => (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<IconImage size={14} />}
+            onClick={() => openUnitGallery(u)}
+            aria-label={`Manage photos for unit ${u.unit_number}`}
+          >
+            Photos
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openEditUnit(u)}
+            aria-label={`Edit unit ${u.unit_number}`}
+          >
+            Edit
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   if (loading) {
     return (
       <div className="animate-rise space-y-6">
@@ -438,53 +501,7 @@ export function PropertyDetail() {
               }
             />
           ) : (
-            <Table>
-              <THead>
-                <TH>Unit #</TH>
-                <TH>Beds</TH>
-                <TH>Baths</TH>
-                <TH>Rent / mo</TH>
-                <TH>Status</TH>
-                <TH className="text-right">Actions</TH>
-              </THead>
-              <TBody>
-                {units.map((u) => (
-                  <TR key={u.id}>
-                    <TD className="font-medium text-ink-900">
-                      {u.unit_number}
-                      {u.internal_name && (
-                        <span className="ml-1 text-xs text-ink-400">({u.internal_name})</span>
-                      )}
-                    </TD>
-                    <TD>{u.bedrooms}</TD>
-                    <TD>{u.bathrooms}</TD>
-                    <TD>
-                      <span style={{ color: 'var(--color-money)' }}>
-                        {formatCedisDecimal(u.rent_amount)}
-                      </span>
-                    </TD>
-                    <TD>
-                      <SemanticBadge role={availabilityRole(u.availability_status)}>
-                        {humanize(u.availability_status)}
-                      </SemanticBadge>
-                    </TD>
-                    <TD className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<IconImage size={14} />}
-                        onClick={() => openUnitGallery(u)}
-                      >
-                        Photos
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEditUnit(u)}>
-                        Edit
-                      </Button>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
+            <ResponsiveTable columns={unitColumns} rows={units} keyFn={(u) => u.id} />
           )}
         </CardBody>
       </Card>
@@ -537,10 +554,11 @@ export function PropertyDetail() {
         </Card>
       )}
 
-      {/* Add Unit modal */}
-      <Modal
+      {/* Add / Edit unit drawer */}
+      <DetailDrawer
         open={formOpen}
         onClose={() => setFormOpen(false)}
+        eyebrow="UNIT"
         title={editingUnit ? 'Edit unit' : 'Add unit'}
         description="Define the unit details and monthly rent."
         footer={
@@ -572,7 +590,7 @@ export function PropertyDetail() {
                 <Input
                   id={fid}
                   invalid={invalid}
-                  placeholder="e.g. Block A — Floor 3"
+                  placeholder="e.g. Block A, Floor 3"
                   value={form.internal_name}
                   onChange={(e) => update('internal_name', e.target.value)}
                 />
@@ -702,12 +720,13 @@ export function PropertyDetail() {
             )}
           </Field>
         </form>
-      </Modal>
+      </DetailDrawer>
 
-      {/* Edit property modal */}
-      <Modal
+      {/* Edit property drawer */}
+      <DetailDrawer
         open={propOpen}
         onClose={() => setPropOpen(false)}
+        eyebrow="PROPERTY"
         title="Edit property"
         description="Update the property details and full address."
         footer={
@@ -843,15 +862,16 @@ export function PropertyDetail() {
             </Field>
           </form>
         )}
-      </Modal>
+      </DetailDrawer>
 
-      {/* Unit gallery modal */}
-      <Modal
+      {/* Unit gallery drawer */}
+      <DetailDrawer
         open={galleryUnit !== null}
         onClose={() => setGalleryUnit(null)}
-        title={galleryUnit ? `Photos — Unit ${galleryUnit.unit_number}` : 'Photos'}
+        eyebrow="UNIT"
+        title={galleryUnit ? `Photos: Unit ${galleryUnit.unit_number}` : 'Photos'}
         description="Upload, reorder, or remove photos for this unit."
-        size="lg"
+        widthClass="sm:max-w-[820px]"
         footer={<Button variant="secondary" onClick={() => setGalleryUnit(null)}>Close</Button>}
       >
         {galleryUnit && (
@@ -862,7 +882,7 @@ export function PropertyDetail() {
             onRefetch={() => loadUnitMedia(galleryUnit.id)}
           />
         )}
-      </Modal>
+      </DetailDrawer>
     </div>
   );
 }

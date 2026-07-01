@@ -6,9 +6,9 @@ import type { ApiError, Listing, Property, PropertyType } from '@/lib/types';
 import { formatCents, formatDateTime, humanize, storageUrl } from '@/lib/format';
 import { paginate, pluralize, rangeLabel } from '@/lib/paginate';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
+import { RecordList, RecordCard } from '@/components/ui/RecordCard';
+import { DestructiveConfirmDialog } from '@/components/ui/DestructiveConfirmDialog';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/states';
 import { PropertyFormDrawer } from './PropertyFormDrawer';
 import { PROPERTY_TYPES } from './property-constants';
@@ -51,7 +51,7 @@ type TypeFilter = 'all' | PropertyType;
 
 const SORT_OPTIONS: SelectOption<SortKey>[] = [
   { value: 'newest', label: 'Newest' },
-  { value: 'name_asc', label: 'Name A–Z' },
+  { value: 'name_asc', label: 'Name A to Z' },
   { value: 'most_units', label: 'Most units' },
   { value: 'highest_occupancy', label: 'Highest occupancy' },
 ];
@@ -336,165 +336,154 @@ export function Properties() {
               description="Try a different search term or adjust the filters."
             />
           ) : (
-            <Card>
-              <CardBody className="p-0">
-                <ul className="divide-y divide-ink-200">
-                  {slice.items.map((p) => {
-                    const photoUrl = photoMap.get(p.id);
-                    const totalU = p.units_count ?? 0;
-                    const occupiedU = p.occupied_units ?? 0;
-                    const vacantU = p.vacant_units ?? 0;
-                    const occRate = p.occupancy_rate ?? 0;
-                    const collectedCents = p.collected_this_month_cents ?? 0;
-                    const occRole = getOccupancyVariant(occRate);
+            <div className="space-y-5">
+              {/* Record list — one standalone card per property. No table shell,
+                  no horizontal scroll: identity + units summary + occupancy +
+                  collected + status + actions all stay visible (stacking on
+                  mobile, inline columns on desktop). */}
+              <RecordList>
+                {slice.items.map((p) => {
+                  const photoUrl = photoMap.get(p.id);
+                  const totalU = p.units_count ?? 0;
+                  const occupiedU = p.occupied_units ?? 0;
+                  const vacantU = p.vacant_units ?? 0;
+                  const occRate = p.occupancy_rate ?? 0;
+                  const collectedCents = p.collected_this_month_cents ?? 0;
+                  const occRole = getOccupancyVariant(occRate);
+                  const detailHref = `/app/properties/${p.id}`;
 
-                    const menuItems = [
-                      {
-                        label: 'Manage units',
-                        icon: <IconUsers size={15} />,
-                        onClick: () => navigate(`/app/properties/${p.id}`),
-                      },
-                      {
-                        label: 'Edit property',
-                        icon: <IconEdit size={15} />,
-                        onClick: () => openEdit(p),
-                      },
-                      {
-                        label: 'Delete',
-                        icon: <IconTrash size={15} />,
-                        danger: true,
-                        onClick: () => setToDelete(p),
-                      },
-                    ];
+                  const occText =
+                    occRole === 'success'
+                      ? 'text-success-600'
+                      : occRole === 'warning'
+                      ? 'text-warning-600'
+                      : 'text-danger-600';
+                  const occBar =
+                    occRole === 'success'
+                      ? 'bg-success-500'
+                      : occRole === 'warning'
+                      ? 'bg-warning-500'
+                      : 'bg-danger-500';
 
-                    return (
-                      <li
-                        key={p.id}
-                        className="flex flex-wrap items-center gap-4 px-5 py-4 transition-colors hover:bg-ink-50/60"
-                      >
-                        {/* Thumbnail */}
-                        <Thumbnail
-                          src={photoUrl}
-                          alt={p.name}
-                          seed={p.name}
-                          size={64}
-                        />
+                  const menuItems = [
+                    {
+                      label: 'Manage units',
+                      icon: <IconUsers size={15} />,
+                      onClick: () => navigate(detailHref),
+                    },
+                    {
+                      label: 'Edit property',
+                      icon: <IconEdit size={15} />,
+                      onClick: () => openEdit(p),
+                    },
+                    {
+                      label: 'Delete',
+                      icon: <IconTrash size={15} />,
+                      danger: true,
+                      onClick: () => setToDelete(p),
+                    },
+                  ];
 
-                        {/* Identity */}
-                        <div className="min-w-[14rem] flex-1">
-                          <p className="font-display text-base font-semibold leading-snug text-ink-900">
-                            {p.name}
+                  return (
+                    <RecordCard
+                      key={p.id}
+                      onClick={() => navigate(detailHref)}
+                      leading={
+                        <Thumbnail src={photoUrl} alt={p.name} seed={p.name} size={64} />
+                      }
+                      title={p.name}
+                      titleMeta={
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <SemanticBadge role="neutral" status={p.property_type}>
+                            {humanize(p.property_type)}
+                          </SemanticBadge>
+                          {!p.is_active && (
+                            <SemanticBadge role="neutral">Inactive</SemanticBadge>
+                          )}
+                        </span>
+                      }
+                      subtitle={
+                        <span className="text-ink-500">
+                          {p.city}, {p.state}
+                        </span>
+                      }
+                      related={
+                        <div>
+                          <p className="font-display text-base font-semibold tabular-nums text-ink-900">
+                            {totalU} {totalU === 1 ? 'unit' : 'units'}
                           </p>
                           <p className="mt-0.5 text-xs text-ink-500">
-                            {p.city}, {p.state}
+                            <span className="font-medium text-success-600">
+                              {occupiedU} occupied
+                            </span>
+                            {' · '}
+                            <span className="font-medium text-warning-600">
+                              {vacantU} vacant
+                            </span>
                           </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            <SemanticBadge role="neutral" status={p.property_type}>
-                              {humanize(p.property_type)}
-                            </SemanticBadge>
-                            {!p.is_active && (
-                              <SemanticBadge role="neutral">Inactive</SemanticBadge>
+                        </div>
+                      }
+                      indicator={
+                        <div className="space-y-2">
+                          <div>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-[11px] text-ink-400">Occupancy</span>
+                              <span
+                                className={`font-display text-sm font-semibold tabular-nums ${occText}`}
+                              >
+                                {occRate}%
+                              </span>
+                            </div>
+                            {totalU > 0 && (
+                              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+                                <div
+                                  className={`h-full rounded-full ${occBar}`}
+                                  style={{ width: `${occRate}%` }}
+                                />
+                              </div>
                             )}
                           </div>
-                        </div>
-
-                        {/* Units */}
-                        <div className="hidden min-w-[4rem] text-center sm:block">
-                          <p className="font-display text-lg font-semibold tabular-nums text-ink-900">
-                            {totalU}
-                          </p>
-                          <p className="text-[11px] text-ink-400">
-                            {totalU === 1 ? 'unit' : 'units'}
-                          </p>
-                        </div>
-
-                        {/* Occupied / Vacant */}
-                        <div className="hidden gap-4 sm:flex">
-                          <div className="text-center">
-                            <p className="font-display text-lg font-semibold tabular-nums text-success-600">
-                              {occupiedU}
-                            </p>
-                            <p className="text-[11px] text-ink-400">Occupied</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-display text-lg font-semibold tabular-nums text-warning-600">
-                              {vacantU}
-                            </p>
-                            <p className="text-[11px] text-ink-400">Vacant</p>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-[11px] text-ink-400">Collected</span>
+                            <span
+                              className="font-display text-sm font-semibold"
+                              style={{ color: 'var(--color-money)' }}
+                            >
+                              {collectedCents > 0 ? formatCents(collectedCents) : '—'}
+                            </span>
                           </div>
                         </div>
+                      }
+                      status={
+                        <SemanticBadge role={occRole}>
+                          {totalU > 0 ? `${occRate}% occupied` : 'No units'}
+                        </SemanticBadge>
+                      }
+                      timestamp={<>Updated {whenLabel(p.updated_at)}</>}
+                      primaryAction={
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<IconEye size={14} />}
+                          onClick={() => navigate(detailHref)}
+                        >
+                          View details
+                        </Button>
+                      }
+                      menu={<ActionMenu items={menuItems} />}
+                    />
+                  );
+                })}
+              </RecordList>
 
-                        {/* Occupancy rate */}
-                        <div className="hidden min-w-[5rem] sm:block">
-                          <p className={`font-display text-lg font-semibold tabular-nums ${
-                            occRole === 'success' ? 'text-success-600'
-                            : occRole === 'warning' ? 'text-warning-600'
-                            : 'text-danger-600'
-                          }`}>
-                            {occRate}%
-                          </p>
-                          <p className="text-[11px] text-ink-400">Occupancy</p>
-                          {totalU > 0 && (
-                            <div className="mt-1 h-1.5 w-16 overflow-hidden rounded-full bg-ink-100">
-                              <div
-                                className={`h-full rounded-full ${
-                                  occRole === 'success' ? 'bg-success-500'
-                                  : occRole === 'warning' ? 'bg-warning-500'
-                                  : 'bg-danger-500'
-                                }`}
-                                style={{ width: `${occRate}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Collected this month */}
-                        <div className="hidden min-w-[7rem] sm:block">
-                          <p
-                            className="font-display text-sm font-semibold"
-                            style={{ color: 'var(--color-money)' }}
-                          >
-                            {collectedCents > 0 ? formatCents(collectedCents) : '—'}
-                          </p>
-                          <p className="text-[11px] text-ink-400">
-                            Collected this month
-                          </p>
-                        </div>
-
-                        {/* Updated */}
-                        <div className="hidden min-w-[5rem] text-right lg:block">
-                          <p className="text-xs text-ink-500">Updated</p>
-                          <p className="text-xs font-medium text-ink-700">
-                            {whenLabel(p.updated_at)}
-                          </p>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<IconEye size={14} />}
-                            onClick={() => navigate(`/app/properties/${p.id}`)}
-                          >
-                            View details
-                          </Button>
-                          <ActionMenu items={menuItems} />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                {/* Footer: range label + pagination */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200 px-5 py-3">
-                  <p className="text-xs text-ink-500">
-                    {rangeLabel(slice, 'property', 'properties')}
-                  </p>
-                  <Pagination slice={slice} onPage={setPage} />
-                </div>
-              </CardBody>
-            </Card>
+              {/* Footer: range label + pagination — below the cards. */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-ink-500">
+                  {rangeLabel(slice, 'property', 'properties')}
+                </p>
+                <Pagination slice={slice} onPage={setPage} />
+              </div>
+            </div>
           )}
         </DashboardSection>
       )}
@@ -507,25 +496,15 @@ export function Properties() {
         onSaved={reload}
       />
 
-      {/* ── Delete confirmation (logic preserved exactly) ─────────────────── */}
-      <Modal
+      {/* ── Delete confirmation ───────────────────────────────────────────── */}
+      <DestructiveConfirmDialog
         open={toDelete !== null}
         onClose={() => setToDelete(null)}
+        onConfirm={handleDelete}
         title="Delete property"
-        description={
-          toDelete ? `Delete "${toDelete.name}"? This cannot be undone.` : undefined
-        }
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setToDelete(null)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDelete} loading={deleting}>
-              Delete
-            </Button>
-          </>
-        }
+        description={toDelete ? `Delete "${toDelete.name}"? This cannot be undone.` : undefined}
+        confirmLabel="Delete"
+        loading={deleting}
       />
     </div>
   );
