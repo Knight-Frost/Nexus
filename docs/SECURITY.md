@@ -1,4 +1,4 @@
-# Nexus — Security Notes & Audit
+# Wyncrest Security Notes and Audit
 
 OWASP-aligned review performed during project completion. This documents the
 controls in place, the audit findings, and operational guidance. Pair with the
@@ -7,7 +7,7 @@ production checklist at the bottom of `.env.example`.
 ## Summary
 
 The backend security posture is **strong**. The audit found **no high or
-critical vulnerabilities** — only the hardening additions noted below. Key
+critical vulnerabilities** - only the hardening additions noted below. Key
 structural protections:
 
 - **Financial records use UUID primary keys** (`contracts`, `ledger_entries`),

@@ -1,4 +1,4 @@
-# Nexus — Project Completion Execution Plan
+# Wyncrest Project Completion Execution Plan (historical)
 
 Supervisor: Opus (architect / reviewer / security auditor / final decision-maker).
 Workers: Sonnet agents (exploration, implementation, tests, docs, UI, validation).
@@ -10,7 +10,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 0 — Understanding & Forensic Audit  ✅ (complete)
+## Phase 0 - Understanding & Forensic Audit  ✅ (complete)
 
 - **Objective:** Full map of backend, frontend, DB, tests, security, RBAC.
 - **Why:** No safe change without ground truth. Avoid assumptions.
@@ -20,7 +20,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 1 — Project Health: install / run / build / test
+## Phase 1 - Project Health: install / run / build / test
 
 - **Objective:** Clean, reproducible setup; consistent formatting; remove
   structural debt without changing behavior.
@@ -47,7 +47,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 2 — Security Audit & Hardening (OWASP)
+## Phase 2 - Security Audit & Hardening (OWASP)
 
 - **Objective:** Verify and harden against the OWASP Top 10 in this codebase.
 - **Why:** Real money + PII. Security is non-negotiable for launch/review.
@@ -70,7 +70,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 3 — Auth, Authorization & RBAC Completeness
+## Phase 3 - Auth, Authorization & RBAC Completeness
 
 - **Objective:** Prove RBAC is complete and enforced; close negative-path gaps.
 - **Why:** Privilege escalation / IDOR are the highest-impact bugs here.
@@ -90,7 +90,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 4 — Backend Completeness & API Consistency
+## Phase 4 - Backend Completeness & API Consistency
 
 - **Objective:** Close functional gaps; make API responses consistent; harden
   payment/webhook paths.
@@ -110,7 +110,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 5 — Frontend Completion & UI/UX/A11y (the big build)
+## Phase 5 - Frontend Completion & UI/UX/A11y (the big build)
 
 - **Objective:** A real, premium, accessible React SPA integrated with the API.
 - **Why:** The user-facing product currently does not exist.
@@ -135,7 +135,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
 
 ---
 
-## Phase 6 — Documentation, Final Validation & Report
+## Phase 6 - Documentation, Final Validation & Report
 
 - **Objective:** Professional docs + full validation + evidence-backed report.
 - **Why:** Reviewers and maintainers need an accurate, runnable picture.
@@ -144,7 +144,7 @@ docs). Each phase ends green (tests pass, no regressions) before the next starts
   security notes, known limitations, future work. Run the full validation matrix.
   Produce the final completion report with evidence.
 - **Testing requirements:** Backend tests, frontend build+lint+typecheck,
-  migrations, Pint — all green.
+  migrations, Pint - all green.
 - **Completion criteria:** Everything installs/runs/builds/tests; docs accurate;
   report delivered with command output.
 - **Risks:** Doc drift → generate docs from verified behavior, not assumptions.

@@ -1,238 +1,128 @@
-# Architectural Decision Records (ADR)
-
-## Phase 1 Foundation
-
-This document explains key architectural decisions made in Phase 1.
-
----
-
-## ADR-001: Separate Authentication Tables for Users and Admins
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Nexus requires strict role separation between tenants/landlords and administrators.
-
-**Decision**: Use completely separate tables (`users` and `admins`) with separate authentication flows.
-
-**Rationale**:
-- Prevents accidental privilege escalation
-- Allows different authentication rules (e.g., MFA requirements for admins)
-- Enables separate password policies
-- Makes role checks explicit and impossible to bypass
-- Simplifies queries (no complex role filtering)
-
-**Consequences**:
-- Two authentication guards required
-- Cannot reuse authentication middleware
-- Admin and user sessions are completely isolated
-- Clear security boundary
-
----
-
-## ADR-002: Feature Gating via Database Tables
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Landlords should not access all features immediately. Features should be enabled based on verification status and admin approval.
-
-**Decision**: Use `features` table (master list) and `landlord_features` pivot table (per-landlord enablement).
-
-**Rationale**:
-- Queryable: Can easily find all landlords with feature X
-- Auditable: Full history of who enabled/disabled features and when
-- Enforceable: Backend checks via `FeatureGatingService`
-- Flexible: Can add feature dependencies and prerequisites
-- Not config-driven: Feature gates are business data, not deployment config
-
-**Consequences**:
-- Database queries required to check features
-- Must seed features table on deployment
-- Cannot change feature availability via .env (intentional)
-- Full audit trail of feature changes
-
----
-
-## ADR-003: Event-Driven Email System
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Emails must be triggered by business events, not manually sent from controllers.
-
-**Decision**: All emails are triggered by events, handled by queued listeners.
-
-**Rationale**:
-- Decouples email sending from business logic
-- Enables async processing (performance)
-- Makes email triggers explicit and searchable
-- Allows multiple side effects per event (email + audit log)
-- Facilitates testing (can disable listeners)
-
-**Consequences**:
-- Queue workers required in production
-- Email sending is not immediate (eventual consistency)
-- Event-listener relationship must be maintained
-- All email intents logged to `email_logs`
-
----
-
-## ADR-004: Immutable Audit Logs
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Audit logs are required for compliance and cannot be tampered with.
-
-**Decision**: `audit_logs` table has no `updated_at` column and no update methods. Logs are insert-only.
-
-**Rationale**:
-- Guarantees audit trail integrity
-- Prevents backdating or hiding actions
-- Satisfies compliance requirements
-- Makes intent clear (logs are permanent)
-
-**Consequences**:
-- Cannot correct typos in audit logs
-- Disk space grows indefinitely (archiving strategy needed later)
-- Deleting audit logs requires database-level access (intentional)
-
----
-
-## ADR-005: Soft Deletes for User-Generated Content
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Users, properties, listings contain legal and financial data.
-
-**Decision**: Use soft deletes (`deleted_at`) for `users`, `properties`, `units`, `listings`, `conversations`, `messages`.
-
-**Rationale**:
-- Preserves legal history
-- Enables "undelete" functionality
-- Maintains referential integrity in audit logs
-- Prevents accidental data loss
-- Satisfies data retention requirements
-
-**Consequences**:
-- Queries must explicitly exclude soft-deleted records
-- Database growth (deleted records remain)
-- Must handle soft-deleted records in relationships
-
----
-
-## ADR-006: Polymorphic Relationships for Conversations
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Messaging system needs to support tenant-landlord, tenant-admin, landlord-admin conversations.
-
-**Decision**: Use polymorphic relationships for conversation participants and subjects.
-
-**Rationale**:
-- Future-proof (can add new participant types)
-- Single conversation table (simplifies queries)
-- Supports any message context (listing, application, lease, etc.)
-
-**Consequences**:
-- Slightly more complex queries
-- Cannot use foreign key constraints on polymorphic columns
-- Must validate participant/subject types in application code
-
----
-
-## ADR-007: Service Layer for Business Logic
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Controllers should not contain business logic.
-
-**Decision**: All business logic lives in service classes (`ListingService`, `FeatureGatingService`, `AuditService`, etc.).
-
-**Rationale**:
-- Testable without HTTP layer
-- Reusable across controllers, commands, jobs
-- Clear separation of concerns
-- Easier to locate business rules
-- Enforces single responsibility
-
-**Consequences**:
-- More files/classes
-- Controllers become thin (good)
-- Services must be dependency-injected
-- Business logic is centralized and discoverable
-
----
-
-## ADR-008: Enums for State Management
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: States (user types, listing status, property types) should be type-safe.
-
-**Decision**: Use PHP 8.1+ enums for all state fields.
-
-**Rationale**:
-- Type safety (cannot assign invalid states)
-- IDE autocomplete support
-- Centralized state definitions
-- Methods on enums (e.g., `isPublic()`, `canBeListed()`)
-- Database stores string values (readable)
-
-**Consequences**:
-- Requires PHP 8.1+
-- Enum definitions must be maintained
-- Database stores enum values as strings (slightly more space)
-
----
-
-## ADR-009: Admin-Only Listing Creation in Phase 1
-
-**Date**: December 2024  
-**Status**: Accepted (Temporary)  
-**Context**: Phase 1 needs testable listings but landlord UI is Phase 2.
-
-**Decision**: Listings can be created by admins via `ListingService::createListingAsAdmin()` or seeder.
-
-**Rationale**:
-- Enables testing of search, filters, public listings
-- Avoids building incomplete landlord UI
-- Phase 2 will add proper landlord creation flow
-- Keeps Phase 1 scope focused
-
-**Consequences**:
-- Admin interface needed for listing creation (can be Tinker for Phase 1)
-- Landlords cannot create listings yet (expected)
-- This decision will be deprecated in Phase 2
-
----
-
-## ADR-010: Messaging Schema Only in Phase 1
-
-**Date**: December 2024  
-**Status**: Accepted  
-**Context**: Messaging is inevitable but not critical for Phase 1.
-
-**Decision**: Create `conversations` and `messages` tables but no sending/UI endpoints.
-
-**Rationale**:
-- Prevents schema churn (messaging structure defined early)
-- Phase 2 implementation will be cleaner
-- No risk of incomplete messaging features confusing users
-
-**Consequences**:
-- Tables exist but are unused in Phase 1
-- No messaging UI or API endpoints yet
-- Phase 2 will implement full messaging functionality
-
----
-
-## Future ADRs
-
-Phase 2 and beyond will add decisions for:
-- Lease template management
-- Payment processing integration
-- Maintenance request workflows
-- Admin RBAC system
-- Application review process
-
----
-
-**Last Updated**: December 2024
+# Architecture
+
+How Wyncrest is put together: the layers, the data flow, and the decisions
+behind them. For product status and history, see the root `CLAUDE.md`.
+
+## System overview
+
+Wyncrest is a Laravel 12 API backend paired with a standalone React SPA. The
+two are separate deployables that talk over JSON. There is no server-rendered
+UI beyond a Laravel welcome page.
+
+```mermaid
+flowchart LR
+    Browser[Browser] --> SPA[React SPA<br/>frontend/]
+    SPA -- Bearer token --> API[Laravel API<br/>routes/api*.php]
+    API --> MW[Auth guard + role + rate limit]
+    MW --> FR[FormRequest<br/>validation + authorize]
+    FR --> Ctrl[Controller<br/>thin, orchestration only]
+    Ctrl --> Svc[Service layer<br/>app/Services]
+    Svc --> Model[Eloquent models<br/>app/Models]
+    Model --> DB[(Database)]
+    Svc --> Ledger[(Immutable ledger)]
+    Svc --> Audit[(Append-only audit log)]
+    Svc --> Events[Events]
+    Events --> Listeners[Listeners]
+    Listeners --> Notify[Notifications<br/>in-app / email / SMS]
+    Svc --> Cache[Analytics cache<br/>scoped, selectively invalidated]
+```
+
+## Backend request lifecycle
+
+Every write follows the same layered path, enforced in three places at once:
+route middleware (coarse role gate), FormRequest/Policy (ownership and
+resource-level rules), and service-level checks for sensitive operations.
+
+```
+Route (auth:sanctum + role guard + rate limit)
+  -> FormRequest (validation + authorize())
+    -> Controller (thin; orchestration only)
+      -> Service (business logic, transactions)   app/Services
+        -> Model (Eloquent; enums, scopes, invariants)   app/Models
+      -> Policy (per-model authorization)   app/Policies
+  -> Observer / Event / Listener (audit, notifications, cache invalidation)
+```
+
+Controllers never contain business rules. Validation never lives inline in a
+controller. Side effects (audit logging, notifications, cache invalidation)
+are wired through Observers, Events, and Listeners, not called directly from
+controllers.
+
+## Example flow: tenant pays rent
+
+```mermaid
+sequenceDiagram
+    participant T as Tenant (SPA)
+    participant API as Laravel API
+    participant Stripe
+    participant Ledger as LedgerEntry
+    participant Audit as AuditLog
+    participant N as Notifications
+
+    T->>API: POST /tenant/ledger/{entry}/pay
+    API->>Stripe: Create PaymentIntent
+    Stripe-->>T: Client confirms payment
+    Stripe->>API: POST /webhooks/stripe (signed)
+    API->>API: Verify Stripe signature
+    API->>Ledger: transitionStatus(PAID) [idempotent on payment_intent_id]
+    Ledger-->>Audit: append-only entry written
+    Ledger-->>N: payment received notification queued
+```
+
+The ledger has no `update()`/`delete()` path. Status changes only happen
+through `transitionStatus()`, and corrections are compensating entries, never
+edits. See `CLAUDE.md` section 7 for the full data model rationale.
+
+## Frontend architecture
+
+The SPA lives entirely under `frontend/` (not the Laravel `resources/`
+directory, which only serves a welcome page). It authenticates with Bearer
+tokens (Sanctum personal access tokens, not cookie/SPA mode) and treats the
+API as the sole source of truth for authorization: role-based routing in the
+SPA is a convenience, never a security boundary.
+
+```
+frontend/src/
+  api/         typed request functions per resource
+  components/  shared UI (cards, layout, drawers, tables)
+  context/     auth, theme, accent providers
+  hooks/       data-fetching and UI hooks
+  pages/       tenant/ landlord/ admin/ shared/ route screens
+  lib/         format helpers, storage, endpoints
+  types/       API response types
+```
+
+## Key architectural decisions
+
+Decisions still in force today. Historical decisions that have since been
+reversed by later product work are not listed here (see `CLAUDE.md` for the
+live status of any feature).
+
+| Decision | Rationale |
+|---|---|
+| Separate `users` and `admins` tables with separate auth guards | Makes privilege escalation impossible by construction; no role-filtering query can accidentally treat a tenant as an admin. |
+| Feature gating via `features` / `landlord_features` tables, not `.env` flags | Feature availability is business data with an audit trail (who enabled what, when), not deployment config. |
+| All emails and notifications triggered by events, handled by queued listeners | Decouples business logic from delivery; a controller never calls `Mail::send()` directly. |
+| Audit logs are insert-only (no `updated_at`, no update path) | Guarantees the audit trail cannot be edited or backdated after the fact. |
+| Soft deletes on user-generated content (users, properties, units, listings, conversations, messages) | Preserves legal and financial history; nothing that could matter for a dispute disappears on delete. |
+| Ledger entries use UUID primary keys and are immutable | Prevents ID enumeration on financial records and makes tampering structurally impossible, not just policy-forbidden. |
+| Service layer owns all business logic (`app/Services`) | Controllers stay thin and testable without the HTTP layer; business rules are discoverable in one place instead of scattered across controllers. |
+| PHP enums for all state fields (statuses, types, cycles) | Type safety at the database boundary; invalid states cannot be assigned, and behavior methods (`isPublic()`, `canBeListed()`) live next to the states they describe. |
+
+## Backend module map
+
+| Path | Contents |
+|---|---|
+| `app/Models` | Eloquent models, one class per file |
+| `app/Http/Controllers/{Admin,Landlord,Tenant,Analytics,Public}` | Thin controllers grouped by audience |
+| `app/Http/Requests` | FormRequest validation classes |
+| `app/Http/Middleware` | Role guards, rate limiting, security headers |
+| `app/Policies` | Per-model authorization |
+| `app/Services` | Business logic: ledger, payments, listings, notifications, analytics, audit, features |
+| `app/Enums` | Type-safe domain values |
+| `app/Events` / `app/Listeners` / `app/Observers` | Side-effect wiring |
+| `app/Console/Commands` | Scheduled jobs (rent generation, overdue marking, digests) |
+| `app/Support/Cache` | Analytics cache keys and selective invalidation |
+
+For product scope, current status, and the full domain model, see the root
+`CLAUDE.md`.

@@ -85,7 +85,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes - Nexus
+| API Routes - Wyncrest
 |--------------------------------------------------------------------------
 |
 | Strict role separation enforced via middleware.
