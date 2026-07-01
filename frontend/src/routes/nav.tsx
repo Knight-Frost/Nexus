@@ -12,6 +12,7 @@ import {
   IconGrid,
   IconHeart,
   IconHome,
+  IconKey,
   IconLedger,
   IconMessage,
   IconScale,
@@ -33,6 +34,28 @@ export interface NavItem {
   icon: React.ReactNode;
   end?: boolean;
   badge?: number;
+  /**
+   * Admin capability required to see this item. Super admins (who implicitly
+   * hold every capability) always see it; a regular admin sees it only if a
+   * super admin has granted the capability. This is UI reflection only — the
+   * API independently enforces the same rule.
+   */
+  requiresCapability?: string;
+}
+
+/** Minimal shape of the signed-in user needed to gate capability nav items. */
+export interface NavGateUser {
+  role: Role;
+  is_super_admin?: boolean;
+  capabilities?: string[];
+}
+
+/** Can the given user see a capability-gated nav item? */
+function canSeeNavItem(item: NavItem, user?: NavGateUser): boolean {
+  if (!item.requiresCapability) return true;
+  if (!user || user.role !== 'admin') return false;
+  if (user.is_super_admin) return true;
+  return (user.capabilities ?? []).includes(item.requiresCapability);
 }
 
 export interface NavGroup {
@@ -124,6 +147,7 @@ const ADMIN_GROUPS: NavGroup[] = [
       { to: '/app/verifications', label: 'Verifications', icon: <IconCircleCheck {...ICON} /> },
       { to: '/app/moderation', label: 'Listing Review', icon: <IconShield {...ICON} /> },
       { to: '/app/users', label: 'Users', icon: <IconUsers {...ICON} /> },
+      { to: '/app/manage-access', label: 'Manage Users & Permissions', icon: <IconKey {...ICON} />, requiresCapability: 'manage_access' },
       { to: '/app/review-moderation', label: 'Reviews', icon: <IconStar {...ICON} /> },
     ],
   },
@@ -152,19 +176,27 @@ const NAV_GROUPS: Record<Role, NavGroup[]> = {
 
 /* ---- Exports ------------------------------------------------------------- */
 
-/** Grouped navigation for the sidebar. */
-export function navForRole(role: Role): NavGroup[] {
-  return NAV_GROUPS[role] ?? [];
+/**
+ * Grouped navigation for the sidebar. Pass the signed-in user to hide
+ * capability-gated items (e.g. Manage Users & Permissions) the user can't reach.
+ * Empty groups are dropped so no orphan section headers render.
+ */
+export function navForRole(role: Role, user?: NavGateUser): NavGroup[] {
+  const groups = NAV_GROUPS[role] ?? [];
+  if (!user) return groups;
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((it) => canSeeNavItem(it, user)) }))
+    .filter((g) => g.items.length > 0);
 }
 
-/** Flat list of all nav items for a role. */
-export function navItemsForRole(role: Role): NavItem[] {
-  return navForRole(role).flatMap((g) => g.items);
+/** Flat list of all nav items for a role (capability-filtered when user given). */
+export function navItemsForRole(role: Role, user?: NavGateUser): NavItem[] {
+  return navForRole(role, user).flatMap((g) => g.items);
 }
 
 /** Up to 5 items for the mobile bottom nav bar. */
-export function mobileNavItems(role: Role): NavItem[] {
-  const all = navItemsForRole(role);
+export function mobileNavItems(role: Role, user?: NavGateUser): NavItem[] {
+  const all = navItemsForRole(role, user);
   // Always include the dashboard first, then key items, finish with notifications
   const notif = all.find((i) => i.to === '/app/notifications');
   const rest = all.filter((i) => i.to !== '/app/notifications').slice(0, 4);

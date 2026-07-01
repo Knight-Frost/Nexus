@@ -140,7 +140,7 @@ function Sidebar({ collapsed, toggle, unread }: { collapsed: boolean; toggle: ()
   const navigate = useNavigate();
   if (!user) return null;
 
-  const groups = navForRole(user.role);
+  const groups = navForRole(user.role, user);
   const name = 'full_name' in user ? user.full_name : user.name;
   const initials = name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase();
   const handleLogout = () => { navigate('/'); void logout(); };
@@ -203,7 +203,7 @@ function Sidebar({ collapsed, toggle, unread }: { collapsed: boolean; toggle: ()
 function MobileBottomNav() {
   const { user } = useAuth();
   if (!user) return null;
-  const items = mobileNavItems(user.role);
+  const items = mobileNavItems(user.role, user);
   return (
     <nav className="nvx-mbot" aria-label="Primary mobile navigation">
       {items.map((item) => (

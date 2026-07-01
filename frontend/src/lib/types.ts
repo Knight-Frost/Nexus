@@ -647,6 +647,89 @@ export interface AdminUserDetail {
   recent_applications: Application[];
 }
 
+/** Granular admin capability keys (mirror of App\Enums\AdminCapability). */
+export type AdminCapability =
+  | 'manage_access'
+  | 'manage_users'
+  | 'review_verifications'
+  | 'moderate_listings'
+  | 'moderate_reviews'
+  | 'manage_features'
+  | 'view_audit'
+  | 'manage_contracts'
+  | 'manage_ledger'
+  | 'view_analytics'
+  | 'manage_settings';
+
+/* ---- Access control (Manage Users & Permissions) ------------------------- */
+
+export interface AccessSummary {
+  members_total: number;
+  tenants: number;
+  landlords: number;
+  admins: number;
+  super_admins: number;
+  scoped_admins: number;
+  pending_invites: number;
+  deactivated_admins: number;
+  suspended_users: number;
+  blocked_users: number;
+  archived_users: number;
+}
+
+export type AccessCellState = 'granted' | 'denied' | 'assignable';
+
+export interface AccessMatrixCell {
+  state: AccessCellState;
+  locked: boolean;
+  reason: string | null;
+}
+
+export interface AccessMatrixCapability {
+  key: string;
+  label: string;
+  description: string;
+  enforced: boolean;
+  cells: Record<'tenant' | 'landlord' | 'admin' | 'super_admin', AccessMatrixCell>;
+}
+
+export interface AccessMatrixGroup {
+  group: string;
+  readonly: boolean;
+  capabilities: AccessMatrixCapability[];
+}
+
+export interface AccessMatrixRole {
+  id: 'tenant' | 'landlord' | 'admin' | 'super_admin';
+  label: string;
+  member_count: number;
+  locked: boolean;
+  note: string;
+}
+
+export interface AccessRolesMatrix {
+  roles: AccessMatrixRole[];
+  groups: AccessMatrixGroup[];
+  note: string;
+}
+
+export type AdminTeamStatus = 'active' | 'invited' | 'deactivated';
+
+export interface AdminTeamMember {
+  id: number;
+  name: string;
+  email: string;
+  is_super_admin: boolean;
+  is_active: boolean;
+  status: AdminTeamStatus;
+  is_pending_invite: boolean;
+  capabilities: AdminCapability[];
+  capability_count: number;
+  last_login_at: string | null;
+  invited_at: string | null;
+  created_at: string | null;
+}
+
 /* ---- Admin dashboard (platform command center, all real aggregates) ------ */
 export interface AdminDashboard {
   statistics: {

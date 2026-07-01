@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth';
 import { Landing } from '@/pages/Landing';
 import { Login } from '@/pages/auth/Login';
 import { Register } from '@/pages/auth/Register';
+import { AcceptInvite } from '@/pages/auth/AcceptInvite';
 import { ForgotPassword } from '@/pages/auth/ForgotPassword';
 import { ResetPassword } from '@/pages/auth/ResetPassword';
 import { VerifyEmail } from '@/pages/auth/VerifyEmail';
@@ -42,6 +43,7 @@ const LandlordReviews      = lazy(() => import('@/pages/landlord/LandlordReviews
 const Moderation              = lazy(() => import('@/pages/admin/Moderation').then((m) => ({ default: m.Moderation })));
 const AuditLogs               = lazy(() => import('@/pages/admin/AuditLogs').then((m) => ({ default: m.AuditLogs })));
 const UsersPage               = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })));
+const ManageAccessPage        = lazy(() => import('@/pages/admin/ManageAccessPage').then((m) => ({ default: m.ManageAccessPage })));
 const VerificationModeration  = lazy(() => import('@/pages/admin/VerificationModeration').then((m) => ({ default: m.VerificationModeration })));
 const ReviewModeration        = lazy(() => import('@/pages/admin/ReviewModeration').then((m) => ({ default: m.ReviewModeration })));
 
@@ -117,6 +119,7 @@ export default function App() {
       />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Authenticated app */}
@@ -330,6 +333,14 @@ export default function App() {
           element={
             <RequireRole roles={['admin']}>
               <Lazy><UsersPage /></Lazy>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="manage-access"
+          element={
+            <RequireRole roles={['admin']}>
+              <Lazy><ManageAccessPage /></Lazy>
             </RequireRole>
           }
         />

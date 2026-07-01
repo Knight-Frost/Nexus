@@ -12,9 +12,13 @@
 import { http, portalHttp } from './api';
 import { type Portal, getActivePortal } from './storage';
 import type {
+  AccessRolesMatrix,
+  AccessSummary,
   Admin,
+  AdminCapability,
   AdminDashboard,
   AdminReview,
+  AdminTeamMember,
   AdminUserDetail,
   AdminUserSummary,
   AdminVerificationDetail,
@@ -130,6 +134,17 @@ export const authApi = {
     password_confirmation: string;
   }): Promise<{ message: string }> {
     const { data } = await http.post<{ message: string }>('/reset-password', payload);
+    return data;
+  },
+
+  /** An invited admin sets their password and activates their account. */
+  async acceptAdminInvite(payload: {
+    token: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+  }): Promise<{ message: string }> {
+    const { data } = await http.post<{ message: string }>('/admin/accept-invite', payload);
     return data;
   },
 
@@ -806,6 +821,14 @@ export const adminApi = {
     const { data } = await portalHttp.admin.post(`/admin/users/${id}/activate`);
     return data;
   },
+  async blockUser(id: number, reason: string): Promise<{ message: string; user: AdminUserSummary }> {
+    const { data } = await portalHttp.admin.post(`/admin/users/${id}/block`, { reason });
+    return data;
+  },
+  async archiveUser(id: number, reason: string): Promise<{ message: string; user: AdminUserSummary }> {
+    const { data } = await portalHttp.admin.post(`/admin/users/${id}/archive`, { reason });
+    return data;
+  },
   async pendingListings(): Promise<Listing[]> {
     const { data } = await portalHttp.admin.get<Listing[]>('/admin/listings/pending');
     return data;
@@ -961,6 +984,84 @@ export const adminApi = {
       `/admin/reviews/${id}/moderate`,
       { action, reason: reason ?? null },
     );
+    return data;
+  },
+
+  /* ---- Access control (Manage Users & Permissions) --------------------- */
+  async accessSummary(): Promise<AccessSummary> {
+    const { data } = await portalHttp.admin.get<AccessSummary>('/admin/access/summary');
+    return data;
+  },
+  async accessRoles(): Promise<AccessRolesMatrix> {
+    const { data } = await portalHttp.admin.get<AccessRolesMatrix>('/admin/access/roles');
+    return data;
+  },
+  async accessMembers(params?: {
+    type?: UserType;
+    status?: 'active' | 'suspended' | 'blocked' | 'archived';
+    search?: string;
+    page?: number;
+  }): Promise<Paginated<AdminUserSummary>> {
+    const { data } = await portalHttp.admin.get<Paginated<AdminUserSummary>>(
+      '/admin/access/members',
+      { params },
+    );
+    return data;
+  },
+  async accessTeam(): Promise<AdminTeamMember[]> {
+    const { data } = await portalHttp.admin.get<{ data: AdminTeamMember[] }>('/admin/access/admins');
+    return data.data;
+  },
+  async inviteAdmin(payload: {
+    email: string;
+    name?: string;
+    capabilities?: AdminCapability[];
+    is_super_admin?: boolean;
+    note?: string;
+  }): Promise<{ message: string; admin: AdminTeamMember }> {
+    const { data } = await portalHttp.admin.post('/admin/access/admins', payload);
+    return data;
+  },
+  async resendAdminInvite(id: number): Promise<{ message: string }> {
+    const { data } = await portalHttp.admin.post(`/admin/access/admins/${id}/resend-invite`);
+    return data;
+  },
+  async revokeAdminInvite(id: number, reason: string): Promise<{ message: string }> {
+    const { data } = await portalHttp.admin.post(`/admin/access/admins/${id}/revoke-invite`, { reason });
+    return data;
+  },
+  async updateAdminCapabilities(
+    id: number,
+    capabilities: AdminCapability[],
+    reason: string,
+  ): Promise<{ message: string; admin: AdminTeamMember }> {
+    const { data } = await portalHttp.admin.patch(`/admin/access/admins/${id}/capabilities`, {
+      capabilities,
+      reason,
+    });
+    return data;
+  },
+  async promoteAdminToSuper(id: number, reason: string): Promise<{ message: string; admin: AdminTeamMember }> {
+    const { data } = await portalHttp.admin.post(`/admin/access/admins/${id}/promote-super`, { reason });
+    return data;
+  },
+  async demoteAdminFromSuper(
+    id: number,
+    reason: string,
+    capabilities: AdminCapability[] = [],
+  ): Promise<{ message: string; admin: AdminTeamMember }> {
+    const { data } = await portalHttp.admin.post(`/admin/access/admins/${id}/demote-super`, {
+      reason,
+      capabilities,
+    });
+    return data;
+  },
+  async deactivateAdmin(id: number, reason: string): Promise<{ message: string; admin: AdminTeamMember }> {
+    const { data } = await portalHttp.admin.post(`/admin/access/admins/${id}/deactivate`, { reason });
+    return data;
+  },
+  async activateAdmin(id: number): Promise<{ message: string; admin: AdminTeamMember }> {
+    const { data } = await portalHttp.admin.post(`/admin/access/admins/${id}/activate`);
     return data;
   },
 };

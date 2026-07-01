@@ -117,3 +117,67 @@ export function DrawerFooter({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+interface DetailDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  /** Small uppercase context label above the title (e.g. "LISTING", "TENANT"). */
+  eyebrow?: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  /** Slot under the title (e.g. a status badge or step indicator). */
+  accessory?: React.ReactNode;
+  /** Sticky footer — typically primary/secondary actions. */
+  footer?: React.ReactNode;
+  /** Override drawer width. Default ~620px; pass a wider class for galleries. */
+  widthClass?: string;
+  /** When false, outside-press won't dismiss (unsaved-changes guard). */
+  dismissibleOnOutside?: boolean;
+  children: React.ReactNode;
+}
+
+/**
+ * The one-call detail / edit / review panel — the premium replacement for the
+ * centered Modal on every NON-destructive workflow. Composes Drawer + header +
+ * scrollable body + sticky footer, so callers pass content and actions only.
+ * Focus-trap, Escape, scroll-lock and aria come from the underlying Radix Drawer.
+ */
+export function DetailDrawer({
+  open,
+  onClose,
+  eyebrow,
+  title,
+  description,
+  accessory,
+  footer,
+  widthClass,
+  dismissibleOnOutside = true,
+  children,
+}: DetailDrawerProps) {
+  return (
+    <Drawer
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      widthClass={widthClass}
+      dismissibleOnOutside={dismissibleOnOutside}
+    >
+      <DrawerHeader
+        onClose={onClose}
+        title={
+          <span className="block">
+            {eyebrow && (
+              <span className="mb-1 block font-sans text-xs font-semibold uppercase tracking-wider text-ink-500">
+                {eyebrow}
+              </span>
+            )}
+            {title}
+          </span>
+        }
+        description={description}
+        accessory={accessory}
+      />
+      <DrawerBody>{children}</DrawerBody>
+      {footer && <DrawerFooter>{footer}</DrawerFooter>}
+    </Drawer>
+  );
+}
