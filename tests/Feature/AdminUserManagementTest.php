@@ -253,15 +253,16 @@ class AdminUserManagementTest extends TestCase
     }
 
     /**
-     * Admin accounts cannot be deleted yet — this is a hard, model-level guard
-     * until super-admin RBAC arrives (Phase 4). No caller may delete an admin.
+     * Established admin accounts cannot be deleted — a hard, model-level guard.
+     * The one deliberate exception (an unaccepted pending invite) is covered by
+     * the access-control test suite.
      */
     public function test_admin_account_cannot_be_deleted(): void
     {
         $target = Admin::factory()->create();
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Admin accounts cannot be deleted yet');
+        $this->expectExceptionMessage('Established admin accounts cannot be deleted');
 
         $target->delete();
 
@@ -273,7 +274,7 @@ class AdminUserManagementTest extends TestCase
         $target = Admin::factory()->create();
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Admin accounts cannot be deleted yet');
+        $this->expectExceptionMessage('Admin accounts cannot be force-deleted');
 
         $target->forceDelete();
     }
