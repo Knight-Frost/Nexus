@@ -591,6 +591,7 @@ export interface TenantDashboard {
   rent_summary: {
     balance_cents: number;
     currency: string;
+    has_history: boolean;
     next_due: {
       id: string;
       amount_cents: number;

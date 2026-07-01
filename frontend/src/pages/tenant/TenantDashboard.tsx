@@ -324,10 +324,12 @@ function IndexStrip({
    ════════════════════════════════════════════════════════════════════════ */
 function PaymentSummaryRow({
   balanceCents,
+  hasHistory,
   nextDue,
   daysLeft,
 }: {
   balanceCents: number;
+  hasHistory: boolean;
   nextDue: {
     amount_cents: number;
     due_date: string | null;
@@ -341,8 +343,7 @@ function PaymentSummaryRow({
   const hasOverdue = daysLeft != null && daysLeft < 0 && balanceCents > 0;
   const balanceVariant = getPaymentBalanceVariant(balanceCents, hasOverdue);
   const nextDueVariant = getNextDueVariant(daysLeft);
-  // hasData: we have at least a rent_summary, so there is ledger data
-  const healthVariant = getPaymentHealthVariant(hasOverdue, nextDue !== null || balanceCents >= 0);
+  const healthVariant = getPaymentHealthVariant(hasOverdue, hasHistory);
 
   const balanceSub =
     balanceCents <= 0
@@ -362,7 +363,7 @@ function PaymentSummaryRow({
     : 'No upcoming entry';
 
   const healthLabel =
-    !nextDue
+    !hasHistory
       ? 'No ledger data yet'
       : hasOverdue
         ? 'Overdue'
@@ -394,7 +395,7 @@ function PaymentSummaryRow({
       <StatusCard
         label="Payment standing"
         value={healthLabel}
-        sub={nextDue ? `Based on ledger activity` : 'No payments recorded yet'}
+        sub={hasHistory ? `Based on ledger activity` : 'No payments recorded yet'}
         icon={<IconShield size={18} />}
         role={healthVariant}
       />
@@ -895,6 +896,7 @@ export function TenantDashboard() {
         <motion.div variants={fadeRise} initial="hidden" animate="show">
           <PaymentSummaryRow
             balanceCents={rent_summary.balance_cents}
+            hasHistory={rent_summary.has_history}
             nextDue={nextDue}
             daysLeft={daysLeft}
           />

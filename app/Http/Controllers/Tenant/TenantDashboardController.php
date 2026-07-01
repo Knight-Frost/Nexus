@@ -53,6 +53,11 @@ class TenantDashboardController extends Controller
             $rentSummary = [
                 'balance_cents' => (int) $unpaid->sum('amount_cents'),
                 'currency' => $activeContract->currency,
+                // Whether ANY ledger entry exists for this tenant (paid or
+                // unpaid) — distinct from next_due, which only reflects
+                // unpaid entries and is legitimately null for a paid-up
+                // tenant with real history.
+                'has_history' => LedgerEntry::where('tenant_id', $uid)->exists(),
                 'next_due' => $nextDue ? [
                     'id' => $nextDue->id,
                     'amount_cents' => (int) $nextDue->amount_cents,
