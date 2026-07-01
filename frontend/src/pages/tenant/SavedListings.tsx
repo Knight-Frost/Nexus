@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
-  Search, Bookmark, ArrowLeftRight, Trash2, ChevronDown,
+  Search, Bookmark, ArrowLeftRight, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, List as ListIcon, CircleCheck, Clock, Heart, MapPin,
-  BedDouble, Bath, Maximize2, Building2, ShieldCheck, ArrowRight, X, Check,
+  BedDouble, Bath, Maximize2, Building2, ShieldCheck, ArrowRight, X, Check, Scale,
 } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { tenantApi } from '@/lib/endpoints';
@@ -119,6 +119,90 @@ function SavedCard({ listing, index, selected, onSelect, onRemove }: {
   );
 }
 
+/* ---- empty state (rich) -------------------------------------------------- */
+const SAVE_BENEFITS = [
+  { icon: Scale, title: 'Compare listings', desc: 'Line up your favorites to find the right fit.' },
+  { icon: Bookmark, title: 'Track your favorites', desc: "Keep a shortlist of homes you don't want to lose." },
+  { icon: ShieldCheck, title: 'Revisit with confidence', desc: 'All saved homes are verified and up to date.' },
+];
+
+/** Soft line-art house scene with a heart badge — the empty-state centerpiece. */
+function SavedEmptyArt() {
+  return (
+    <div className="sv-empty-art" aria-hidden="true">
+      <svg viewBox="0 0 320 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* halo blob behind the scene */}
+        <ellipse cx="160" cy="96" rx="128" ry="84" className="sv-art-halo" />
+        {/* sparkles */}
+        <path className="sv-art-spark" d="M58 44l3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8z" />
+        <path className="sv-art-spark" d="M268 56l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6z" />
+        <path className="sv-art-spark" d="M250 118l1.6 4.6 4.6 1.6-4.6 1.6-1.6 4.6-1.6-4.6-4.6-1.6 4.6-1.6 1.6-4.6z" />
+        {/* tree */}
+        <circle cx="78" cy="86" r="26" className="sv-art-line sv-art-fill" />
+        <path className="sv-art-line" d="M78 112v26" />
+        {/* back house */}
+        <g className="sv-art-line">
+          <path d="M186 150V92l30-22 30 22v58" className="sv-art-fill" />
+          <path d="M178 96l38-28 38 28" />
+          <rect x="208" y="108" width="16" height="16" rx="1.5" />
+        </g>
+        {/* front house */}
+        <g className="sv-art-line">
+          <path d="M104 152V86l40-30 40 30v66" className="sv-art-fill-strong" />
+          <path d="M96 92l48-36 48 36" />
+          <rect x="118" y="104" width="18" height="18" rx="2" />
+          <rect x="152" y="104" width="18" height="18" rx="2" />
+          <path d="M132 152v-20h24v20" />
+        </g>
+        {/* ground line */}
+        <path className="sv-art-line" d="M40 152h240" />
+      </svg>
+      <span className="sv-empty-heart"><Heart size={30} fill="currentColor" strokeWidth={0} /></span>
+    </div>
+  );
+}
+
+function SavedEmpty() {
+  return (
+    <>
+      <div className="sv-empty">
+        <SavedEmptyArt />
+        <h2 className="sv-empty-title">No saved homes yet</h2>
+        <p className="sv-empty-desc">
+          Save homes you love and they’ll appear here.<br />
+          It’s the easiest way to keep track of your favorites.
+        </p>
+        <Link to="/app/browse" className="sv-btn-primary sv-empty-cta">
+          <Search size={18} /> Browse homes
+        </Link>
+
+        <div className="sv-empty-rule"><span>Why save homes?</span></div>
+
+        <ul className="sv-empty-benefits">
+          {SAVE_BENEFITS.map(({ icon: Icon, title, desc }) => (
+            <li key={title} className="sv-benefit">
+              <span className="sv-benefit-ic"><Icon size={20} /></span>
+              <div>
+                <p className="sv-benefit-title">{title}</p>
+                <p className="sv-benefit-desc">{desc}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <Link to="/app/verification" className="sv-empty-note">
+        <ShieldCheck size={18} />
+        <span>
+          Only verified homes you’re allowed to apply for can be saved.{' '}
+          <strong>Learn more</strong>
+        </span>
+        <ChevronRight size={18} className="sv-empty-note-chev" />
+      </Link>
+    </>
+  );
+}
+
 /* ========================================================================== */
 export function SavedListings() {
   const navigate = useNavigate();
@@ -178,7 +262,7 @@ export function SavedListings() {
           title="Saved Homes"
           description="Homes you've bookmarked to compare, revisit, and apply when you're ready."
           action={
-            <Link to="/app/browse" className="sv-btn-primary"><Search size={16} /> Browse more</Link>
+            <Link to="/app/browse" className="sv-btn-primary"><Search size={16} /> Browse homes</Link>
           }
         />
       </div>
@@ -194,14 +278,7 @@ export function SavedListings() {
           onRetry={reload}
         />
       ) : all.length === 0 ? (
-        <EmptyState
-          icon={<Heart size={28} />}
-          title="No saved homes yet"
-          description="Tap the heart on any verified listing to keep it here for easy comparison."
-          action={
-            <Link to="/app/browse" className="sv-btn-primary"><Search size={16} /> Browse homes</Link>
-          }
-        />
+        <SavedEmpty />
       ) : (
         <>
           {/* summary banner */}

@@ -131,7 +131,7 @@ function DashHero({
     ],
     apps_in_progress: [
       'Your applications are in progress.',
-      'Keep your documents ready — decisions come fast.',
+      'Keep your documents ready. Decisions come fast.',
       'Check the status of each application below.',
     ],
     active_lease: [
@@ -346,9 +346,9 @@ function PaymentSummaryRow({
 
   const balanceSub =
     balanceCents <= 0
-      ? 'All clear — nothing owed'
+      ? 'All clear, nothing owed'
       : hasOverdue
-        ? 'Rent is overdue — action needed'
+        ? 'Rent is overdue. Take action now.'
         : `Balance outstanding`;
 
   const nextDueSub = nextDue?.due_date
@@ -838,7 +838,7 @@ export function TenantDashboard() {
         <div className="td-panel" style={{ padding: '4rem 2rem', textAlign: 'center' }}>
           <ErrorState
             title="Could not load your dashboard"
-            message="Your data is safe — please try again."
+            message="Your data is safe. Please try again."
             onRetry={dash.reload}
           />
         </div>

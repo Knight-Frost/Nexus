@@ -426,7 +426,7 @@ export function ApplicationsPage() {
               {activeCount} active application{activeCount === 1 ? '' : 's'}
             </p>
             <p className="ap2-active-sub">
-              Track each stage below — you'll be notified when your status changes.
+              Track each stage below. You'll be notified when your status changes.
             </p>
           </div>
           <div className="ap2-stages-legend" aria-hidden="true">

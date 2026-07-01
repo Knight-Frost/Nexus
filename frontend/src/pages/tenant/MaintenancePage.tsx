@@ -52,10 +52,10 @@ const CATEGORY_OPTIONS: { value: MaintenanceCategory; label: string }[] = [
 ];
 
 const PRIORITY_OPTIONS: { value: MaintenancePriority; label: string }[] = [
-  { value: 'low',    label: 'Low — not urgent' },
-  { value: 'medium', label: 'Medium — needs attention soon' },
-  { value: 'high',   label: 'High — causing inconvenience' },
-  { value: 'urgent', label: 'Urgent — safety or habitability concern' },
+  { value: 'low',    label: 'Low priority (not urgent)' },
+  { value: 'medium', label: 'Medium priority (needs attention soon)' },
+  { value: 'high',   label: 'High priority (causing inconvenience)' },
+  { value: 'urgent', label: 'Urgent (safety or habitability concern)' },
 ];
 
 const TIPS = [
@@ -284,7 +284,7 @@ function CreateRequestForm({
               id="mn-description"
               name="description"
               className={`mn-textarea${errors.description ? ' mn-input--err' : ''}`}
-              placeholder="Describe the issue in detail — when it started, where it is, how severe it is."
+              placeholder="Describe the issue: when it started, where it is, and how severe it is."
               rows={4}
               value={form.description}
               onChange={handleChange}
@@ -640,7 +640,7 @@ export function MaintenancePage() {
 
         <NexusCard role="neutral" className="mn-info-card">
           <div className="mn-info-head"><HelpCircle size={18} /> Need help?</div>
-          <p className="mn-help-text">Our support team is here to help you with any questions — from billing to repairs.</p>
+          <p className="mn-help-text">Our support team can help with billing, repairs, and anything else you need.</p>
           <button className="mn-help-btn" onClick={() => navigate('/app/messages')}>
             <MessageCircle size={16} /> Contact support
           </button>

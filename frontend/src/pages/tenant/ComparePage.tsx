@@ -583,7 +583,7 @@ export function ComparePage() {
                   <p className="cmp-best-reason">
                     {`This listing has the lowest rent among the ${selectedListings.length} you're comparing`}
                     {selectedListings[lowestRentIdx].unit
-                      ? ` — ${formatCedisDecimal(selectedListings[lowestRentIdx].unit!.rent_amount)} /mo.`
+                      ? `, at ${formatCedisDecimal(selectedListings[lowestRentIdx].unit!.rent_amount)} /mo.`
                       : '.'}
                   </p>
                   <div className="cmp-best-chips">

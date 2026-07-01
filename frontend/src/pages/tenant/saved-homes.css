@@ -5,7 +5,9 @@
 .sv-page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; color: var(--color-ink-700); }
 
 /* header */
-.sv-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+/* block so the SectionHeader spans full width and its internal justify-between
+   carries the action button to the far-right edge */
+.sv-header { display: block; }
 .sv-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--color-brand-700); }
 .sv-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(26px, 2.6vw, 34px); line-height: 1.1; letter-spacing: -.02em; color: var(--color-ink-950); margin: 6px 0 0; }
 .sv-sub { font-size: 15px; color: var(--color-ink-500); margin: 10px 0 0; max-width: 64ch; }
@@ -18,6 +20,52 @@
 .sv-btn-ghost:hover { border-color: var(--color-ink-900); background: var(--color-ink-50); }
 .sv-btn-ghost.danger { color: var(--color-brand-700); border-color: var(--color-brand-200); }
 .sv-btn-ghost.danger:hover { background: var(--color-brand-50); border-color: var(--color-brand-300); }
+
+/* ── rich empty state ──────────────────────────────────────────────────────
+   Shown when the tenant has zero saved homes. Illustration + value-props +
+   verification notice. All blue tones come from --color-brand-* so the empty
+   state inherits the accent picker and dark palette automatically. */
+.sv-empty { background: var(--color-surface); border: 1px solid var(--color-ink-200); border-radius: var(--radius-2xl); box-shadow: var(--shadow-sm); padding: 56px 32px 48px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+
+/* illustration */
+.sv-empty-art { position: relative; width: 320px; max-width: 100%; margin-bottom: 4px; }
+.sv-empty-art svg { width: 100%; height: auto; display: block; }
+.sv-art-halo { fill: var(--color-brand-50); opacity: .6; }
+.sv-art-line { stroke: var(--color-brand-600); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .42; }
+.sv-art-fill { fill: var(--color-brand-50); opacity: .5; }
+.sv-art-fill-strong { fill: var(--color-brand-50); opacity: .8; }
+.sv-art-spark { fill: var(--color-brand-600); opacity: .5; }
+.sv-empty-heart { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); width: 64px; height: 64px; border-radius: 50%; background: var(--color-surface); box-shadow: 0 6px 18px rgba(29, 78, 216, .18); display: grid; place-items: center; color: var(--color-brand-600); }
+
+.sv-empty-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(24px, 2.4vw, 30px); letter-spacing: -.02em; color: var(--color-ink-950); margin: 22px 0 0; }
+.sv-empty-desc { font-size: 15.5px; line-height: 1.65; color: var(--color-ink-500); margin: 12px 0 0; max-width: 46ch; }
+.sv-empty-cta { margin-top: 26px; padding: 14px 28px; font-size: 15px; }
+
+/* "why save homes?" rule */
+.sv-empty-rule { width: min(720px, 100%); display: flex; align-items: center; gap: 16px; margin: 40px 0 28px; color: var(--color-ink-400); }
+.sv-empty-rule::before, .sv-empty-rule::after { content: ''; flex: 1; height: 1px; background: var(--color-ink-200); }
+.sv-empty-rule span { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+
+/* value props */
+.sv-empty-benefits { list-style: none; padding: 0; margin: 0; width: min(820px, 100%); display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px 28px; }
+.sv-benefit { display: flex; align-items: flex-start; gap: 14px; text-align: left; }
+.sv-benefit-ic { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--color-brand-50); color: var(--color-brand-600); display: grid; place-items: center; }
+.sv-benefit-title { font-size: 14.5px; font-weight: 600; color: var(--color-ink-900); margin: 2px 0 0; }
+.sv-benefit-desc { font-size: 13.5px; line-height: 1.5; color: var(--color-ink-500); margin: 4px 0 0; }
+
+/* verification notice strip (below the card) */
+.sv-empty-note { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-radius: var(--radius-2xl); border: 1px solid var(--color-ink-200); background: var(--color-ink-50); color: var(--color-ink-600); font-size: 14px; text-decoration: none; transition: .15s; }
+.sv-empty-note:hover { border-color: var(--color-ink-300); background: var(--color-surface); }
+.sv-empty-note > svg:first-child { flex-shrink: 0; color: var(--color-ink-500); }
+.sv-empty-note strong { color: var(--color-brand-700); font-weight: 600; }
+.sv-empty-note-chev { margin-left: auto; flex-shrink: 0; color: var(--color-ink-400); transition: transform .2s; }
+.sv-empty-note:hover .sv-empty-note-chev { transform: translateX(3px); }
+
+@media (max-width: 720px) {
+  .sv-empty { padding: 40px 22px 36px; }
+  .sv-empty-benefits { grid-template-columns: 1fr; gap: 18px; max-width: 360px; }
+  .sv-empty-rule { margin: 32px 0 24px; }
+}
 
 /* ── summary banner ──────────────────────────────────────────────────────── */
 .sv-banner { display: flex; align-items: stretch; background: var(--color-surface); border: 1px solid var(--color-ink-200); border-radius: var(--radius-2xl); overflow: hidden; box-shadow: var(--shadow-sm); }

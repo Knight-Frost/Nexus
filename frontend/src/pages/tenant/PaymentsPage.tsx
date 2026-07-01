@@ -15,6 +15,7 @@ import {
   SkeletonCard,
 } from '@/components/ui/states';
 import { Button } from '@/components/ui/Button';
+import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/ResponsiveTable';
 import {
   CommandCard,
   StatusCard,
@@ -44,7 +45,7 @@ import './payments.css';
 
 function entryLabel(type: LedgerType, periodStart: string | null): string {
   switch (type) {
-    case 'rent':     return 'Rent' + (periodStart ? ` – ${formatMonthYear(periodStart)}` : '');
+    case 'rent':     return 'Rent' + (periodStart ? ` for ${formatMonthYear(periodStart)}` : '');
     case 'late_fee': return 'Late fee';
     case 'payment':  return 'Payment received';
     case 'refund':   return 'Refund';
@@ -204,6 +205,73 @@ export function PaymentsPage() {
     );
   }
 
+  /* ---- Ledger columns (1:1 with the old table) ---------------------------- */
+
+  const columns: ResponsiveColumn<LedgerEntry>[] = [
+    {
+      key: 'desc',
+      header: 'Payment',
+      primary: true,
+      cell: (entry) => entryLabel(entry.type, entry.billing_period_start),
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      cell: (entry) => formatDate(entry.created_at),
+    },
+    {
+      key: 'period',
+      header: 'Period',
+      hideBelow: 'lg',
+      cell: (entry) =>
+        entry.billing_period_start && entry.billing_period_end
+          ? `${formatDate(entry.billing_period_start)} to ${formatDate(entry.billing_period_end)}`
+          : '—',
+    },
+    {
+      key: 'method',
+      header: 'Method',
+      hideBelow: 'xl',
+      cell: (entry) =>
+        entry.stripe_payment_intent_id ? (
+          <span className="pm2-method">
+            <span className="pm2-card-chip" aria-hidden="true">💳</span>
+            Card
+          </span>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      align: 'right',
+      cell: (entry) => (
+        <SemanticBadge role={getLedgerVariant(entry.status)} status={entry.status} />
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      align: 'right',
+      cell: (entry) => {
+        const isCredit = entry.type === 'payment' || entry.type === 'refund';
+        return (
+          <span className={`font-mono tabular-nums${isCredit ? ' credit' : ''}`}>
+            {isCredit ? '−' : ''}
+            {formatCents(entry.amount_cents)}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right',
+      cell: (entry) => <PayButton entry={entry} payState={payState} onPay={handlePay} />,
+    },
+  ];
+
   /* ---- Render -------------------------------------------------------------- */
 
   return (
@@ -221,7 +289,7 @@ export function PaymentsPage() {
             value={formatCents(outstandingCents)}
             sub={
               outstandingCents <= 0
-                ? 'All clear — nothing owed'
+                ? 'All clear, nothing owed'
                 : hasOverdue
                   ? 'Overdue charges present'
                   : 'Amount currently due'
@@ -314,8 +382,7 @@ export function PaymentsPage() {
             {isPayable(nextDue) && (
               payState?.entryId === nextDue.id && payState.done ? (
                 <p className="pm2-next-initiated">
-                  Payment initiated. In-app card checkout is not yet available — your
-                  landlord will confirm receipt once payment completes.
+                  Payment initiated. Your landlord will confirm receipt once the payment goes through. In-app card checkout is coming soon.
                 </p>
               ) : (
                 <button
@@ -367,69 +434,26 @@ export function PaymentsPage() {
           </span>
         }
       >
-        <NexusCard role="neutral" className="pm2-ledger-card">
-          {ledgerQ.loading ? (
+        {ledgerQ.loading ? (
+          <NexusCard role="neutral" className="pm2-ledger-card">
             <LoadingState label="Loading ledger…" />
-          ) : filteredEntries.length === 0 ? (
+          </NexusCard>
+        ) : filteredEntries.length === 0 ? (
+          <NexusCard role="neutral" className="pm2-ledger-card">
             <EmptyState
               icon={<IconWallet size={26} />}
               title="No payments yet"
               description="Once you have an active lease, your rent schedule and history appear here."
             />
-          ) : (
-            <div className="pm2-table-wrap">
-              <table className="pm2-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Date</th>
-                    <th scope="col">Description</th>
-                    <th scope="col" className="pm2-hide-sm">Period</th>
-                    <th scope="col" className="pm2-hide-md">Method</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" className="r">Amount</th>
-                    <th scope="col" aria-label="Actions"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEntries.map((entry) => {
-                    const isCredit = entry.type === 'payment' || entry.type === 'refund';
-                    const entryRole = getLedgerVariant(entry.status);
-                    return (
-                      <tr key={entry.id}>
-                        <td className="pm2-date">{formatDate(entry.created_at)}</td>
-                        <td className="pm2-desc">
-                          {entryLabel(entry.type, entry.billing_period_start)}
-                        </td>
-                        <td className="pm2-period pm2-hide-sm">
-                          {entry.billing_period_start && entry.billing_period_end
-                            ? `${formatDate(entry.billing_period_start)} – ${formatDate(entry.billing_period_end)}`
-                            : '—'}
-                        </td>
-                        <td className="pm2-hide-md">
-                          {entry.stripe_payment_intent_id ? (
-                            <span className="pm2-method">
-                              <span className="pm2-card-chip" aria-hidden="true">💳</span>
-                              Card
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td>
-                          <SemanticBadge role={entryRole} status={entry.status} />
-                        </td>
-                        <td className={`r pm2-amount${isCredit ? ' credit' : ''}`}>
-                          {isCredit ? '–' : ''}{formatCents(entry.amount_cents)}
-                        </td>
-                        <td className="pm2-action-col">
-                          <PayButton entry={entry} payState={payState} onPay={handlePay} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </NexusCard>
+          </NexusCard>
+        ) : (
+          <ResponsiveTable
+            columns={columns}
+            rows={filteredEntries}
+            keyFn={(entry) => entry.id}
+            caption="Payment ledger"
+          />
+        )}
       </DashboardSection>
     </div>
   );

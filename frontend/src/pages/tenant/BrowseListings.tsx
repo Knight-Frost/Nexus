@@ -15,13 +15,16 @@ import {
   SectionHeader,
 } from '@/components/cards';
 import { ErrorState, EmptyState, Skeleton } from '@/components/ui/states';
+import { Avatar } from '@/components/ui/Avatar';
 import type { Listing, TenantProfileResponse } from '@/lib/types';
 import './browse-listings.css';
 
-import fb1 from '@/assets/dashboard/home-2.jpg';
-import fb2 from '@/assets/dashboard/home-5.jpg';
-import fb3 from '@/assets/dashboard/home-7.jpg';
-const FALLBACKS = [fb1, fb2, fb3];
+/** Stable abstract hue seeded from the listing id + title — no fake photos. */
+function listingHue(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) & 0xffff;
+  return 190 + (hash % 50); // cool blue-teal range that fits the Wyncrest palette
+}
 
 /* ---- filters ------------------------------------------------------------- */
 interface Filters {
@@ -57,8 +60,8 @@ const TYPE_LABEL: Record<string, string> = {
 const typeLabel = (t?: string) => (t ? TYPE_LABEL[t] ?? t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Home');
 const rent = (l: Listing) => l.unit?.rent_amount ?? null;
 const beds = (l: Listing) => (l.unit?.bedrooms ? parseInt(l.unit.bedrooms, 10) : 0);
-const imgFor = (l: Listing, i: number) =>
-  l.primary_photo?.path ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}` : FALLBACKS[i % FALLBACKS.length];
+const realPhotoSrc = (l: Listing) =>
+  l.primary_photo?.path ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${l.primary_photo.path}` : null;
 
 /** Returns true when the listing is available now (no future available_from date). */
 function isAvailableNow(l: Listing): boolean {
@@ -98,9 +101,8 @@ function WeatherChip({ city }: { city: string }) {
 }
 
 /* ---- card ---------------------------------------------------------------- */
-function PropertyCard({ listing, index, saved, onToggle }: {
+function PropertyCard({ listing, saved, onToggle }: {
   listing: Listing;
-  index: number;
   saved: boolean;
   onToggle: (id: number, next: boolean) => void;
 }) {
@@ -109,6 +111,8 @@ function PropertyCard({ listing, index, saved, onToggle }: {
   const availableNow = isAvailableNow(listing);
   const loc = prop ? `${prop.city}${prop.state ? `, ${prop.state}` : ''}` : '—';
   const rentDisplay = rent(listing);
+  const photoSrc = realPhotoSrc(listing);
+  const hue = listingHue(`${listing.id}${listing.title}`);
 
   const toggle = async (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -123,8 +127,24 @@ function PropertyCard({ listing, index, saved, onToggle }: {
   return (
     <Link to={`/app/listing/${listing.id}`} className="bz-card">
       <div className="bz-card-img">
-        <img src={imgFor(listing, index)} alt={listing.title} loading="lazy"
-          onError={(e) => { (e.currentTarget as HTMLImageElement).src = FALLBACKS[index % FALLBACKS.length]; }} />
+        {photoSrc ? (
+          <img src={photoSrc} alt={listing.title} loading="lazy" />
+        ) : (
+          <div
+            aria-hidden="true"
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: `linear-gradient(135deg, hsl(${hue} 28% 92%), hsl(${hue} 22% 84%))`,
+              color: `hsl(${hue} 30% 52%)`,
+            }}
+          >
+            <Building2 size={40} strokeWidth={1.25} />
+          </div>
+        )}
         <span className="bz-verified"><ShieldCheck size={14} /> Verified</span>
         <button className={`bz-heart${saved ? ' on' : ''}`} onClick={toggle} aria-label={saved ? 'Remove from saved' : 'Save listing'}>
           <Heart size={16} fill={saved ? 'currentColor' : 'none'} />
@@ -213,11 +233,21 @@ export function BrowseListings() {
 
   const { data: unread } = useApi(() => notificationApi.unreadCount(), []);
   const name = user && 'full_name' in user ? user.full_name : 'You';
-  const initials = name.split(' ').map((p: string) => p[0]).slice(0, 2).join('').toUpperCase();
+  const avatarUrl = (user && 'avatar_url' in user ? user.avatar_url : null) ?? profileData?.user.avatar_url ?? null;
 
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setDraft((p) => ({ ...p, [k]: v }));
   const apply = () => { setApplied(draft); setAppliedQuery(query); setPage(1); };
   const clear = () => { setDraft(EMPTY); setApplied(EMPTY); setQuery(''); setAppliedQuery(''); setPage(1); };
+
+  // Whether the tenant has narrowed the results at all — distinguishes "no homes
+  // match your filters" from "the platform has no listings yet" (a clean,
+  // intentional empty state on a brand-new product).
+  const hasActiveFilters =
+    appliedQuery.trim() !== '' ||
+    applied.verified_only ||
+    (Object.keys(EMPTY) as (keyof Filters)[]).some(
+      (k) => k !== 'verified_only' && applied[k] !== EMPTY[k],
+    );
 
   const lastPage = data?.last_page ?? 1;
 
@@ -259,7 +289,7 @@ export function BrowseListings() {
         </Link>
         <Link to="/app/messages" className="bz-tb-btn" aria-label="Messages"><Mail size={18} /></Link>
         <Link to="/app/profile" className="bz-avatar" aria-label="Profile">
-          <span className="bz-avatar-circle">{initials}</span>
+          <Avatar name={name} src={avatarUrl} className="bz-avatar-circle" />
           <ChevronDown size={15} />
         </Link>
       </div>
@@ -379,19 +409,27 @@ export function BrowseListings() {
           onRetry={reload}
         />
       ) : listings.length === 0 ? (
-        <EmptyState
-          icon={<Search size={28} />}
-          title="No homes match your search"
-          description="Try widening your filters or clearing the search."
-          action={
-            <button className="bz-btn-ghost" onClick={clear}>Clear filters</button>
-          }
-        />
+        hasActiveFilters ? (
+          <EmptyState
+            icon={<Search size={28} />}
+            title="No homes match your search"
+            description="Try widening your filters or clearing the search."
+            action={
+              <button className="bz-btn-ghost" onClick={clear}>Clear filters</button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={<Building2 size={28} />}
+            title="No homes are listed yet"
+            description="There are no published listings on Wyncrest right now. New homes will appear here as landlords publish them."
+          />
+        )
       ) : (
         <>
           <div className={`bz-grid${view === 'list' ? ' is-list' : ''}`}>
-            {listings.map((l, i) => (
-              <PropertyCard key={l.id} listing={l} index={i} saved={savedMap.get(l.id) ?? false} onToggle={onToggleSave} />
+            {listings.map((l) => (
+              <PropertyCard key={l.id} listing={l} saved={savedMap.get(l.id) ?? false} onToggle={onToggleSave} />
             ))}
           </div>
 

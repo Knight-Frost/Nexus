@@ -42,7 +42,7 @@ const STATUS_COPY: Record<
     label: 'Not submitted',
     role: 'neutral',
     headline: 'Get verified to unlock the full platform',
-    sub: 'Upload a government-issued identity document, then submit your request. Admin review usually takes 1–2 business days.',
+    sub: 'Upload a government-issued identity document, then submit your request. Admin review usually takes one to two business days.',
   },
   pending: {
     label: 'Pending',
@@ -60,7 +60,7 @@ const STATUS_COPY: Record<
     label: 'Verified',
     role: 'success',
     headline: 'Your identity is verified',
-    sub: 'You have full access to the Nexus platform.',
+    sub: 'You have full access to the Wyncrest platform.',
   },
   rejected: {
     label: 'Rejected',
@@ -263,7 +263,7 @@ function SubmitSection({
     setSubmitting(true);
     try {
       await tenantApi.submitVerification(note || undefined);
-      toast('Verification request submitted — pending review.', 'success');
+      toast('Verification request submitted. We\'ll notify you once the review is complete.', 'success');
       onSubmitted();
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Could not submit. Please try again.';
@@ -383,7 +383,7 @@ export function VerificationCenter() {
 
           {showPendingNote && (
             <div className="vc-pending-notice">
-              Your request is in the queue — no action needed right now.
+              Your request is in the queue. No action needed right now.
               We'll notify you when the review is complete.
             </div>
           )}
