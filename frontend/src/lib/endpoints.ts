@@ -181,6 +181,30 @@ export const authApi = {
     const { data } = await http.post<{ message: string }>('/email/verify', payload);
     return data;
   },
+
+  /**
+   * (Authenticated) Change the current account's password. Works for any role
+   * (admin/landlord/tenant) — routed through the active portal's client.
+   * Succeeding revokes all OTHER sessions (the current one is kept), reported
+   * back as `revoked_other_sessions`. 422 returns field errors keyed
+   * `current_password` and/or `password`.
+   */
+  async changePassword(
+    portal: Portal,
+    currentPassword: string,
+    password: string,
+    passwordConfirmation: string,
+  ): Promise<{ message: string; revoked_other_sessions: number }> {
+    const { data } = await portalHttp[portal].post<{
+      message: string;
+      revoked_other_sessions: number;
+    }>('/user/password', {
+      current_password: currentPassword,
+      password,
+      password_confirmation: passwordConfirmation,
+    });
+    return data;
+  },
 };
 
 /* ======================= Public listings ================================ */

@@ -5,9 +5,11 @@ import { useTheme, type ThemeChoice } from '@/context/theme';
 import { useAccent } from '@/context/accent';
 import { ACCENTS, DEFAULT_ACCENT_KEY } from '@/config/accents';
 import { DARK_THEMES } from '@/config/darkThemes';
-import { useAuth } from '@/context/auth';
+import { useAuth, type Portal } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
-import { notificationApi } from '@/lib/endpoints';
+import { authApi, notificationApi } from '@/lib/endpoints';
+import { fieldErrors } from '@/lib/api';
+import type { ApiError } from '@/lib/types';
 import { LoadingState, ErrorState } from '@/components/ui/states';
 import { formatDate } from '@/lib/format';
 import { SemanticBadge } from '@/components/cards';
@@ -252,10 +254,127 @@ function AccentPicker() {
   );
 }
 
+/* ── Change-password form (real POST /user/password, all roles) ──────────────
+   Succeeding revokes every OTHER session (the current one is kept); we surface
+   `revoked_other_sessions` so the message is truthful. 422 field errors are
+   shown inline against `current_password` / `password`. */
+function ChangePasswordForm({ portal }: { portal: Portal }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setErrors({});
+    setFormError(null);
+    setSuccess(null);
+    try {
+      const res = await authApi.changePassword(portal, current, next, confirm);
+      const revoked = res.revoked_other_sessions;
+      setSuccess(
+        revoked > 0
+          ? `Password updated. ${revoked} other ${
+              revoked === 1 ? 'session was' : 'sessions were'
+            } signed out — this device stays signed in.`
+          : 'Password updated. No other sessions were signed out.',
+      );
+      setCurrent('');
+      setNext('');
+      setConfirm('');
+    } catch (err) {
+      const apiErr = err as ApiError;
+      const fields = fieldErrors(apiErr);
+      setErrors(fields);
+      if (Object.keys(fields).length === 0)
+        setFormError(apiErr.message ?? 'Could not update your password. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="ac-pw-form" onSubmit={onSubmit} noValidate>
+      <div className="ac-pw-field">
+        <label className="ac-field-lab" htmlFor="cp-current">
+          Current password
+        </label>
+        <input
+          id="cp-current"
+          className="ac-modal-input"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          aria-invalid={!!errors.current_password}
+          style={{ marginBottom: errors.current_password ? 4 : 0 }}
+        />
+        {errors.current_password && <span className="ac-err">{errors.current_password}</span>}
+      </div>
+      <div className="ac-pw-field">
+        <label className="ac-field-lab" htmlFor="cp-next">
+          New password
+        </label>
+        <input
+          id="cp-next"
+          className="ac-modal-input"
+          type="password"
+          autoComplete="new-password"
+          value={next}
+          onChange={(e) => setNext(e.target.value)}
+          aria-invalid={!!errors.password}
+          style={{ marginBottom: errors.password ? 4 : 0 }}
+        />
+        {errors.password && <span className="ac-err">{errors.password}</span>}
+      </div>
+      <div className="ac-pw-field">
+        <label className="ac-field-lab" htmlFor="cp-confirm">
+          Confirm new password
+        </label>
+        <input
+          id="cp-confirm"
+          className="ac-modal-input"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          style={{ marginBottom: 0 }}
+        />
+      </div>
+
+      {formError && (
+        <div className="ac-err" role="alert" style={{ marginTop: 4 }}>
+          {formError}
+        </div>
+      )}
+      {success && (
+        <div className="ac-ok" role="status" style={{ marginTop: 4 }}>
+          {success}
+        </div>
+      )}
+
+      <div style={{ marginTop: 4 }}>
+        <button
+          type="submit"
+          className="ac-btn ac-btn-primary ac-btn-sm"
+          disabled={submitting || !current || !next || !confirm}
+        >
+          {submitting ? 'Updating…' : 'Update password'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /* ── page ────────────────────────────────────────────────────────────────── */
 export function SettingsPage() {
   const { choice, setChoice } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, portal, logout } = useAuth();
 
   /* Notification preferences — loaded from and saved to the real backend
      (GET/PUT /api/notification-preferences), per notification type. */
@@ -515,22 +634,29 @@ export function SettingsPage() {
                 </div>
               </div>
               <div className="ac-sec-r">
-                {/* Password change — real action (contact support flow for now) */}
-                <div className="ac-row">
+                {/* Password change — real POST /user/password (all roles). Changing
+                    it signs out every other session; we say so with the real count. */}
+                <div className="ac-row ac-row-block">
                   <div className="ac-row-main">
                     <div className="ac-row-name">Change password</div>
-                    <div className="ac-row-desc">Update your password regularly</div>
+                    <div className="ac-row-desc">
+                      Updating your password signs out all your other devices.
+                    </div>
                   </div>
-                  <Link to="/app/messages" className="ac-btn ac-btn-ghost ac-btn-sm">
-                    Request via support
-                  </Link>
                 </div>
+                {portal ? (
+                  <ChangePasswordForm portal={portal} />
+                ) : (
+                  <p className="ac-accent-note" style={{ marginTop: 0 }}>
+                    Your session is still loading — please try again in a moment.
+                  </p>
+                )}
 
                 {/* 2FA — not implemented yet; truthfully say so */}
                 <div className="ac-row">
                   <div className="ac-row-main">
                     <div className="ac-row-name">Two-step verification</div>
-                    <div className="ac-row-desc">Not available yet — coming soon</div>
+                    <div className="ac-row-desc">Not available yet.</div>
                   </div>
                   <SemanticBadge role="neutral">Not available</SemanticBadge>
                 </div>
