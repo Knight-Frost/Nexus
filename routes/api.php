@@ -80,6 +80,7 @@ use App\Http\Controllers\Tenant\TenantProfileController;
 // MEDIA CONTROLLER - Phase 3 (media storage)
 // ============================================================================
 use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\WeatherController;
 // ============================================================================
 // VERIFICATION CONTROLLER - Phase 4 (verification lifecycle)
 // ============================================================================
@@ -465,6 +466,13 @@ Route::middleware(['metrics'])->group(function () {
         Route::get('/notification-preferences', [NotificationPreferenceController::class, 'index']);
         Route::put('/notification-preferences', [NotificationPreferenceController::class, 'update']);
     });
+
+    // ============================================================================
+    // WEATHER ROUTE — accessible to any authenticated user
+    // Returns {available:false} gracefully when the API key is not configured.
+    // ============================================================================
+    Route::middleware(['auth:sanctum', 'rate.limit.role'])
+        ->get('/weather', [WeatherController::class, 'current']);
 
     // ============================================================================
     // USER-SCOPED ANALYTICS ROUTES - Phase 4.0
