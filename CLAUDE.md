@@ -77,7 +77,7 @@ It is read-only. Never modify, rename, or delete files inside it.
 > code COMMENTS only, not user-facing.
 >
 > **Other stale facts corrected:** `Conversation`/`Message` messaging is **fully built** (endpoints +
-> `MessagesPage.tsx`), not "schema only". Backend baseline is **596 green** (deterministic).
+> `MessagesPage.tsx`), not "schema only". Backend baseline is **688 green** (deterministic).
 
 ---
 
@@ -100,7 +100,7 @@ privileged action is written to an append-only audit log.
 
 | Area | Status |
 |------|--------|
-| Backend (Laravel 12) | **Mature & passing**: 598 tests green (deterministic), full domain implemented |
+| Backend (Laravel 12) | **Mature & passing**: 688 tests green (deterministic), full domain implemented |
 | RBAC / Auth | Implemented + proven (Sanctum tokens, dual User/Admin model, middleware + policies, IDOR/escalation test suite) |
 | Payments / Webhooks | Implemented (Stripe PaymentIntents + signature-verified webhook, idempotent) |
 | Notifications | Implemented (in-app, email, SMS, digests, preferences) |
@@ -311,15 +311,20 @@ super-admins in the current phase).
 ## 19. Local Setup
 
 ```bash
-# Backend
+# One-command runner (resets DB, seeds, boots API + queue + SPA):
+./dev.sh            # development world (API :8000, SPA dev :5173)
+./dev.sh --prod     # production preview (built SPA :3000, only a bootstrap admin)
+# ./dev.sh --help   # all flags (also --no-reset). Reset is guarded to local sqlite.
+
+# Backend (manual)
 composer install
 cp .env.example .env
 php artisan key:generate
 touch database/database.sqlite          # sqlite default
-php artisan migrate:fresh --seed         # mode-aware seed (development demo graph)
-# production-safe baseline only: NEXUS_SEED_MODE=production php artisan db:seed
-# verify the demo graph + ledger: php artisan nexus:seed:verify
-# Seeding architecture + demo accounts: docs/SEEDING.md
+php artisan migrate:fresh --seed         # mode-aware seed (controlled dev world: 1 admin/5 LL/5 T)
+# production-safe baseline only: WYNCREST_SEED_MODE=production php artisan db:seed
+# verify the dev world + ledger: php artisan wyncrest:seed:verify
+# Seeding architecture + demo accounts: docs/SEEDING.md  (env: WYNCREST_*, legacy NEXUS_* still works)
 
 # Frontend
 cd frontend && npm install && npm run dev   # Vite dev server on :5173
@@ -364,17 +369,23 @@ A **demo/staging** instance is live. This is a showcase box, **not** hardened pr
 - **Data layer:** SQLite at `/var/www/wyncrest/database/database.sqlite`;
   `QUEUE_CONNECTION=sync` (no worker needed), `CACHE`/`SESSION=database`,
   `APP_ENV=production`, `APP_DEBUG=false`.
-- **Demo data:** the dev demo graph is seeded **in a production env** via
-  `NEXUS_SEED_MODE=development` + `NEXUS_ALLOW_DEV_SEED_IN_PROD=true` in `.env`.
-  ⚠️ The demo seeders depend on **faker (a `require-dev` package)**: `composer install
-  --no-dev` breaks seeding with `Call to undefined function fake()`, so the **full**
-  dependency set is installed on this box. A genuine production deploy would keep
-  `--no-dev` and seed only the safe baseline (`NEXUS_SEED_MODE=production`).
-  Demo logins (password `password`): `admin@wyncrest.test`, `landlord.verified@wyncrest.test`,
-  `tenant.showcase@wyncrest.test`, `tenant.active@wyncrest.test`.
+- **Demo data:** the dev world is seeded **in a production env** via
+  `WYNCREST_SEED_MODE=development` + `WYNCREST_ALLOW_DEV_SEED_IN_PROD=true` in `.env`
+  (legacy `NEXUS_*` names still work). ⚠️ The demo seeders depend on **faker (a
+  `require-dev` package)**: `composer install --no-dev` breaks seeding with `Call to
+  undefined function fake()`, so the **full** dependency set is installed on this box.
+  A genuine production deploy would keep `--no-dev` and seed only the safe baseline
+  (`WYNCREST_SEED_MODE=production`, which needs no faker).
+  Demo logins (password `password`): `admin@wyncrest.test` (super admin),
+  `reviewer@wyncrest.test` (scoped admin, granted review_verifications/
+  moderate_listings/moderate_reviews/view_audit), `landlord.1@wyncrest.test`
+  … `landlord.4@wyncrest.test`, `landlord.empty@wyncrest.test`, `tenant.good1@wyncrest.test`
+  … `tenant.good4@wyncrest.test`, `tenant.owing@wyncrest.test` (owes one month).
+  A third admin, `pending.admin@wyncrest.test`, exists as an unaccepted invite
+  (no usable password) to exercise the invite-lifecycle UI.
 - **Redeploy after code changes:** build the frontend locally
   (`cd frontend && npm run build`), `rsync -az --delete` the tree to
-  `/var/www/wyncrest` (exclude `.git node_modules vendor .env *.sqlite Claude_Study_Guide`),
+  `/var/www/wyncrest` (exclude `.git node_modules vendor .env *.sqlite Claude_Study_Guide .internal`),
   then on the server: `composer install` (if deps changed) → `php artisan migrate` (or
   `migrate:fresh --seed --force` to reset demo data) → `php artisan config:cache route:cache`
   → `sudo systemctl reload php-fpm nginx`.
