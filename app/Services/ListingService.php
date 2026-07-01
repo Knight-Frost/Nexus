@@ -25,7 +25,9 @@ class ListingService
     {
         $query = Listing::query()
             ->public()
-            ->with(['unit.property', 'primaryPhoto', 'landlord']);
+            // landlord.avatarAsset is eager-loaded so the appended avatar_url does
+            // not trigger an N+1 across the public results.
+            ->with(['unit.property', 'primaryPhoto', 'landlord.avatarAsset']);
 
         // Apply filters
         if (! empty($filters['keyword'])) {

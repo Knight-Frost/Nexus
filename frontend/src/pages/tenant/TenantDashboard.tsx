@@ -12,6 +12,7 @@ import type { Application, Contract, ConversationSummary, LedgerStatus, LedgerTy
 import { Donut } from '@/components/ui/charts';
 import { fadeRise, staggerContainer, staggerItem, DUR, EASE_OUT_SOFT } from '@/lib/motion';
 import { ErrorState, ForbiddenState, SkeletonCard } from '@/components/ui/states';
+import { Avatar } from '@/components/ui/Avatar';
 import {
   CommandCard,
   StatusCard,
@@ -628,7 +629,8 @@ function MessagesRow({ conversations }: { conversations: ConversationSummary[] }
         <div className="td-msg-grid">
           {display.map((conv) => {
             const name = conv.other_participant?.name ?? 'Unknown';
-            const initials = conv.other_participant?.initials
+            const avatarSrc = conv.other_participant?.avatar_url ?? null;
+            const fallbackInitials = conv.other_participant?.initials
               ?? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
             const preview = conv.preview ?? conv.last_message_preview ?? '';
             const hasUnread = conv.unread_count > 0;
@@ -638,7 +640,7 @@ function MessagesRow({ conversations }: { conversations: ConversationSummary[] }
             return (
               <button key={conv.id} className="td-msg-cell" onClick={() => navigate('/app/messages')}>
                 <span className="td-msg-cell-top">
-                  <span className={`td-msg-av${hasUnread ? ' unread' : ''}`}>{initials}</span>
+                  <Avatar name={name} src={avatarSrc} fallback={fallbackInitials} className={`td-msg-av${hasUnread ? ' unread' : ''}`} />
                   <span className="td-msg-tm">{time}</span>
                 </span>
                 <span className="td-msg-nm">{name}</span>

@@ -69,6 +69,7 @@ export interface User {
   last_name: string;
   full_name: string;
   phone: string | null;
+  avatar_url?: string | null;
   user_type: UserType;
   is_active: boolean;
   identity_verified: boolean;
@@ -85,6 +86,7 @@ export interface Admin {
   is_active: boolean;
   /** Effective capabilities; a super admin implicitly holds all of them. */
   capabilities?: AdminCapability[];
+  avatar_url?: string | null;
   last_login_at: string | null;
 }
 
@@ -466,7 +468,7 @@ export interface TenantDocument {
 export interface MessageableRecipient {
   listing_id: number;
   listing_title: string;
-  landlord: { id: number; name: string };
+  landlord: { id: number; name: string; avatar_url?: string | null };
   location: string;
   thumbnail_url: string | null;
   existing_conversation_id: number | null;
@@ -478,7 +480,7 @@ export interface ConversationSummary {
   status: string;
   last_message_at: string | null;
   unread_count: number;
-  other_participant: { id: number; name: string; initials?: string; role?: string | null } | null;
+  other_participant: { id: number; name: string; initials?: string; role?: string | null; avatar_url?: string | null } | null;
   /** index endpoint key */
   last_message_preview?: string | null;
   /** dashboard endpoint key */
@@ -502,7 +504,7 @@ export interface ConversationMessage {
   created_at: string;
   has_attachments?: boolean;
   attachments?: MessageAttachment[];
-  sender: { id: number; name: string | null; is_me: boolean };
+  sender: { id: number; name: string | null; avatar_url?: string | null; is_me: boolean };
 }
 
 export interface ConversationDetail {
@@ -512,7 +514,7 @@ export interface ConversationDetail {
     status: string;
     last_message_at: string | null;
     thumbnail_url?: string | null;
-    other_participant: { id: number; name: string; role?: string | null } | null;
+    other_participant: { id: number; name: string; role?: string | null; avatar_url?: string | null } | null;
   };
   messages: ConversationMessage[];
 }
@@ -544,6 +546,7 @@ export interface TenantProfile {
   next_of_kin_relationship: string | null;
   user_type: UserType;
   identity_verified: boolean;
+  avatar_url: string | null;
   created_at: string | null;
 }
 export interface TenantProfileResponse {
@@ -919,7 +922,7 @@ export interface LandlordReviewsResponse {
 
 /** Reviewer info attached to a review when returned from the landlord endpoint. */
 export interface ReviewWithReviewer extends Review {
-  reviewer?: Pick<User, 'id' | 'first_name' | 'last_name' | 'full_name'>;
+  reviewer?: Pick<User, 'id' | 'first_name' | 'last_name' | 'full_name' | 'avatar_url'>;
 }
 
 /* ---- Admin verification types -------------------------------------------- */

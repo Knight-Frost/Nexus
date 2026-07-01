@@ -68,7 +68,12 @@ class AdminUserController extends Controller
             });
         }
 
-        return response()->json($query->paginate(20));
+        $users = $query->paginate(20);
+        // Expose the profile photo (+ name/initials) so the admin list can show
+        // avatars, falling back to initials when a user has no photo.
+        $users->getCollection()->each->append(['full_name', 'initials', 'avatar_url']);
+
+        return response()->json($users);
     }
 
     /**
@@ -76,7 +81,7 @@ class AdminUserController extends Controller
      */
     public function show(User $user): JsonResponse
     {
-        $user->append(['full_name', 'initials']);
+        $user->append(['full_name', 'initials', 'avatar_url']);
 
         $properties = $user->isLandlord()
             ? $user->properties()->count()

@@ -75,6 +75,7 @@ class TenantProfileController extends Controller
             'next_of_kin_relationship' => $user->next_of_kin_relationship,
             'user_type' => $user->user_type->value,
             'identity_verified' => $user->identity_verified,
+            'avatar_url' => $user->avatar_url,
             'created_at' => $user->created_at?->toISOString(),
         ];
     }

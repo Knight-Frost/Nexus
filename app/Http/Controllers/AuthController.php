@@ -349,6 +349,7 @@ class AuthController extends Controller
             'last_name' => $user->last_name,
             'full_name' => $user->full_name,
             'phone' => $user->phone,
+            'avatar_url' => $user->avatar_url,
             'user_type' => $user->user_type->value,
             'is_active' => $user->is_active,
             'identity_verified' => $user->identity_verified,
@@ -376,6 +377,8 @@ class AuthController extends Controller
             // Effective capabilities: super admins implicitly hold all of them.
             // The SPA uses these to reflect (never enforce) access.
             'capabilities' => $admin->grantedCapabilities(),
+            // Admins live in a separate table with no media; always initials.
+            'avatar_url' => null,
             'last_login_at' => $admin->last_login_at?->toISOString(),
         ];
     }

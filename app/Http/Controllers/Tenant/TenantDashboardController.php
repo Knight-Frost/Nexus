@@ -112,7 +112,7 @@ class TenantDashboardController extends Controller
                     'last_message_at' => $c->last_message_at,
                     'unread_count' => (int) ($c->unread_count ?? 0),
                     'other_participant' => $other
-                        ? ['id' => $other->id, 'name' => $other->full_name, 'initials' => $other->initials]
+                        ? ['id' => $other->id, 'name' => $other->full_name, 'initials' => $other->initials, 'avatar_url' => $other->avatar_url]
                         : null,
                     'preview' => $last ? Str::limit($last->body, 80) : null,
                 ];

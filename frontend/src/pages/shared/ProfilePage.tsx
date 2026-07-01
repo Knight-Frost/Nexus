@@ -8,6 +8,7 @@ import { fieldErrors } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { Donut } from '@/components/ui/charts';
 import { useToast } from '@/components/ui/toast';
+import { Avatar } from '@/components/ui/Avatar';
 import {
   IconUser,
   IconMail,
@@ -45,7 +46,9 @@ function AvatarUploader({
   const [uploading, setUploading] = useState(false);
   const [localUrl, setLocalUrl] = useState<string | null>(null);
 
+  const [imgFailed, setImgFailed] = useState(false);
   const displayUrl = localUrl ?? currentUrl ?? null;
+  const showImg = displayUrl !== null && !imgFailed;
   const abbrev = initials(name);
 
   async function handleFile(file: File) {
@@ -61,6 +64,7 @@ function AvatarUploader({
     }
     // Preview immediately
     const preview = URL.createObjectURL(file);
+    setImgFailed(false);
     setLocalUrl(preview);
     setUploading(true);
     try {
@@ -82,8 +86,8 @@ function AvatarUploader({
   return (
     <div className="ac-avatar-uploader">
       <div className="ac-avatar-preview">
-        {displayUrl
-          ? <img src={displayUrl} alt={name} className="ac-avatar-img" />
+        {showImg
+          ? <img src={displayUrl!} alt={name} className="ac-avatar-img" onError={() => setImgFailed(true)} />
           : <span className="ac-avatar">{abbrev}</span>
         }
         {uploading && <span className="ac-avatar-spinner" aria-label="Uploading avatar…" />}
@@ -130,7 +134,7 @@ function HeadphonesIcon({ size = 20 }: { size?: number }) {
 
 /* ── IdentityCard (shared across roles) ──────────────────────────────────── */
 function IdentityCard({
-  name, abbrev, email, phone, role, memberSince, verified,
+  name, abbrev, email, phone, role, memberSince, verified, avatarUrl,
 }: {
   name: string;
   abbrev: string;
@@ -139,11 +143,12 @@ function IdentityCard({
   role: string;
   memberSince: string;
   verified: boolean;
+  avatarUrl?: string | null;
 }) {
   return (
     <div className="ac-card">
       <div className="ac-identity">
-        <span className="ac-avatar">{abbrev}</span>
+        <Avatar name={name} src={avatarUrl} fallback={abbrev} className="ac-avatar" />
         <div className="ac-identity-body">
           <div className="ac-identity-top">
             <div>
@@ -427,6 +432,9 @@ function TenantProfileView() {
 
   const profile = liveProfile ?? data.user;
   const readiness = data.readiness;
+  // The persisted avatar from the server (until the tenant uploads a new one this
+  // session). `avatarUrl` (set on upload) takes precedence over the fetched value.
+  const currentAvatar = avatarUrl ?? data.user.avatar_url ?? null;
 
   function handleSaved(p: TenantProfile) {
     setLiveProfile(p);
@@ -437,12 +445,13 @@ function TenantProfileView() {
       <div className="ac-main">
         <AvatarUploader
           name={profile.full_name}
-          currentUrl={avatarUrl}
+          currentUrl={currentAvatar}
           onUploaded={(asset) => { if (asset.url) setAvatarUrl(asset.url); }}
         />
         <IdentityCard
           name={profile.full_name}
           abbrev={profile.initials || initials(profile.full_name)}
+          avatarUrl={currentAvatar}
           email={profile.email}
           phone={profile.phone}
           role={profile.user_type}
@@ -504,6 +513,7 @@ function NonTenantProfileView() {
       <IdentityCard
         name={name}
         abbrev={initials(name)}
+        avatarUrl={'avatar_url' in user ? user.avatar_url : null}
         email={email}
         phone={phone}
         role={role}

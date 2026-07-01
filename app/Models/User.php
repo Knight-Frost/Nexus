@@ -71,6 +71,14 @@ class User extends Authenticatable implements CanResetPasswordContract
     ];
 
     /**
+     * Always expose the profile photo URL so every user-identity surface (sidebar,
+     * messages, applicant/tenant/review lists, admin) can render the avatar with an
+     * initials fallback. Backed by the eager-loadable `avatarAsset` relation, so
+     * heavy endpoints can preload it to avoid an N+1.
+     */
+    protected $appends = ['avatar_url'];
+
+    /**
      * Check if user is a landlord
      */
     public function isLandlord(): bool
@@ -247,18 +255,24 @@ class User extends Authenticatable implements CanResetPasswordContract
     }
 
     /**
+     * The user's current active avatar as a single relation, so it can be
+     * eager-loaded (User::with('avatarAsset')) to avoid N+1 when serializing lists.
+     */
+    public function avatarAsset(): HasOne
+    {
+        return $this->hasOne(MediaAsset::class, 'owner_user_id')->ofMany(
+            ['id' => 'max'],
+            fn ($q) => $q->where('collection', MediaCollection::Avatar->value)->where('status', 'active'),
+        );
+    }
+
+    /**
      * The public URL of the user's current active avatar, or null if none.
+     * Uses the eager-loaded relation when present, otherwise lazy-loads it.
      */
     public function getAvatarUrlAttribute(): ?string
     {
-        /** @var MediaAsset|null $avatar */
-        $avatar = $this->mediaAssets()
-            ->where('collection', MediaCollection::Avatar->value)
-            ->where('status', 'active')
-            ->latest()
-            ->first();
-
-        return $avatar?->url;
+        return $this->avatarAsset?->url;
     }
 
     /**

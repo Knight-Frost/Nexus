@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search } from 'lucide-react';
 import type { MessageableRecipient } from '../../lib/types';
 import { tenantApi } from '../../lib/endpoints';
+import { Avatar } from '../ui/Avatar';
 
 interface RecipientSearchProps {
   onSelect: (r: MessageableRecipient) => void;
@@ -89,14 +90,6 @@ export function RecipientSearch({ onSelect }: RecipientSearchProps) {
   const photoUrl = (path: string) =>
     `${import.meta.env.VITE_API_URL ?? ''}/storage/${path}`;
 
-  const getInitials = (name: string) =>
-    name
-      .split(' ')
-      .map((w) => w[0] ?? '')
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
-
   return (
     <div className="mx-rs-wrap">
       <span className="mx-rs-icon" aria-hidden="true">
@@ -157,11 +150,11 @@ export function RecipientSearch({ onSelect }: RecipientSearchProps) {
                 }}
               >
                 <span className="mx-rs-avatar">
-                  {r.thumbnail_url ? (
-                    <img src={photoUrl(r.thumbnail_url)} alt="" />
-                  ) : (
-                    <span className="mx-rs-initials">{getInitials(r.landlord.name)}</span>
-                  )}
+                  <Avatar
+                    name={r.landlord.name}
+                    src={r.landlord.avatar_url ?? (r.thumbnail_url ? photoUrl(r.thumbnail_url) : null)}
+                    className="mx-rs-initials"
+                  />
                 </span>
                 <span className="mx-rs-info">
                   <span className="mx-rs-primary">{r.landlord.name}</span>

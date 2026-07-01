@@ -96,6 +96,7 @@ class MessageableRecipientController extends Controller
                     'landlord' => [
                         'id' => $landlord->id,
                         'name' => $landlord->full_name,
+                        'avatar_url' => $landlord->avatar_url,
                     ],
                     'location' => $location,
                     'thumbnail_url' => $thumbnailUrl,

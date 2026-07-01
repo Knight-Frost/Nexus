@@ -4,6 +4,7 @@
  */
 import { X } from 'lucide-react';
 import type { MessageableRecipient } from '../../lib/types';
+import { Avatar } from '../ui/Avatar';
 
 interface RecipientChipProps {
   recipient: MessageableRecipient;
@@ -11,29 +12,13 @@ interface RecipientChipProps {
 }
 
 export function RecipientChip({ recipient, onRemove }: RecipientChipProps) {
-  const initials = recipient.landlord.name
-    .split(' ')
-    .map((w) => w[0] ?? '')
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  // Prefer the recipient's profile photo; fall back to the listing thumbnail, then initials.
+  const avatarSrc = recipient.landlord.avatar_url
+    ?? (recipient.thumbnail_url ? `${import.meta.env.VITE_API_URL ?? ''}/storage/${recipient.thumbnail_url}` : null);
 
   return (
     <span className="mx-chip">
-      {recipient.thumbnail_url ? (
-        <img
-          // why: API returns a raw storage path; the SPA builds the URL itself
-          // (same convention as SavedListings/BrowseListings).
-          src={`${import.meta.env.VITE_API_URL ?? ''}/storage/${recipient.thumbnail_url}`}
-          alt=""
-          className="mx-chip-avatar"
-          aria-hidden="true"
-        />
-      ) : (
-        <span className="mx-chip-initials" aria-hidden="true">
-          {initials}
-        </span>
-      )}
+      <Avatar name={recipient.landlord.name} src={avatarSrc} className="mx-chip-initials" />
       <span className="mx-chip-name">{recipient.landlord.name}</span>
       <button
         type="button"

@@ -87,6 +87,7 @@ class ConversationController extends Controller
                     'id' => $other->id,
                     'name' => $other->full_name,
                     'role' => $otherRole,
+                    'avatar_url' => $other->avatar_url,
                 ] : null,
                 'last_message_preview' => $lastMsg
                     ? mb_strimwidth($lastMsg->body, 0, 120, '…')
@@ -259,6 +260,7 @@ class ConversationController extends Controller
                     'id' => $other->id,
                     'name' => $other->full_name,
                     'role' => $otherRole,
+                    'avatar_url' => $other->avatar_url,
                 ] : null,
             ],
             'messages' => $messages->map(fn (Message $m) => $this->formatMessage($m, $authUser)),
@@ -339,6 +341,7 @@ class ConversationController extends Controller
             'other_participant' => $other ? [
                 'id' => $other->id,
                 'name' => $other->full_name,
+                'avatar_url' => $other->avatar_url,
             ] : null,
             'messages' => $conv->messagesLatest->map(fn (Message $m) => $this->formatMessage($m, $viewer))->values(),
         ];
@@ -355,11 +358,13 @@ class ConversationController extends Controller
 
         // Load sender lazily only when needed, and only for User senders.
         $senderName = null;
+        $senderAvatar = null;
         if ($message->sender_type === User::class) {
             $sender = $message->relationLoaded('sender')
                 ? $message->sender
                 : User::find($message->sender_id);
             $senderName = $sender?->full_name;
+            $senderAvatar = $sender?->avatar_url;
         }
 
         // Ensure attachments relation is loaded
@@ -379,6 +384,7 @@ class ConversationController extends Controller
             'sender' => [
                 'id' => $message->sender_id,
                 'name' => $senderName,
+                'avatar_url' => $senderAvatar,
                 'is_me' => $isMe,
             ],
             'attachments' => $attachments,
