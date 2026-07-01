@@ -1117,9 +1117,9 @@ export const adminApi = {
 
 /* ========================= Weather ====================================== */
 export const weatherApi = {
-  /** Public endpoint — no auth required. Returns a WeatherData payload. */
+  /** Requires auth (any role). Returns a WeatherData payload. */
   async current(city = 'Accra'): Promise<WeatherData> {
-    const { data } = await http.get<WeatherData>('/weather', { params: { city } });
+    const { data } = await activePortalClient().get<WeatherData>('/weather', { params: { city } });
     return data;
   },
 };
