@@ -4,7 +4,7 @@ import { useApi } from '@/hooks/useApi';
 import { adminApi, landlordApi, tenantApi } from '@/lib/endpoints';
 import { formatCents, formatDate, humanize } from '@/lib/format';
 import { Button } from '@/components/ui/Button';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table';
+import { ResponsiveTable, type ResponsiveColumn } from '@/components/ui/ResponsiveTable';
 import { EmptyState, ErrorState, LoadingState, SkeletonCard } from '@/components/ui/states';
 import {
   IconChevronRight,
@@ -126,6 +126,92 @@ export function LedgerPage() {
       ? allEntries
       : allEntries.filter((e) => e.status === activeFilter);
 
+  /* ── Ledger table columns (shared desktop table + mobile stacked cards) ── */
+  const columns: ResponsiveColumn<LedgerEntry>[] = [
+    {
+      key: 'type',
+      header: 'Type',
+      primary: true,
+      cell: (entry) => <span className="font-medium text-ink-900">{humanize(entry.type)}</span>,
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      cell: (entry) => (
+        <span className="whitespace-nowrap text-ink-600">
+          {formatDate(entry.due_date ?? entry.created_at)}
+        </span>
+      ),
+    },
+    {
+      key: 'period',
+      header: 'Period',
+      hideBelow: 'lg',
+      cell: (entry) => (
+        <span className="whitespace-nowrap text-ink-600">
+          {entry.billing_period_start || entry.billing_period_end
+            ? `${formatDate(entry.billing_period_start)} to ${formatDate(entry.billing_period_end)}`
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      align: 'right',
+      cell: (entry) => (
+        <span
+          className="font-mono font-semibold tabular-nums"
+          style={{ color: 'var(--color-money)' }}
+        >
+          {formatCents(entry.amount_cents)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      align: 'right',
+      cell: (entry) => {
+        const statusForDisplay = paidIds.has(entry.id) ? 'paid' : entry.status;
+        return (
+          <SemanticBadge
+            role={getLedgerVariant(statusForDisplay as LedgerStatus)}
+            status={statusForDisplay}
+          />
+        );
+      },
+    },
+    ...(isTenant
+      ? [
+          {
+            key: 'action',
+            header: '',
+            align: 'right' as const,
+            cell: (entry: LedgerEntry) => {
+              const alreadyPaid = paidIds.has(entry.id);
+              if (isPayable(entry) && !alreadyPaid) {
+                return (
+                  <Button
+                    size="sm"
+                    onClick={() => pay(entry)}
+                    loading={payingId === entry.id}
+                    disabled={payingId !== null}
+                  >
+                    Pay Now
+                  </Button>
+                );
+              }
+              if (alreadyPaid) {
+                return <span className="text-xs font-medium text-success-600">Initiated</span>;
+              }
+              return null;
+            },
+          },
+        ]
+      : []),
+  ];
+
   /* ── summary stat cards loading state ── */
   const statsLoading = ledger.loading;
 
@@ -209,7 +295,7 @@ export function LedgerPage() {
             <IconAlertCircle size={15} className="shrink-0" />
           )}
           {payResult.success
-            ? 'Payment initiated — it will be reflected shortly.'
+            ? 'Payment initiated. It will appear in your ledger shortly.'
             : 'Payment could not be initiated. Please try again.'}
         </div>
       )}
@@ -233,7 +319,7 @@ export function LedgerPage() {
         ) : (
           <>
             {/* Filter tabs */}
-            <div className="flex gap-1 overflow-x-auto rounded-xl bg-ink-100 border border-ink-200 p-1 w-fit">
+            <div className="flex flex-wrap gap-1 rounded-xl bg-ink-100 border border-ink-200 p-1 w-fit">
               {STATUS_TABS.map(({ value, label }) => {
                 const count = value === 'all' ? allEntries.length : allEntries.filter((e) => e.status === value).length;
                 if (value !== 'all' && count === 0) return null;
@@ -274,64 +360,12 @@ export function LedgerPage() {
                 description="Try a different filter."
               />
             ) : (
-              <div className="rounded-2xl border border-ink-200 bg-surface shadow-sm overflow-hidden">
-                <Table>
-                  <THead>
-                    <TH>Date</TH>
-                    <TH>Type</TH>
-                    <TH>Period</TH>
-                    <TH>Amount</TH>
-                    <TH>Status</TH>
-                    {isTenant && <TH />}
-                  </THead>
-                  <TBody>
-                    {filtered.map((entry) => {
-                      const alreadyPaid = paidIds.has(entry.id);
-                      const statusForDisplay = alreadyPaid ? 'paid' : entry.status;
-                      return (
-                        <TR key={entry.id}>
-                          <TD className="whitespace-nowrap text-ink-600 text-sm">
-                            {formatDate(entry.due_date ?? entry.created_at)}
-                          </TD>
-                          <TD className="font-medium text-ink-900">{humanize(entry.type)}</TD>
-                          <TD className="whitespace-nowrap text-ink-600 text-sm">
-                            {entry.billing_period_start || entry.billing_period_end
-                              ? `${formatDate(entry.billing_period_start)} – ${formatDate(entry.billing_period_end)}`
-                              : '—'}
-                          </TD>
-                          <TD className="font-semibold">
-                            <span style={{ color: 'var(--color-money)' }}>
-                              {formatCents(entry.amount_cents)}
-                            </span>
-                          </TD>
-                          <TD>
-                            <SemanticBadge
-                              role={getLedgerVariant(statusForDisplay as LedgerStatus)}
-                              status={statusForDisplay}
-                            />
-                          </TD>
-                          {isTenant && (
-                            <TD className="text-right">
-                              {isPayable(entry) && !alreadyPaid ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => pay(entry)}
-                                  loading={payingId === entry.id}
-                                  disabled={payingId !== null}
-                                >
-                                  Pay Now
-                                </Button>
-                              ) : alreadyPaid ? (
-                                <span className="text-xs text-success-600 font-medium">Initiated</span>
-                              ) : null}
-                            </TD>
-                          )}
-                        </TR>
-                      );
-                    })}
-                  </TBody>
-                </Table>
-              </div>
+              <ResponsiveTable
+                caption="Ledger entries"
+                columns={columns}
+                rows={filtered}
+                keyFn={(entry) => entry.id}
+              />
             )}
 
             {(ledger.data?.lastPage ?? 1) > 1 && (
