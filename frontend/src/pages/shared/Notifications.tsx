@@ -18,8 +18,17 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { notificationApi } from '@/lib/endpoints';
-import type { AppNotification, NotificationType, Paginated } from '@/lib/types';
+import { adminApi, notificationApi } from '@/lib/endpoints';
+import { useAuth } from '@/context/auth';
+import { useApi } from '@/hooks/useApi';
+import { humanize } from '@/lib/format';
+import { SemanticBadge } from '@/components/cards';
+import type {
+  AdminNotificationDeliveryChannel,
+  AppNotification,
+  NotificationType,
+  Paginated,
+} from '@/lib/types';
 import {
   IconCheck,
   IconSettings,
@@ -103,9 +112,197 @@ function formatTime(iso: string, now: Date): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/* ============================================ admin platform delivery ======= */
+
+type DeliveryFilter = 'all' | 'failed';
+
+/** One channel's outcome as a semantic badge. `not_sent` is neutral — it means
+ *  queued, channel-disabled, or digest-deferred, never a failure. */
+function ChannelBadge({
+  label,
+  channel,
+}: {
+  label: string;
+  channel: AdminNotificationDeliveryChannel;
+}) {
+  if (channel.status === 'delivered')
+    return <SemanticBadge role="success">{label} delivered</SemanticBadge>;
+  if (channel.status === 'failed')
+    return <SemanticBadge role="danger">{label} failed</SemanticBadge>;
+  return <SemanticBadge role="neutral">{label} not sent</SemanticBadge>;
+}
+
+/**
+ * Admin-only monitor of platform-wide email/SMS delivery (GET
+ * /admin/notifications/deliveries). Every figure comes from the API's `summary`
+ * / `meta`; nothing is computed or invented client-side.
+ */
+function PlatformDeliveryMonitor() {
+  const [filter, setFilter] = useState<DeliveryFilter>('all');
+  const [page, setPage] = useState(1);
+
+  const q = useApi(
+    () =>
+      adminApi.deliveries({
+        status: filter === 'failed' ? 'failed' : undefined,
+        page,
+        per_page: 20,
+      }),
+    [filter, page],
+  );
+
+  const now = new Date();
+  const rows = q.data?.data ?? [];
+  const summary = q.data?.summary;
+  const meta = q.data?.meta;
+
+  function switchFilter(next: DeliveryFilter) {
+    if (next === filter) return;
+    setFilter(next);
+    setPage(1);
+  }
+
+  return (
+    <section className="nt-panel">
+      {/* summary chips (real aggregates) */}
+      <div className="nt-del-summary">
+        <div className="nt-del-chip">
+          <span className="nt-del-chip-lab">Total</span>
+          <span className="nt-del-chip-val">{summary ? summary.total : '—'}</span>
+        </div>
+        <div className={`nt-del-chip${summary && summary.email.failed > 0 ? ' bad' : ''}`}>
+          <span className="nt-del-chip-lab">Email failed</span>
+          <span className="nt-del-chip-val">{summary ? summary.email.failed : '—'}</span>
+        </div>
+        <div className={`nt-del-chip${summary && summary.sms.failed > 0 ? ' bad' : ''}`}>
+          <span className="nt-del-chip-lab">SMS failed</span>
+          <span className="nt-del-chip-val">{summary ? summary.sms.failed : '—'}</span>
+        </div>
+        <div className={`nt-del-chip${summary && summary.failed_total > 0 ? ' bad' : ''}`}>
+          <span className="nt-del-chip-lab">Failed total</span>
+          <span className="nt-del-chip-val">{summary ? summary.failed_total : '—'}</span>
+        </div>
+      </div>
+
+      {/* All / Failed toggle */}
+      <div className="nt-toolbar">
+        <div className="nt-tabs" role="tablist" aria-label="Delivery filters">
+          {(['all', 'failed'] as DeliveryFilter[]).map((f) => (
+            <button
+              key={f}
+              role="tab"
+              aria-selected={filter === f}
+              className={`nt-tab${filter === f ? ' active' : ''}`}
+              onClick={() => switchFilter(f)}
+            >
+              {f === 'all' ? 'All' : 'Failed only'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* list / states */}
+      {q.loading ? (
+        Array.from({ length: 5 }).map((_, i) => (
+          <div className="nt-skel-row" key={i} aria-hidden="true">
+            <span />
+            <span className="nt-skel circle" />
+            <span className="nt-skel" style={{ width: '55%' }} />
+            <span className="nt-skel" style={{ width: 64 }} />
+          </div>
+        ))
+      ) : q.error ? (
+        <div className="nt-empty">
+          <span className="nt-empty-ico"><IconBell size={26} /></span>
+          <p className="nt-empty-title">
+            {q.error.status === 403 ? 'Access denied' : "We couldn't load delivery data"}
+          </p>
+          <p className="nt-empty-text">
+            {q.error.status === 403
+              ? 'This monitor is available to platform administrators only.'
+              : (q.error.message ?? 'Something went wrong fetching platform deliveries.')}
+          </p>
+          {q.error.status !== 403 && (
+            <button className="nt-btn nt-btn-ghost" onClick={() => q.reload()}>Try again</button>
+          )}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="nt-empty">
+          <span className="nt-empty-ico"><IconBell size={26} /></span>
+          <p className="nt-empty-title">
+            {filter === 'failed' ? 'No failed deliveries' : 'No deliveries recorded yet'}
+          </p>
+          <p className="nt-empty-text">
+            {filter === 'failed'
+              ? 'Every notification that needed a channel was delivered.'
+              : 'Email and SMS delivery outcomes will appear here.'}
+          </p>
+        </div>
+      ) : (
+        <div className="nt-del-list">
+          {rows.map((d) => {
+            const emailFailed = d.email.status === 'failed';
+            const smsFailed = d.sms.status === 'failed';
+            return (
+              <div className="nt-del-row" key={d.id}>
+                <div className="nt-del-main">
+                  <div className="nt-del-recipient">
+                    {d.recipient ? d.recipient.name : 'Unknown recipient'}
+                    {d.recipient && <span className="nt-del-email">{d.recipient.email}</span>}
+                  </div>
+                  <div className="nt-del-type">{humanize(d.type)}</div>
+                  {(emailFailed || smsFailed) && (
+                    <div className="nt-del-error">
+                      {emailFailed && d.email.error && <span>Email: {d.email.error}</span>}
+                      {smsFailed && d.sms.error && <span>SMS: {d.sms.error}</span>}
+                    </div>
+                  )}
+                </div>
+                <div className="nt-del-channels">
+                  <ChannelBadge label="Email" channel={d.email} />
+                  <ChannelBadge label="SMS" channel={d.sms} />
+                </div>
+                <div className="nt-del-time">{formatTime(d.created_at, now)}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* pagination */}
+      {meta && meta.last_page > 1 && (
+        <div className="nt-del-pager">
+          <button
+            className="nt-btn nt-btn-ghost"
+            disabled={q.loading || meta.current_page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <span className="nt-del-pager-info">
+            Page {meta.current_page} of {meta.last_page} · {meta.total} total
+          </span>
+          <button
+            className="nt-btn nt-btn-ghost"
+            disabled={q.loading || meta.current_page >= meta.last_page}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ================================================================== page ==== */
 
 export function Notifications() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  /** Admins can switch between their personal feed and the platform monitor. */
+  const [view, setView] = useState<'personal' | 'platform'>('personal');
+
   const [pageData, setPageData] = useState<Paginated<AppNotification> | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<null | { status?: number; message?: string }>(null);
@@ -335,24 +532,57 @@ export function Notifications() {
       {/* header */}
       <header className="nt-head">
         <div className="nt-head-title">
-          <p className="nt-eyebrow">Account</p>
+          <p className="nt-eyebrow">{isAdmin ? 'Operations' : 'Account'}</p>
           <h1 className="nt-title">Notifications</h1>
-          <p className="nt-sub">Updates about your contracts, payments, and listings.</p>
+          <p className="nt-sub">
+            {isAdmin
+              ? 'Your admin alerts, plus platform-wide email and SMS delivery health.'
+              : 'Updates about your contracts, payments, and listings.'}
+          </p>
         </div>
         <div className="nt-actions">
-          <button
-            className="nt-btn nt-btn-ghost"
-            onClick={() => void onMarkAll()}
-            disabled={unreadCount === 0 || busy}
-          >
-            <IconCheck size={16} /> Mark all as read
-          </button>
+          {view === 'personal' && (
+            <button
+              className="nt-btn nt-btn-ghost"
+              onClick={() => void onMarkAll()}
+              disabled={unreadCount === 0 || busy}
+            >
+              <IconCheck size={16} /> Mark all as read
+            </button>
+          )}
           <Link className="nt-btn nt-btn-ghost" to="/app/settings">
             <IconSettings size={16} /> Notification settings
           </Link>
         </div>
       </header>
 
+      {/* Admins get a second view: platform-wide email/SMS delivery. Non-admins
+          never see this and their personal feed is unchanged. */}
+      {isAdmin && (
+        <div className="nt-viewswitch" role="tablist" aria-label="Notification view">
+          <button
+            role="tab"
+            aria-selected={view === 'personal'}
+            className={`nt-viewswitch-btn${view === 'personal' ? ' active' : ''}`}
+            onClick={() => setView('personal')}
+          >
+            Your notifications
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === 'platform'}
+            className={`nt-viewswitch-btn${view === 'platform' ? ' active' : ''}`}
+            onClick={() => setView('platform')}
+          >
+            Platform delivery
+          </button>
+        </div>
+      )}
+
+      {isAdmin && view === 'platform' ? (
+        <PlatformDeliveryMonitor />
+      ) : (
+      <>
       <section className="nt-panel">
         {/* toolbar */}
         <div className="nt-toolbar">
@@ -394,6 +624,8 @@ export function Notifications() {
       </section>
 
       <p className="nt-foot">Notifications are kept for 90 days.</p>
+      </>
+      )}
 
       {notice && <div role="alert" className="nt-toast">{notice}</div>}
     </div>
