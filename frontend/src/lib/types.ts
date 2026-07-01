@@ -78,6 +78,20 @@ export interface User {
   created_at: string;
 }
 
+/** Granular admin capability keys (mirror of App\Enums\AdminCapability). */
+export type AdminCapability =
+  | 'manage_access'
+  | 'manage_users'
+  | 'review_verifications'
+  | 'moderate_listings'
+  | 'moderate_reviews'
+  | 'manage_features'
+  | 'view_audit'
+  | 'manage_contracts'
+  | 'manage_ledger'
+  | 'view_analytics'
+  | 'manage_settings';
+
 export interface Admin {
   id: number;
   email: string;
@@ -676,20 +690,6 @@ export interface AdminUserDetail {
   recent_contracts: Contract[];
   recent_applications: Application[];
 }
-
-/** Granular admin capability keys (mirror of App\Enums\AdminCapability). */
-export type AdminCapability =
-  | 'manage_access'
-  | 'manage_users'
-  | 'review_verifications'
-  | 'moderate_listings'
-  | 'moderate_reviews'
-  | 'manage_features'
-  | 'view_audit'
-  | 'manage_contracts'
-  | 'manage_ledger'
-  | 'view_analytics'
-  | 'manage_settings';
 
 /* ---- Access control (Manage Users & Permissions) ------------------------- */
 
