@@ -486,6 +486,43 @@ Remaining / future work:
   logs, `*.sqlite`, or `backups/`.
 - Commits are logical and professional; keep the suite green per commit.
 
+### 26a. Mandatory Safe Commit Workflow
+
+**Never use `git commit` with pathspecs in this repository.** Forbidden, no
+exceptions:
+
+- `git commit -m "..." -- file`
+- `git commit -- file`
+- `git add .`
+- `git add -A`
+- `git commit -a`
+
+Pathspec commits previously caused real contamination in this repo: passing
+explicit file paths to `git commit` captures the CURRENT WORKING TREE content
+of those files at commit time, not the staged content. When a working tree
+held a carefully staged, hunk-scoped change plus unrelated pending work in the
+same file, a pathspec commit silently committed the unrelated work too. This
+happened more than once and required git-plumbing history repairs to fix.
+
+The only approved commit sequence:
+
+```bash
+git diff --cached --name-status   # confirm exactly the intended files
+git diff --cached                 # confirm exactly the intended hunks
+git commit -m "clear message"     # no pathspec, ever
+```
+
+- Stage exact files, or exact hunks (via `git add -p`, or by writing the
+  intended content to a scratch copy, restoring `HEAD`'s version, applying
+  only the intended edit, staging, then restoring the rest of the pending
+  work back into the working tree unstaged) whenever a file mixes an
+  intended change with unrelated pending work.
+- Always inspect `git diff --cached --name-status` and `git diff --cached`
+  before every commit; the staged index, not the working tree, is what gets
+  committed.
+- Always run a final `git status --short` check immediately before
+  committing to confirm nothing unexpected is staged.
+
 ## 27. How Future Sessions Should Continue
 
 1. Read this file. Run `php artisan test` to confirm the baseline is green.
