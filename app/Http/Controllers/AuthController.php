@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\NotificationType;
 use App\Enums\UserType;
 use App\Events\UserCreated;
 use App\Models\Admin;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * AuthController
@@ -24,7 +27,8 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     public function __construct(
-        protected AuditService $auditService
+        protected AuditService $auditService,
+        protected NotificationService $notificationService
     ) {}
 
     /**
@@ -236,6 +240,100 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Successfully logged out',
+        ]);
+    }
+
+    /**
+     * Change the authenticated principal's password.
+     *
+     * Works for both User (tenant/landlord) and Admin principals — they share
+     * this endpoint via $request->user().
+     *
+     * SECURITY:
+     * - Requires and constant-time verifies the current password.
+     * - Enforces the same strong-password policy as registration.
+     * - Rejects reusing the current password.
+     * - Revokes every OTHER access token (signs out other devices) while
+     *   keeping the current session alive.
+     * - Writes a critical audit log for both principal types (the universal
+     *   security record) and, for Users, an in-app security notification.
+     *   Admins have no in-app notification channel (separate table), so the
+     *   audit log is their record — we do not fabricate a notification.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        /** @var User|Admin $principal */
+        $principal = $request->user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
+        ]);
+
+        // Verify the current password (constant-time).
+        if (! Hash::check($validated['current_password'], $principal->password)) {
+            // A wrong current-password is a security-relevant signal — audit it.
+            $this->auditService->log(
+                actor: $principal,
+                action: 'password_change_failed',
+                subject: $principal,
+                description: "Password change failed (incorrect current password): {$principal->email}",
+                severity: 'warning'
+            );
+
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        // Disallow no-op changes so "other sessions" aren't revoked for nothing
+        // and so a compromised-but-known password can't be re-set to itself.
+        if (Hash::check($validated['password'], $principal->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['The new password must be different from your current password.'],
+            ]);
+        }
+
+        $principal->password = Hash::make($validated['password']);
+        $principal->save();
+
+        // Revoke all OTHER tokens; keep the current session authenticated.
+        $currentToken = $principal->currentAccessToken();
+        $currentTokenId = $currentToken instanceof PersonalAccessToken ? $currentToken->getKey() : null;
+
+        $tokenQuery = $principal->tokens();
+        if ($currentTokenId !== null) {
+            $tokenQuery->where('id', '!=', $currentTokenId);
+        }
+        $revokedOtherSessions = $tokenQuery->delete();
+
+        // Critical audit log — the universal security record for both types.
+        $this->auditService->log(
+            actor: $principal,
+            action: 'password_changed',
+            subject: $principal,
+            description: "Password changed: {$principal->email}",
+            metadata: ['revoked_other_sessions' => $revokedOtherSessions],
+            severity: 'critical'
+        );
+
+        // In-app security notification (Users only — admins have no channel).
+        if ($principal instanceof User) {
+            $this->notificationService->create(
+                user: $principal,
+                type: NotificationType::PASSWORD_CHANGED,
+                title: 'Password Changed',
+                message: "Your account password was just changed. If this wasn't you, contact support immediately.",
+                data: [
+                    'event_id' => "password-changed:{$principal->id}:".now()->timestamp,
+                    'revoked_other_sessions' => $revokedOtherSessions,
+                ]
+            );
+        }
+
+        return response()->json([
+            'message' => 'Password updated successfully. Other sessions have been signed out.',
+            'revoked_other_sessions' => $revokedOtherSessions,
         ]);
     }
 

@@ -27,6 +27,7 @@ enum NotificationType: string
     case VERIFICATION_NEEDS_INFO = 'verification_needs_info';
     case ACCOUNT_BLOCKED = 'account_blocked';
     case ACCOUNT_ARCHIVED = 'account_archived';
+    case PASSWORD_CHANGED = 'password_changed';
 
     // Application lifecycle
     case APPLICATION_SUBMITTED = 'application_submitted';
