@@ -373,6 +373,9 @@ class AuthController extends Controller
             'name' => $admin->name,
             'is_super_admin' => $admin->is_super_admin,
             'is_active' => $admin->is_active,
+            // Effective capabilities: super admins implicitly hold all of them.
+            // The SPA uses these to reflect (never enforce) access.
+            'capabilities' => $admin->grantedCapabilities(),
             'last_login_at' => $admin->last_login_at?->toISOString(),
         ];
     }

@@ -503,4 +503,32 @@ class AdminAccessControlTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'account_suspended', 'subject_id' => $user->id]);
     }
+
+    // ---- /user exposes capabilities (frontend nav gating depends on this) ----
+
+    public function test_authenticated_user_endpoint_exposes_super_admin_capabilities(): void
+    {
+        $this->actingSuper();
+
+        $res = $this->getJson('/api/user')->assertOk();
+
+        $this->assertEqualsCanonicalizing(
+            \App\Enums\AdminCapability::values(),
+            $res->json('user.capabilities'),
+        );
+    }
+
+    public function test_authenticated_user_endpoint_exposes_only_granted_scoped_admin_capabilities(): void
+    {
+        $granted = $this->scopedAdmin(['manage_users', 'view_audit']);
+        Sanctum::actingAs($granted, [], 'sanctum');
+
+        $res = $this->getJson('/api/user')->assertOk();
+
+        $this->assertEqualsCanonicalizing(
+            ['manage_users', 'view_audit'],
+            $res->json('user.capabilities'),
+        );
+        $this->assertNotContains('manage_access', $res->json('user.capabilities'));
+    }
 }

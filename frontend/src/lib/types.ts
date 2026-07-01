@@ -83,6 +83,8 @@ export interface Admin {
   name: string;
   is_super_admin: boolean;
   is_active: boolean;
+  /** Effective capabilities; a super admin implicitly holds all of them. */
+  capabilities?: AdminCapability[];
   last_login_at: string | null;
 }
 
