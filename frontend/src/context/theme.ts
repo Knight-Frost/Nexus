@@ -21,6 +21,10 @@ export interface ThemeContextValue {
   setChoice: (choice: ThemeChoice) => void;
   /** Flip between an explicit light and dark (leaves "system" behind). */
   toggle: () => void;
+  /** The selected dark-mode palette key (only visible while resolved=dark). */
+  darkTheme: string;
+  /** Persist + apply a dark-mode palette. */
+  setDarkTheme: (key: string) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -42,7 +46,9 @@ export function getStoredChoice(): ThemeChoice {
   } catch {
     /* storage unavailable (private mode) */
   }
-  return 'system';
+  // Default for a fresh user is explicit light — not the OS preference. Picking
+  // "system" remains available and re-enables live OS tracking.
+  return 'light';
 }
 
 export function storeChoice(choice: ThemeChoice): void {

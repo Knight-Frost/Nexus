@@ -1,391 +1,259 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
-:root{
-  --ink:#0E1113; --ink-2:#121619; --surface:#15191D; --surface-2:#1B2127;
-  --line:rgba(244,241,234,0.08); --line-strong:rgba(244,241,234,0.16);
-  --ivory:#F4F1EA; --ivory-dim:#CDC8BC; --muted:#909896; --muted-2:#6B726F;
-  --gold:#C9A45B; --gold-soft:#E3CB8C; --ok:#7FB394; --warn:#D9A24B;
-  --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
-  --r:14px; --r-sm:10px;
-}
-*{box-sizing:border-box}
-.nx{background:var(--ink);color:var(--ivory);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden}
-/* Headings inherit ivory on the dark canvas. This overrides the app's global
-   (light-theme) heading color, which would otherwise render them near-black. */
-.nx h1,.nx h2,.nx h3,.nx h4{color:var(--ivory)}
-.nx ::selection{background:var(--gold);color:var(--ink)}
-.nx a{color:inherit;text-decoration:none}
-.nx-wrap{max-width:1280px;margin:0 auto;padding:0 32px}
-.nx-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);display:inline-flex;gap:11px;align-items:center}
-.nx-eyebrow::before{content:"";width:26px;height:1px;background:var(--gold);opacity:.7}
-.nx-h2{font-family:var(--serif);font-weight:500;font-size:clamp(30px,4.2vw,50px);line-height:1.06;letter-spacing:-.015em;margin:16px 0 0;max-width:20ch}
-.nx-lead{color:var(--muted);font-size:clamp(15px,1.4vw,18px);margin-top:16px;max-width:54ch}
-.nx-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-family:var(--sans);font-size:14px;font-weight:500;padding:14px 24px;border-radius:var(--r-sm);cursor:pointer;border:1px solid transparent;transition:transform .18s,background .2s,border-color .2s,box-shadow .2s}
-.nx-btn:active{transform:translateY(1px)}
-.nx-btn-primary{background:var(--gold);color:var(--ink);font-weight:600}
-.nx-btn-primary:hover{background:var(--gold-soft);box-shadow:0 12px 34px -14px rgba(201,164,91,.8)}
-.nx-btn-ghost{background:rgba(14,17,19,.35);color:var(--ivory);border-color:var(--line-strong);backdrop-filter:blur(6px)}
-.nx-btn-ghost:hover{border-color:var(--gold);color:var(--gold-soft)}
-.nx :focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:4px}
-.nx-brand{font-family:var(--serif);font-size:23px;letter-spacing:.05em;font-weight:600;display:inline-flex;align-items:center;gap:12px;text-shadow:0 1px 10px rgba(10,12,14,.6)}
-.nx-logo{width:25px;height:25px;flex:0 0 25px}
-
-/* ── Named landing-specific utility classes (used by Landing.tsx) ────────── */
-
-/* Dark gradient overlay for hero images; covers content behind the slide */
-.hero-scrim{
-  position:absolute;inset:0;z-index:1;
-  background:
-    linear-gradient(95deg,rgba(10,12,14,.92) 0%,rgba(10,12,14,.6) 36%,rgba(10,12,14,.15) 66%,rgba(10,12,14,.45) 100%),
-    linear-gradient(0deg,rgba(10,12,14,.85),transparent 32%)
-}
-
-/* Subtle noise texture overlay — SVG base64 data URI on a pseudo-element */
-.landing-grain{
-  position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.5;
-  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-  background-size:72px 72px;
-  mask-image:radial-gradient(130% 90% at 18% 70%,#000 25%,transparent 72%)
-}
-
-/* Horizontal scroll animation for trust bar / marquee rows */
-@keyframes marquee-scroll{
-  0%{transform:translateX(0)}
-  100%{transform:translateX(-50%)}
-}
-.marquee{
-  overflow:hidden;white-space:nowrap
-}
-.marquee-inner{
-  display:inline-flex;gap:38px;
-  animation:marquee-scroll 28s linear infinite
-}
-.marquee-inner:hover{animation-play-state:paused}
-
-/* Fade transition for hero image carousel slides */
-.hero-slide{
-  position:absolute;inset:0;
-  background-size:cover;background-position:center;
-  opacity:0;transform:scale(1.08);
-  transition:opacity 1.7s ease,transform 7.5s ease
-}
-.hero-slide.on{opacity:1;transform:scale(1.16)}
-
-/* Backdrop-blur + translucent bg for sticky landing nav (scrolled state) */
-.nav-blur{background:rgba(14,17,19,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-
-/* Gold glow on hover for role cards — applied via :hover via CSS class on parent */
-.role-card-glow{
-  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);
-  transition:transform .3s,border-color .3s,box-shadow .3s
-}
-/* Gold glow appears on hover only, never persistently */
-.role-card-glow:hover{
-  transform:translateY(-5px);
-  border-color:var(--gold);
-  box-shadow:0 0 0 1px rgba(201,164,91,.22),0 30px 60px -34px rgba(201,164,91,.3)
-}
-
-/* nav */
-/* Default (top of page): a soft top-down scrim keeps the nav legible over a
-   light hero photo. Once scrolled, it swaps to the solid blurred bar. */
-.nx-nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:background .3s,border-color .3s,backdrop-filter .3s;border-bottom:1px solid transparent;background:linear-gradient(180deg,rgba(10,12,14,.7),rgba(10,12,14,0))}
-.nx-nav.scrolled{background:rgba(14,17,19,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-.nx-nav-inner{max-width:1280px;margin:0 auto;padding:18px 32px;display:flex;align-items:center;justify-content:space-between}
-.nx-navlinks{display:flex;gap:32px;align-items:center}
-.nx-navlinks a{color:var(--ivory);font-size:14px;transition:color .2s;text-shadow:0 1px 10px rgba(10,12,14,.7)}
-.nx-navlinks a:hover{color:var(--gold-soft)}
-.nx-req{padding:10px 18px;border:1px solid var(--gold);color:var(--gold-soft);border-radius:8px;font-size:13px;font-weight:500;transition:background .2s,color .2s}
-.nx-req:hover{background:var(--gold);color:var(--ink)}
-/* Quiet "Sign in" link in the ribbon (sits left of the Register button). Inherits
-   the nav's light-on-photo color; only the hover gets the gold treatment. */
-.nx-signin{font-size:14px;font-weight:500;color:inherit;transition:color .2s}
-.nx-signin:hover{color:#E3CB8C}
-/* Collapse the marketing anchors on small screens, but keep Sign in + Register. */
-@media(max-width:920px){.nx-navlinks a:not(.nx-req):not(.nx-signin){display:none}}
-
-/* hero */
-.nx-hero{position:relative;height:100svh;min-height:660px;overflow:hidden}
-.nx-hero-bg{position:absolute;inset:0;z-index:0;background:var(--ink)}
-.nx-slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transform:scale(1.08);transition:opacity 1.7s ease,transform 7.5s ease}
-.nx-slide.on{opacity:1;transform:scale(1.16)}
-/* .hero-scrim and .landing-grain are aliased to: */
-.nx-hero-scrim{position:absolute;inset:0;z-index:1;background:
-  linear-gradient(95deg,rgba(10,12,14,.92) 0%,rgba(10,12,14,.6) 36%,rgba(10,12,14,.15) 66%,rgba(10,12,14,.45) 100%),
-  linear-gradient(0deg,rgba(10,12,14,.85),transparent 32%)}
-.nx-hero-grain{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.5;
-  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-  background-size:72px 72px;mask-image:radial-gradient(130% 90% at 18% 70%,#000 25%,transparent 72%)}
-.nx-hero-content{position:relative;z-index:5;max-width:1280px;margin:0 auto;padding:0 32px;height:100%;display:flex;flex-direction:column;justify-content:center}
-.nx-hero-inner{max-width:660px}
-.nx-hero h1{font-family:var(--serif);font-weight:500;letter-spacing:-.02em;font-size:clamp(44px,7vw,86px);line-height:0.98;margin:22px 0 0}
-.nx-hero h1 .it{font-style:italic;color:var(--gold-soft)}
-.nx-hero-sub{color:var(--ivory-dim);font-size:clamp(16px,1.5vw,19px);margin-top:24px;max-width:44ch}
-.nx-hero-acts{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
-.nx-hero-foot{position:absolute;z-index:5;left:0;right:0;bottom:30px}
-.nx-hero-foot-in{max-width:1280px;margin:0 auto;padding:0 32px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
-.nx-caption .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.nx-caption .nm{font-family:var(--serif);font-size:20px;margin-top:4px}
-.nx-caption .lo{color:var(--ivory-dim);font-size:13px;margin-top:2px}
-.nx-dots{display:flex;gap:9px;align-items:center}
-.nx-dots button{width:34px;height:3px;border-radius:2px;background:rgba(244,241,234,.25);border:none;padding:0;cursor:pointer;transition:background .3s}
-.nx-dots button.on{background:var(--gold)}
-
-/* Scroll indicator animation */
-@keyframes scroll-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
-.nx-scroll-ind{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted);cursor:pointer}
-.nx-scroll-ind span{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
-.nx-scroll-arrow{animation:scroll-bounce 2s ease-in-out infinite}
-
-/* trust bar */
-.nx-bar{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--ink-2)}
-.nx-bar-in{max-width:1280px;margin:0 auto;padding:0 32px;display:flex;gap:0;flex-wrap:wrap}
-.nx-stat-item{flex:1 1 25%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;border-right:1px solid var(--line)}
-.nx-stat-item:last-child{border-right:none}
-.nx-stat-value{font-family:var(--serif);font-size:clamp(24px,3vw,36px);font-weight:500;color:var(--gold-soft);line-height:1.1}
-.nx-stat-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:6px;text-align:center}
-@media(max-width:700px){.nx-stat-item{flex:1 1 50%;border-bottom:1px solid var(--line)}.nx-stat-item:nth-child(2){border-right:none}.nx-stat-item:last-child{border-bottom:none}}
-
-/* sections */
-.nx-section{padding:clamp(72px,9vw,118px) 0}
-.nx-section.alt{background:var(--ink-2)}
-.nx-sechead{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
-.nx-sechead .nx-lead{margin-top:0;max-width:38ch}
-
-/* feature cards (3 column) */
-.nx-feat3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px}
-@media(max-width:880px){.nx-feat3{grid-template-columns:1fr 1fr}}
-@media(max-width:560px){.nx-feat3{grid-template-columns:1fr}}
-.nx-feat3-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:32px 28px;transition:transform .25s,border-color .25s,box-shadow .25s}
-.nx-feat3-card:hover{transform:translateY(-4px);border-color:var(--line-strong);box-shadow:0 20px 40px -20px rgba(0,0,0,.6)}
-.nx-feat3-icon{width:44px;height:44px;border-radius:10px;background:rgba(201,164,91,.1);border:1px solid rgba(201,164,91,.18);display:grid;place-items:center;color:var(--gold);margin-bottom:18px}
-.nx-feat3-card h3{font-size:17px;font-weight:600;margin:0 0 9px}
-.nx-feat3-card p{color:var(--muted);font-size:14px;margin:0;line-height:1.65}
-
-/* listings */
-.nx-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:48px}
-@media(max-width:900px){.nx-grid3{grid-template-columns:1fr 1fr}}
-@media(max-width:620px){.nx-grid3{grid-template-columns:1fr}}
-.nx-listing{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);transition:transform .3s,border-color .3s,box-shadow .3s;display:flex;flex-direction:column}
-.nx-listing:hover{transform:translateY(-5px);border-color:var(--line-strong);box-shadow:0 30px 60px -34px rgba(0,0,0,.9)}
-.nx-listing-img{position:relative;aspect-ratio:4/3;overflow:hidden}
-.nx-listing-img img{width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
-.nx-listing:hover .nx-listing-img img{transform:scale(1.06)}
-.nx-listing-badge{position:absolute;top:12px;left:12px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(14,17,19,.7);backdrop-filter:blur(4px);display:inline-flex;align-items:center;gap:6px}
-.nx-listing-badge i{width:6px;height:6px;border-radius:50%}
-.nx-listing-badge.ok{color:var(--ok)} .nx-listing-badge.ok i{background:var(--ok)}
-.nx-listing-badge.warn{color:var(--warn)} .nx-listing-badge.warn i{background:var(--warn)}
-.nx-listing-badge.muted{color:var(--muted)} .nx-listing-badge.muted i{background:var(--muted)}
-.nx-listing-body{padding:18px 18px 20px;display:flex;flex-direction:column;gap:4px;flex:1}
-.nx-listing-loc{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
-.nx-listing-nm{font-family:var(--serif);font-size:21px;font-weight:500}
-.nx-listing-meta{color:var(--muted);font-size:13px;margin-top:2px}
-.nx-listing-foot{display:flex;align-items:baseline;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
-.nx-listing-price{font-family:var(--serif);font-size:22px;color:var(--gold-soft)}
-.nx-listing-price small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400}
-.nx-listing-view{font-size:13px;color:var(--gold-soft);display:inline-flex;align-items:center;gap:6px;transition:gap .2s}
-.nx-listing:hover .nx-listing-view{gap:10px}
-
-/* how it works */
-.nx-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:48px}
-.nx-step{background:var(--ink);padding:30px 26px;transition:background .25s}
-.nx-section.alt .nx-step{background:var(--ink-2)}
-.nx-step:hover{background:var(--surface)}
-.nx-step .num{font-family:var(--serif);font-size:42px;color:var(--gold);line-height:1;opacity:.85}
-.nx-step h4{font-size:16px;margin:18px 0 8px;font-weight:600}
-.nx-step p{color:var(--muted);font-size:13.5px;margin:0}
-@media(max-width:880px){.nx-flow{grid-template-columns:1fr 1fr}}
-@media(max-width:520px){.nx-flow{grid-template-columns:1fr}}
-
-/* editorial split */
-.nx-split{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
-.nx-split.rev .nx-split-media{order:2}
-@media(max-width:860px){.nx-split{grid-template-columns:1fr;gap:32px}.nx-split.rev .nx-split-media{order:0}}
-.nx-split-media{position:relative;border-radius:var(--r);overflow:hidden;aspect-ratio:5/4}
-.nx-split-media img{width:100%;height:100%;object-fit:cover}
-.nx-split-media .tagstrip{position:absolute;left:16px;bottom:16px;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ivory);background:rgba(10,12,14,.55);backdrop-filter:blur(5px);padding:8px 12px;border-radius:8px}
-.nx-points{display:grid;gap:14px;margin-top:26px}
-.nx-point{display:flex;gap:15px;align-items:flex-start}
-.nx-point .ic{flex:0 0 36px;height:36px;border-radius:9px;background:rgba(201,164,91,.12);display:grid;place-items:center;color:var(--gold)}
-.nx-point h4{margin:0 0 3px;font-size:15px;font-weight:600}
-.nx-point p{margin:0;color:var(--muted);font-size:13.5px}
-
-/* full-bleed band */
-.nx-band{position:relative;min-height:560px;display:flex;align-items:center;overflow:hidden}
-.nx-band-img{position:absolute;inset:0}
-.nx-band-img img{width:100%;height:100%;object-fit:cover}
-.nx-band-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,12,14,.86),rgba(10,12,14,.4) 60%,rgba(10,12,14,.2))}
-.nx-band-in{position:relative;z-index:2;max-width:1280px;margin:0 auto;padding:0 32px;width:100%}
-.nx-band h2{font-family:var(--serif);font-weight:500;font-style:italic;font-size:clamp(30px,4.6vw,56px);line-height:1.08;max-width:18ch;letter-spacing:-.01em}
-.nx-band p{color:var(--ivory-dim);max-width:46ch;margin-top:18px;font-size:16px}
-
-/* roles — dark section with 3-col grid */
-.nx-roles-dark{background:#080B0D;padding:clamp(72px,9vw,118px) 0}
-.nx-roles-head{text-align:center;margin-bottom:52px}
-.nx-roles-head .nx-eyebrow{justify-content:center}
-.nx-roles-head .nx-h2{margin:0 auto;text-align:center;max-width:none}
-.nx-roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
-@media(max-width:900px){.nx-roles-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:580px){.nx-roles-grid{grid-template-columns:1fr}}
-/* two-card variant: admin role removed — keep the pair centered and intentional, not a broken 3-col */
-.nx-roles-grid.two{grid-template-columns:repeat(2,1fr);max-width:760px;margin:0 auto}
-@media(max-width:580px){.nx-roles-grid.two{grid-template-columns:1fr}}
-/* role-card-glow: named class per spec, provides the jade/gold glow on hover */
-.role-card-glow{
-  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
-  background:var(--surface);
-  transition:transform .3s,border-color .3s,box-shadow .3s
-}
-.role-card-glow:hover{
-  transform:translateY(-6px);
-  border-color:var(--gold);
-  box-shadow:0 0 0 1px rgba(201,164,91,.22),0 0 48px -10px rgba(201,164,91,.28),0 30px 60px -30px rgba(201,164,91,.35)
-}
-.nx-role-img{aspect-ratio:4/3;overflow:hidden;position:relative}
-.nx-role-img img{width:100%;height:100%;object-fit:cover;transition:transform .6s}
-.role-card-glow:hover .nx-role-img img{transform:scale(1.06)}
-.nx-role-img::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--surface),transparent 55%)}
-.nx-role-body{padding:22px 24px 26px}
-.nx-role .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:8px}
-.nx-role h3{font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 8px}
-.nx-role p{color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.6}
-.nx-role .go{font-size:13px;color:var(--ivory-dim);display:inline-flex;gap:8px;align-items:center;transition:gap .2s,color .2s}
-.role-card-glow:hover .nx-role .go{gap:12px;color:var(--gold-soft)}
-
-/* features */
-.nx-feat{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:48px}
-.nx-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:26px;transition:transform .25s,border-color .25s}
-.nx-card:hover{transform:translateY(-3px);border-color:var(--line-strong)}
-.nx-card .ic{width:38px;height:38px;border-radius:9px;border:1px solid var(--line-strong);display:grid;place-items:center;color:var(--gold);margin-bottom:16px}
-.nx-card h4{margin:0 0 7px;font-size:16px;font-weight:600}
-.nx-card p{margin:0;color:var(--muted);font-size:13.5px}
-@media(max-width:880px){.nx-feat{grid-template-columns:1fr 1fr}}
-@media(max-width:560px){.nx-feat{grid-template-columns:1fr}}
-
-/* cta */
-.nx-cta{position:relative;overflow:hidden;text-align:center;padding:clamp(90px,12vw,150px) 0}
-.nx-cta-img{position:absolute;inset:0}
-.nx-cta-img img{width:100%;height:100%;object-fit:cover;opacity:.6}
-/* Lighter scrim so the room shows through; a soft vignette blends the edges
-   back into the dark page. Text legibility comes from local text-shadows below. */
-.nx-cta-scrim{position:absolute;inset:0;background:radial-gradient(85% 95% at 50% 50%,rgba(14,17,19,.18),rgba(14,17,19,.74))}
-.nx-cta-in{position:relative;z-index:2}
-.nx-cta .nx-eyebrow{text-shadow:0 1px 12px rgba(10,12,14,.85)}
-.nx-cta h2{font-family:var(--serif);font-weight:500;font-size:clamp(32px,5vw,58px);letter-spacing:-.02em;line-height:1.04;margin:18px auto 0;max-width:16ch;text-shadow:0 0 44px rgba(10,12,14,.9),0 2px 12px rgba(10,12,14,.78)}
-.nx-cta .acts{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
-
-/* footer */
-.nx-foot{border-top:1px solid var(--line);padding:48px 0 36px;background:var(--ink-2)}
-.nx-foot-simple{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;padding-bottom:28px;border-bottom:1px solid var(--line);margin-bottom:28px}
-.nx-foot-tagline{color:var(--muted);font-size:13.5px;margin-top:8px}
-.nx-foot-links-row{display:flex;gap:20px;flex-wrap:wrap}
-.nx-foot-links-row a{color:var(--ivory-dim);font-size:13.5px;transition:color .2s}
-.nx-foot-links-row a:hover{color:var(--ivory)}
-.nx-foot-bot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.nx-foot-copy{color:var(--muted-2);font-size:12.5px}
-@media(max-width:640px){.nx-foot-simple{flex-direction:column;align-items:flex-start}}
-
-[data-reveal]{opacity:0;transform:translateY(24px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
-[data-reveal].in{opacity:1;transform:none}
-@media(prefers-reduced-motion:reduce){
-  [data-reveal]{opacity:1!important;transform:none!important;transition:none!important}
-  .nx-slide,.hero-slide{transition:opacity 1.2s ease!important;transform:none!important}
-  .nx-slide.on,.hero-slide.on{transform:none!important}
-  .nx-btn,.nx-listing,.role-card-glow,.nx-card,.nx-feat3-card{transition:none!important}
-  .nx-scroll-arrow{animation:none!important}
-  .marquee-inner{animation:none!important}
-}
-
 /* ==========================================================================
-   LIGHT THEME (landing)
-   The landing keeps its OWN variable system (--ink/--ivory/--gold...). In light
-   mode we flip the FLAT-section variables to a warm ivory canvas, but the
-   cinematic photo sections (hero / band / cta / nav / listing & media badges)
-   keep their hardcoded dark scrims, so their TEXT must stay light. We therefore
-   flip the core vars AND re-pin every over-photo element back to light values.
-   Readability rule: dark text only ever lands on light surfaces; light text
-   only ever lands on the dark photo scrims.
+   Wyncrest landing — "Rental, composed" (iconic editorial direction)
+   Ported from the standalone wyncrest-iconic.html design.
+
+   EVERYTHING is scoped under `.wc` so the design's deliberately generic class
+   names (.nav, .hero, .btn, .side, .chip…) cannot leak into the rest of the
+   SPA, and the page's CSS variables live on `.wc` rather than :root. The only
+   un-scoped rules are the Lenis smooth-scroll helpers (they must target
+   <html>) at the very bottom.
    ========================================================================== */
-:root[data-theme='light'] .nx{
-  /* Flat surfaces + page text — cool porcelain, no beige */
-  --ink:#F7F9FC; --ink-2:#EEF3F8; --surface:#FFFFFF; --surface-2:#F2F5F9;
-  --line:rgba(15,23,42,0.08); --line-strong:rgba(15,23,42,0.16);
-  /* Sharp near-black text scale, no warmth */
-  --ivory:#0B1220; --ivory-dim:#334155; --muted:#64748B; --muted-2:#475569;
-  /* Gold stays for hero/cta photo areas (kept via per-element hardcodes below).
-     gold-soft now maps to navy for all flat-section text accents (eyebrows,
-     step numbers, role labels) — eliminates the dark-amber/brown look. */
-  --gold:#D4AF37; --gold-soft:#102A43;
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;600;700;800;900&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@300..600&family=Space+Grotesk:wght@400;500&display=swap');
+
+.wc{
+  --paper:#FBFAF6; --paper-2:#EFEBE0; --chalk:#E4DED1;
+  --ink:#14161B; --ink-2:#3B404A;
+  --petrol:#163C47; --petrol-2:#23596B; --mist:#D6E2E1;
+  --oxblood:#8A2436; --wine:#A93346;
+  --line:rgba(20,22,27,.14); --line-w:rgba(251,250,246,.55);
+  --disp:"Big Shoulders Display",Impact,sans-serif;
+  --serif:"Fraunces",Georgia,serif;
+  --sans:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"Space Grotesk",monospace;
+  --pad:clamp(1.3rem,4.5vw,4rem);
+  --vf:clamp(12px,1.6vw,22px);
+  --maxw:1360px;
+
+  font-family:var(--sans);background:var(--paper);color:var(--ink);
+  line-height:1.5;overflow-x:hidden;-webkit-font-smoothing:antialiased;
+}
+.wc *{box-sizing:border-box;margin:0;padding:0}
+.wc img{display:block;max-width:100%}
+.wc a{color:inherit;text-decoration:none}
+.wc ::selection{background:var(--oxblood);color:#fff}
+.wc :focus-visible{outline:2px solid var(--oxblood);outline-offset:3px}
+/* The SPA sets a global `h1..h4 { color: var(--color-ink-950) }`. A rule that
+   matches the heading directly beats any colour the landing tries to *inherit*
+   onto it (inheritance always loses to a direct match), which left the white
+   over-photo headings — .focus h2, .closing h2 — rendering in the app's dark
+   ink. Resetting to `inherit` hands colour back to each section container:
+   white over photo scenes, ink on the paper sections. The hero <h1> keeps its
+   own more-specific #fff rule. */
+.wc h1,.wc h2,.wc h3,.wc h4{color:inherit}
+.wc .wrap{max-width:var(--maxw);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad)}
+
+.wc .disp{font-family:var(--disp);font-weight:800;line-height:.86;letter-spacing:.005em;text-transform:uppercase}
+.wc .it{font-family:var(--serif);font-style:italic;font-weight:400;text-transform:none;letter-spacing:0}
+.wc .label{font-family:var(--mono);font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;color:var(--petrol-2)}
+.wc .idx{font-family:var(--mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-2);display:inline-flex;align-items:center;gap:.7em}
+.wc .idx b{color:var(--oxblood);font-weight:500}
+.wc .idx::before{content:"";width:32px;height:1px;background:var(--oxblood)}
+
+.wc .btn{font-family:var(--sans);font-weight:500;font-size:.93rem;cursor:pointer;border:none;
+  padding:.95em 1.6em;border-radius:2px;display:inline-flex;align-items:center;gap:.55em;
+  transition:transform .3s cubic-bezier(.2,.7,.2,1),background .3s,color .3s,box-shadow .3s}
+.wc .btn .a{transition:transform .3s cubic-bezier(.2,.7,.2,1)}
+.wc .btn:hover .a{transform:translateX(4px)}
+.wc .btn-blood{background:var(--oxblood);color:#fff}
+.wc .btn-blood:hover{background:var(--wine);transform:translateY(-2px);box-shadow:0 14px 30px -14px rgba(138,36,54,.55)}
+.wc .btn-ink{background:var(--ink);color:var(--paper)}
+.wc .btn-ink:hover{background:var(--petrol);transform:translateY(-2px)}
+.wc .btn-line{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.wc .btn-line:hover{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.wc .btn-glass{background:rgba(255,255,255,.92);color:var(--ink)}
+.wc .btn-glass:hover{background:#fff;transform:translateY(-2px)}
+.wc .btn-ghost-w{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px var(--line-w)}
+.wc .btn-ghost-w:hover{box-shadow:inset 0 0 0 1.5px #fff}
+
+/* ============ VIEWFINDER (the iconic device) ============ */
+.wc .viewfinder{position:fixed;inset:var(--vf);z-index:90;pointer-events:none;color:var(--ink);transition:color .5s ease}
+.wc .viewfinder.on-dark{color:#fff}
+.wc .vf-corner{position:absolute;width:18px;height:18px;opacity:.85}
+.wc .vf-corner.tl{top:0;left:0;border-top:1.5px solid currentColor;border-left:1.5px solid currentColor}
+.wc .vf-corner.tr{top:0;right:0;border-top:1.5px solid currentColor;border-right:1.5px solid currentColor}
+.wc .vf-corner.bl{bottom:0;left:0;border-bottom:1.5px solid currentColor;border-left:1.5px solid currentColor}
+.wc .vf-corner.br{bottom:0;right:0;border-bottom:1.5px solid currentColor;border-right:1.5px solid currentColor}
+.wc .vf-meta{position:absolute;font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+.wc .vf-meta.tr{top:-3px;right:26px}
+.wc .vf-meta.bl{bottom:-3px;left:26px}
+.wc .vf-meta.br{bottom:-3px;right:26px}
+.wc .vf-meta b{color:var(--oxblood);font-weight:500}
+.wc .viewfinder.on-dark .vf-meta b{color:#fff}
+@media(max-width:680px){.wc .vf-meta.tr{display:none}}
+
+/* ============ NAV ============ */
+.wc .nav{position:fixed;top:0;left:0;right:0;z-index:100;transition:background .4s,box-shadow .4s}
+.wc .nav.solid{background:rgba(251,250,246,.85);backdrop-filter:blur(14px);box-shadow:0 1px 0 var(--line)}
+.wc .nav-inner{max-width:var(--maxw);margin:0 auto;padding:1.1rem calc(var(--pad) + 6px);display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.wc .brand{font-family:var(--disp);font-weight:900;font-size:1.55rem;letter-spacing:.02em;text-transform:uppercase;color:#fff;transition:color .4s;display:flex;align-items:center;gap:.4rem}
+.wc .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--oxblood)}
+.wc .nav.solid .brand{color:var(--ink)}
+.wc .nav-links{display:flex;gap:1.9rem;align-items:center}
+.wc .nav-links a{font-size:.85rem;color:rgba(255,255,255,.82);transition:color .3s;position:relative}
+.wc .nav.solid .nav-links a{color:var(--ink-2)}
+.wc .nav-links a::after{content:"";position:absolute;left:0;bottom:-4px;height:1px;width:0;background:var(--oxblood);transition:width .3s}
+.wc .nav-links a:hover::after{width:100%}
+.wc .nav-act{display:flex;gap:.7rem;align-items:center}
+.wc .nav-signin{font-size:.85rem;color:#fff;transition:color .4s}
+.wc .nav.solid .nav-signin{color:var(--ink)}
+.wc .nav-cta{font-size:.85rem;font-weight:500;background:#fff;color:var(--ink)!important;padding:.55em 1.1em;border-radius:2px;transition:background .3s,color .3s}
+.wc .nav.solid .nav-cta{background:var(--ink);color:var(--paper)!important}
+.wc .nav-cta:hover{background:var(--oxblood);color:#fff!important}
+.wc .burger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:6px}
+.wc .burger span{width:24px;height:2px;background:#fff;transition:.3s}
+.wc .nav.solid .burger span{background:var(--ink)}
+
+/* ============ HERO ============ */
+.wc .hero{position:relative;height:100vh;min-height:640px;overflow:hidden;display:flex;align-items:flex-end}
+.wc .hero-cam{position:absolute;inset:-5%;will-change:transform}
+.wc .hero-cam img{width:100%;height:100%;object-fit:cover}
+.wc .hero-veil{position:absolute;inset:0;background:linear-gradient(to top,rgba(20,22,27,.66) 0%,rgba(20,22,27,.05) 42%,rgba(20,22,27,.12) 100%),linear-gradient(105deg,rgba(20,22,27,.45) 0%,transparent 50%)}
+.wc .hero-inner{position:relative;z-index:3;width:100%;max-width:var(--maxw);margin:0 auto;padding:0 calc(var(--pad) + 6px) clamp(3rem,8vh,5.5rem)}
+.wc .hero-eyebrow{margin-bottom:1.4rem}
+.wc .hero-eyebrow .label{color:rgba(255,255,255,.78)}
+.wc .hero-eyebrow .label::before{background:var(--oxblood)}
+.wc .hero h1{color:#fff;font-size:clamp(3.4rem,11vw,9.5rem);margin-bottom:1.4rem;text-shadow:0 2px 40px rgba(20,22,27,.25)}
+.wc .hero h1 .ln{display:block;overflow:hidden}
+.wc .hero h1 .ln > span{display:block;will-change:transform}
+.wc .hero h1 .blood{color:var(--oxblood);-webkit-text-fill-color:var(--oxblood)}
+.wc .hero-bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;flex-wrap:wrap}
+.wc .hero-sub{color:rgba(255,255,255,.9);font-size:clamp(1rem,1.4vw,1.18rem);max-width:32ch;font-weight:300;margin-bottom:1.6rem}
+.wc .hero-ctas{display:flex;gap:.8rem;flex-wrap:wrap}
+.wc .now-viewing{text-align:right;color:#fff}
+.wc .nv-k{font-family:var(--mono);font-size:.6rem;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.62)}
+.wc .nv-name{font-family:var(--disp);font-weight:700;font-size:1.5rem;text-transform:uppercase;margin-top:.2rem}
+.wc .nv-loc{font-size:.82rem;color:rgba(255,255,255,.74)}
+.wc .scroll-cue{position:absolute;left:50%;bottom:1.5rem;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:.5rem;color:rgba(255,255,255,.7)}
+.wc .scroll-cue .scl{font-family:var(--mono);font-size:.58rem;letter-spacing:.3em;text-transform:uppercase}
+.wc .scroll-cue .bar{width:1px;height:34px;background:rgba(255,255,255,.4);position:relative;overflow:hidden}
+.wc .scroll-cue .bar::after{content:"";position:absolute;top:-100%;left:0;width:100%;height:100%;background:var(--oxblood);animation:wc-drop 2s infinite}
+@keyframes wc-drop{0%{top:-100%}60%,100%{top:100%}}
+@media(max-width:680px){.wc .now-viewing{display:none}}
+
+/* ============ STATEMENT ============ */
+.wc .statement{padding:clamp(4.5rem,11vh,8rem) 0;text-align:center}
+.wc .statement p{font-family:var(--serif);font-size:clamp(1.7rem,4vw,3rem);line-height:1.16;max-width:21ch;margin:0 auto;letter-spacing:-.01em}
+.wc .statement .accent{color:var(--oxblood);font-style:italic}
+.wc .statement .st-note{font-family:var(--sans);font-size:.92rem;color:var(--ink-2);margin-top:1.6rem;font-weight:300}
+
+/* ============ SECTION ============ */
+.wc .sec{padding-top:clamp(4rem,10vh,7rem);padding-bottom:clamp(4rem,10vh,7rem)}
+.wc .sec-head{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:clamp(2.5rem,5vh,4rem);flex-wrap:wrap}
+.wc .sec-head h2{font-family:var(--disp);font-weight:800;text-transform:uppercase;font-size:clamp(2.4rem,5.4vw,4.6rem);line-height:.9;max-width:14ch}
+.wc .sec-head .sh-r{max-width:30ch;color:var(--ink-2);font-weight:300;font-size:.96rem;padding-bottom:.4rem}
+.wc .reveal{opacity:0;transform:translateY(30px);will-change:transform,opacity}
+
+/* ============ DISCOVERY (gallery viewer / window) ============ */
+.wc .viewer-stage{position:relative;border-radius:5px;overflow:hidden;aspect-ratio:16/9;background:var(--chalk)}
+.wc .viewer-stage img{width:100%;height:100%;object-fit:cover;transition:opacity .45s ease}
+.wc .vs-veil{position:absolute;inset:0;background:linear-gradient(to top,rgba(20,22,27,.6),transparent 45%),linear-gradient(105deg,rgba(20,22,27,.35),transparent 45%)}
+.wc .vs-corner{position:absolute;width:16px;height:16px;opacity:.8}
+.wc .vs-corner.tl{top:14px;left:14px;border-top:1.5px solid #fff;border-left:1.5px solid #fff}
+.wc .vs-corner.br{bottom:14px;right:14px;border-bottom:1.5px solid #fff;border-right:1.5px solid #fff}
+.wc .vs-status{position:absolute;top:14px;right:14px;display:flex;gap:.5rem}
+.wc .vs-status .t{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;background:rgba(251,250,246,.92);backdrop-filter:blur(6px);padding:.45em .8em;border-radius:100px;display:inline-flex;align-items:center;gap:.4em;color:var(--ink)}
+.wc .vs-status .t .d{width:6px;height:6px;border-radius:50%;background:#3a8a5a}
+.wc .vs-status .t.ver{color:var(--petrol)}
+.wc .vs-info{position:absolute;left:24px;bottom:22px;color:#fff;z-index:2}
+.wc .vs-loc{font-family:var(--mono);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.78)}
+.wc .vs-name{font-family:var(--disp);font-weight:700;font-size:clamp(1.8rem,3.6vw,3rem);text-transform:uppercase;line-height:.95;margin-top:.25rem}
+.wc .vs-spec{font-size:.86rem;color:rgba(255,255,255,.82);margin-top:.3rem}
+.wc .vs-rent{position:absolute;right:24px;bottom:22px;color:#fff;font-family:var(--disp);font-weight:700;font-size:clamp(1.4rem,2.6vw,2rem);text-transform:uppercase;z-index:2}
+.wc .vs-rent small{font-family:var(--sans);font-weight:300;font-size:.72rem;text-transform:none;letter-spacing:0;color:rgba(255,255,255,.78)}
+.wc .viewer-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-top:.9rem}
+.wc .thumb{position:relative;border-radius:3px;overflow:hidden;aspect-ratio:16/10;cursor:pointer;opacity:.55;transition:opacity .35s;background:var(--chalk);border:none;padding:0}
+.wc .thumb img{width:100%;height:100%;object-fit:cover}
+.wc .thumb::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 0 var(--oxblood);transition:box-shadow .3s}
+.wc .thumb:hover,.wc .thumb.active{opacity:1}
+.wc .thumb.active::after{box-shadow:inset 0 0 0 2.5px var(--oxblood)}
+.wc .thumb .tn{position:absolute;left:8px;bottom:6px;font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.wc .viewer-foot{display:flex;justify-content:flex-end;margin-top:1.6rem}
+@media(max-width:620px){.wc .viewer-strip{grid-template-columns:repeat(2,1fr)}.wc .viewer-stage{aspect-ratio:4/3}}
+
+/* ============ TWO SIDES ============ */
+.wc .sides{background:var(--paper-2)}
+.wc .sides-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--line)}
+.wc .side{padding:clamp(2rem,4vh,3rem) clamp(1.4rem,3vw,2.6rem) clamp(2rem,4vh,3rem) 0}
+.wc .side:first-child{border-right:1px solid var(--line);padding-right:clamp(1.4rem,3vw,2.6rem)}
+.wc .side:last-child{padding-left:clamp(1.4rem,3vw,2.6rem);padding-right:0}
+.wc .side-k{font-family:var(--mono);font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--oxblood);font-weight:500}
+.wc .side h3{font-family:var(--disp);font-weight:800;text-transform:uppercase;font-size:clamp(1.9rem,3.6vw,2.9rem);margin:.7rem 0 1.2rem;line-height:.9}
+.wc .side ul{list-style:none;display:flex;flex-direction:column;gap:.7rem;margin-bottom:1.7rem}
+.wc .side li{font-size:.95rem;color:var(--ink-2);display:flex;gap:.65rem;font-weight:300}
+.wc .side li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--petrol);margin-top:.5em;flex:none}
+.wc .side-link{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;display:inline-flex;gap:.5em;align-items:center}
+.wc .side-link .a{transition:transform .3s}.wc .side-link:hover .a{transform:translateX(4px)}
+@media(max-width:720px){.wc .sides-grid{grid-template-columns:1fr}.wc .side:first-child{border-right:none;padding-right:0}.wc .side:last-child{padding-left:0;border-top:1px solid var(--line)}}
+
+/* ============ SIGNATURE: FOCUS PULL ============ */
+.wc .focus{position:relative;height:100vh;min-height:600px;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center}
+.wc .focus-cam{position:absolute;inset:-6%;will-change:transform,filter}
+.wc .focus-cam img{width:100%;height:100%;object-fit:cover}
+.wc .focus-veil{position:absolute;inset:0;background:rgba(20,22,27,.42)}
+.wc .focus-inner{position:relative;z-index:3;color:#fff;padding:0 1.5rem;max-width:30ch}
+.wc .focus h2{font-family:var(--disp);font-weight:800;text-transform:uppercase;font-size:clamp(2.4rem,7vw,5.5rem);line-height:.9;margin-bottom:1rem}
+.wc .focus p{font-family:var(--serif);font-style:italic;font-size:clamp(1.1rem,2vw,1.5rem);color:rgba(255,255,255,.9)}
+
+/* ============ TRUST ============ */
+.wc .trust{text-align:center}
+.wc .trust h2{font-family:var(--disp);font-weight:800;text-transform:uppercase;font-size:clamp(2.2rem,5vw,4rem);line-height:.9;margin:1rem auto 1.2rem;max-width:16ch}
+.wc .trust h2 .it{color:var(--oxblood)}
+.wc .trust .tr-sub{color:var(--ink-2);font-weight:300;max-width:46ch;margin:0 auto clamp(2.5rem,5vh,4rem)}
+.wc .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:.8rem;max-width:880px;margin:0 auto}
+.wc .chip{display:inline-flex;align-items:center;gap:.6rem;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line);border-radius:100px;padding:.8em 1.3em;font-size:.92rem;transition:box-shadow .3s,transform .3s}
+.wc .chip:hover{box-shadow:inset 0 0 0 1.5px var(--oxblood);transform:translateY(-2px)}
+.wc .chip svg{width:15px;height:15px;stroke:var(--petrol);fill:none;stroke-width:2;flex:none}
+
+/* ============ THE POINT (image-in-type) ============ */
+.wc .point-sec{text-align:center;overflow:hidden}
+.wc .point-pin{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1.5rem;padding-top:clamp(3.5rem,9vh,6.5rem);padding-bottom:clamp(3.5rem,9vh,6.5rem)}
+.wc .point-eyebrow{margin-bottom:.3rem}
+.wc .point-word{font-family:var(--disp);font-weight:900;font-size:clamp(7rem,33vw,30rem);line-height:.8;letter-spacing:.01em;text-transform:uppercase;
+  background-image:var(--fill-img);background-size:128% auto;background-position:50% 42%;background-repeat:no-repeat;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;will-change:background-position}
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){.wc .point-word{color:var(--petrol);-webkit-text-fill-color:var(--petrol)}}
+.wc .point-sub{font-family:var(--serif);font-style:italic;font-size:clamp(1.3rem,2.6vw,2.1rem);color:var(--ink);max-width:22ch}
+.wc .point-note{color:var(--ink-2);max-width:44ch;font-weight:300;font-size:.96rem}
+
+/* ============ CLOSING ============ */
+.wc .closing{position:relative;height:100vh;min-height:600px;overflow:hidden;display:flex;align-items:center}
+.wc .closing-cam{position:absolute;inset:-5%;will-change:transform}
+.wc .closing-cam img{width:100%;height:100%;object-fit:cover}
+.wc .closing-veil{position:absolute;inset:0;background:linear-gradient(105deg,rgba(20,22,27,.7),rgba(20,22,27,.2) 60%)}
+.wc .closing-inner{position:relative;z-index:3;color:#fff;max-width:var(--maxw);margin:0 auto;width:100%;padding:0 calc(var(--pad) + 6px)}
+.wc .closing h2{font-family:var(--disp);font-weight:800;text-transform:uppercase;font-size:clamp(3rem,9vw,8rem);line-height:.86;margin-bottom:1.2rem}
+.wc .closing h2 .it{color:#fff}
+.wc .closing p{color:rgba(255,255,255,.9);font-weight:300;max-width:30ch;margin-bottom:2rem;font-size:1.05rem}
+.wc .closing-ctas{display:flex;gap:.8rem;flex-wrap:wrap}
+
+/* ============ FOOTER ============ */
+.wc .foot{background:var(--ink);color:rgba(251,250,246,.72)}
+.wc .foot-cols{max-width:var(--maxw);margin:0 auto;padding:clamp(3rem,7vh,5rem) calc(var(--pad) + 6px) 2rem;display:flex;justify-content:space-between;gap:2rem;flex-wrap:wrap}
+.wc .foot .brand{color:#fff}
+.wc .foot .fc-tag{max-width:30ch;font-weight:300;font-size:.9rem;margin-top:.7rem}
+.wc .foot-links{display:flex;gap:3rem;flex-wrap:wrap}
+.wc .fc h4{font-family:var(--mono);font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;color:rgba(251,250,246,.45);margin-bottom:.9rem}
+.wc .fc a{display:block;font-size:.88rem;margin-bottom:.55rem;color:rgba(251,250,246,.8);transition:color .3s}
+.wc .fc a:hover{color:#fff}
+.wc .foot-bottom{max-width:var(--maxw);margin:0 auto;padding:1.3rem calc(var(--pad) + 6px);border-top:1px solid var(--line-w);display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(251,250,246,.5)}
+
+@media(max-width:880px){
+  .wc .nav-links,.wc .nav-act .nav-signin{display:none}
+  .wc .burger{display:flex}
+  .wc .nav-links.open{display:flex;position:fixed;inset:0;background:rgba(20,22,27,.97);flex-direction:column;justify-content:center;gap:1.6rem;z-index:99}
+  .wc .nav-links.open a{color:#fff;font-family:var(--disp);font-weight:700;font-size:1.8rem;text-transform:uppercase}
+}
+@media(prefers-reduced-motion:reduce){
+  .wc *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .wc .reveal{opacity:1!important;transform:none!important}
+  .wc .hero h1 .ln > span{transform:none!important}
+  .wc .focus-cam{filter:none!important}
+  .wc .point-word{background-position:50% 42%!important}
 }
 
-/* --- Re-pin everything that rides on a dark photo/scrim back to LIGHT ----- */
-:root[data-theme='light'] .nx-hero-bg{background:#0E1113}
-:root[data-theme='light'] .nx-roles-dark{background:#0A0D10}
-
-/* Nav floats over the hero photo (and turns into dark glass when scrolled),
-   so it stays light-on-dark in both themes. */
-:root[data-theme='light'] .nx-nav .nx-brand{color:#F4F1EA}
-/* container color also covers the (non-anchor) theme toggle button */
-:root[data-theme='light'] .nx-navlinks{color:#F4F1EA}
-:root[data-theme='light'] .nx-navlinks a{color:#F4F1EA}
-:root[data-theme='light'] .nx-navlinks a:hover{color:#E3CB8C}
-:root[data-theme='light'] .nx-req{color:#E3CB8C;border-color:#C9A45B}
-:root[data-theme='light'] .nx-req:hover{background:#C9A45B;color:#0E1113}
-
-/* Hero copy over the dark scrim */
-:root[data-theme='light'] .nx-hero .nx-eyebrow,
-:root[data-theme='light'] .nx-band .nx-eyebrow{color:#E3CB8C}
-:root[data-theme='light'] .nx-hero .nx-eyebrow::before,
-:root[data-theme='light'] .nx-band .nx-eyebrow::before{background:#E3CB8C}
-:root[data-theme='light'] .nx-hero h1{color:#F4F1EA}
-:root[data-theme='light'] .nx-hero h1 .it{color:#E3CB8C}
-:root[data-theme='light'] .nx-hero-sub{color:#CDC8BC}
-:root[data-theme='light'] .nx-caption .lab{color:#909896}
-:root[data-theme='light'] .nx-caption .nm{color:#F4F1EA}
-:root[data-theme='light'] .nx-caption .lo{color:#CDC8BC}
-
-/* Ghost button appears only over photos (hero + cta), on dark glass */
-:root[data-theme='light'] .nx-btn-ghost{color:#F4F1EA;background:rgba(14,17,19,.35);border-color:rgba(244,241,234,.16)}
-:root[data-theme='light'] .nx-btn-ghost:hover{border-color:#C9A45B;color:#E3CB8C}
-
-/* Listing card photo badge sits on a dark glass chip */
-:root[data-theme='light'] .nx-listing-badge.muted{color:#909896}
-:root[data-theme='light'] .nx-listing-badge.muted i{background:#909896}
-
-/* Editorial split media caption over a photo */
-:root[data-theme='light'] .nx-split-media .tagstrip{color:#F4F1EA}
-
-/* Full-bleed band over a dark-scrimmed photo */
-:root[data-theme='light'] .nx-band h2{color:#F4F1EA}
-:root[data-theme='light'] .nx-band p{color:#CDC8BC}
-
-/* CTA over a photo with a soft vignette — keep eyebrow + heading light */
-:root[data-theme='light'] .nx-cta .nx-eyebrow{color:#E3CB8C}
-:root[data-theme='light'] .nx-cta .nx-eyebrow::before{background:#E3CB8C}
-:root[data-theme='light'] .nx-cta h2{color:#F4F1EA}
-
-/* Roles dark section stays dark in both themes (photo bg) */
-:root[data-theme='light'] .nx-roles-dark .nx-h2{color:#F4F1EA}
-:root[data-theme='light'] .nx-roles-dark .nx-eyebrow{color:#E3CB8C}
-:root[data-theme='light'] .nx-roles-dark .nx-eyebrow::before{background:#E3CB8C}
-
-/* Footer — cool-tinted slate surface, crisp top edge. */
-:root[data-theme='light'] .nx-foot{background:#EEF3F8;border-top:1px solid rgba(15,23,42,0.10)}
-:root[data-theme='light'] .nx-foot-simple{border-bottom-color:rgba(15,23,42,0.10)}
-:root[data-theme='light'] .nx-foot .nx-brand{text-shadow:none}
-
-/* ── Text elements that pull --gold need the readable dark amber in flat sections.
-   Bright #D4AF37 on the porcelain canvas is ~1.9:1 — far below AA for small type.
-   --gold-soft (#7B5800) gives 6.1:1; used for every text-coloured gold element. */
-:root[data-theme='light'] .nx-eyebrow{color:var(--gold-soft)}
-:root[data-theme='light'] .nx-eyebrow::before{background:var(--gold-soft)}
-:root[data-theme='light'] .nx-step .num{color:var(--gold-soft)}
-:root[data-theme='light'] .nx-feat3-icon{color:var(--gold-soft);background:rgba(183,140,0,.08);border-color:rgba(183,140,0,.16)}
-:root[data-theme='light'] .nx-listing-price{color:var(--gold-soft)}
-
-/* ── Signin hover: the nav sits on a dark hero photo (dark glass), so .nx-signin
-   needs explicit ivory on hover even in light mode — navy would be invisible. */
-:root[data-theme='light'] .nx-signin:hover{color:#E3CB8C}
-
-/* ── Primary button on landing: all landing CTAs appear over dark photo sections
-   (hero + cta), so the gold-on-dark treatment stays. No override needed — the
-   dark photo context keeps white/ivory legible on gold (#D4AF37). */
+/* ============ Lenis smooth-scroll helpers (must target <html>) ============ */
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain}
+.lenis.lenis-stopped{overflow:hidden}
+.lenis.lenis-scrolling iframe{pointer-events:none}

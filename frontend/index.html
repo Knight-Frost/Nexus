@@ -4,15 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Favicons / app icons -->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <!-- Favicons / app icons — Wyncrest WC crown monogram -->
+    <link rel="icon" type="image/png" href="/favicon.png" sizes="any" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <meta name="theme-color" content="#071011" />
+    <meta name="theme-color" content="#F6F8FB" />
 
     <!-- Set the theme BEFORE first paint to avoid a flash of the wrong theme.
          Mirrors the resolver in src/context/theme.ts (kept tiny + dependency-free
@@ -21,72 +18,71 @@
       (function () {
         try {
           var c = localStorage.getItem('nexus.theme');
+          // Explicit stored light/dark wins; "system" tracks the OS; anything
+          // else (unset) defaults to light — must match getStoredChoice().
           var resolved =
             c === 'light' || c === 'dark'
               ? c
-              : window.matchMedia('(prefers-color-scheme: dark)').matches
+              : c === 'system' &&
+                  window.matchMedia('(prefers-color-scheme: dark)').matches
                 ? 'dark'
                 : 'light';
           document.documentElement.setAttribute('data-theme', resolved);
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', resolved === 'light' ? '#faf8f3' : '#071011');
+          if (m) m.setAttribute('content', resolved === 'light' ? '#F6F8FB' : '#071011');
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.setAttribute('data-theme', 'light');
         }
       })();
     </script>
-    <!-- Apply stored accent-color vars BEFORE first paint to avoid a flash.
-         Only runs when a non-default accent is stored; default = stylesheet wins. -->
+    <!-- Apply the dark PALETTE + the ACCENT vars BEFORE first paint to avoid a
+         flash. The dark palette is a data attribute (gated CSS in index.css);
+         the accent applies its light/dark ramp inline. Mirrors src/config/
+         {darkThemes,accents}.ts - keep the 9 ordered hexes in sync. -->
     <script>
       (function () {
         try {
-          var ACCENT_KEY = 'nexus.accent';
-          var DEFAULT = 'ink-teal';
-          var stored = localStorage.getItem(ACCENT_KEY);
-          if (!stored || stored === DEFAULT) return;
-          // Minimal inline accent table — brand-50/500/600/700 + action-400/500/600/700.
-          // Full table lives in src/config/accents.ts; this mirrors it for pre-paint.
-          var TABLE = {
-            'deep-sapphire':  { '--color-brand-50':'#EBF0FB','--color-brand-500':'#2059C0','--color-brand-600':'#1B4DA8','--color-brand-700':'#163F8C','--color-action-400':'#3570D4','--color-action-500':'#2059C0','--color-action-600':'#1B4DA8','--color-action-700':'#163F8C' },
-            'petrol-blue':    { '--color-brand-50':'#E3EFF4','--color-brand-500':'#1D6885','--color-brand-600':'#1A5C78','--color-brand-700':'#154E67','--color-action-400':'#237497','--color-action-500':'#1D6885','--color-action-600':'#1A5C78','--color-action-700':'#154E67' },
-            'royal-plum':     { '--color-brand-50':'#F3EAFA','--color-brand-500':'#7A2FA8','--color-brand-600':'#6B2D8B','--color-brand-700':'#5A2575','--color-action-400':'#8B38BC','--color-action-500':'#7A2FA8','--color-action-600':'#6B2D8B','--color-action-700':'#5A2575' },
-            'forest-slate':   { '--color-brand-50':'#E5EFEA','--color-brand-500':'#327254','--color-brand-600':'#2D5A3D','--color-brand-700':'#264D34','--color-action-400':'#358460','--color-action-500':'#327254','--color-action-600':'#2D5A3D','--color-action-700':'#264D34' },
-            'graphite':       { '--color-brand-50':'#F1F2F4','--color-brand-500':'#4B5465','--color-brand-600':'#374151','--color-brand-700':'#2E3744','--color-action-400':'#647080','--color-action-500':'#4B5465','--color-action-600':'#374151','--color-action-700':'#2E3744' },
-            'crimson':        { '--color-brand-50':'#FDE8E8','--color-brand-500':'#C02020','--color-brand-600':'#9B1C1C','--color-brand-700':'#811818','--color-action-400':'#D53030','--color-action-500':'#C02020','--color-action-600':'#9B1C1C','--color-action-700':'#811818' },
-            'indigo':         { '--color-brand-50':'#EEEDFB','--color-brand-500':'#4543BC','--color-brand-600':'#3730A3','--color-brand-700':'#2D288A','--color-action-400':'#5756D1','--color-action-500':'#4543BC','--color-action-600':'#3730A3','--color-action-700':'#2D288A' },
-            'emerald':        { '--color-brand-50':'#D1FAE5','--color-brand-500':'#059669','--color-brand-600':'#065F46','--color-brand-700':'#054E3B','--color-action-400':'#10B981','--color-action-500':'#059669','--color-action-600':'#065F46','--color-action-700':'#054E3B' },
-            'cerulean':       { '--color-brand-50':'#E0F2FE','--color-brand-500':'#0484C9','--color-brand-600':'#0369A1','--color-brand-700':'#025687','--color-action-400':'#0E97E0','--color-action-500':'#0484C9','--color-action-600':'#0369A1','--color-action-700':'#025687' },
-            'rosewood':       { '--color-brand-50':'#FDF2F5','--color-brand-500':'#BC1A55','--color-brand-600':'#881337','--color-brand-700':'#730F2E','--color-action-400':'#DA3D73','--color-action-500':'#BC1A55','--color-action-600':'#881337','--color-action-700':'#730F2E' },
-            'aubergine':      { '--color-brand-50':'#F5EDFB','--color-brand-500':'#7228AF','--color-brand-600':'#4C1D6B','--color-brand-700':'#3F185A','--color-action-400':'#8C3DC4','--color-action-500':'#7228AF','--color-action-600':'#4C1D6B','--color-action-700':'#3F185A' },
-            'storm-blue':     { '--color-brand-50':'#E3EAF3','--color-brand-500':'#204F84','--color-brand-600':'#1E3A5F','--color-brand-700':'#183050','--color-action-400':'#2A629A','--color-action-500':'#204F84','--color-action-600':'#1E3A5F','--color-action-700':'#183050' },
-            'pine':           { '--color-brand-50':'#DCFCE7','--color-brand-500':'#16A34A','--color-brand-600':'#14532D','--color-brand-700':'#0F4225','--color-action-400':'#22C55E','--color-action-500':'#16A34A','--color-action-600':'#14532D','--color-action-700':'#0F4225' },
-            'slate-violet':   { '--color-brand-50':'#EEF2FF','--color-brand-500':'#6366F1','--color-brand-600':'#4338CA','--color-brand-700':'#3730A3','--color-action-400':'#818CF8','--color-action-500':'#6366F1','--color-action-600':'#4338CA','--color-action-700':'#3730A3' },
-            'charcoal-mint':  { '--color-brand-50':'#CCFBF1','--color-brand-500':'#0D9488','--color-brand-600':'#134E4A','--color-brand-700':'#0F3F3C','--color-action-400':'#14B8A6','--color-action-500':'#0D9488','--color-action-600':'#134E4A','--color-action-700':'#0F3F3C' },
-          };
-          var vars = TABLE[stored];
-          if (!vars) return;
           var root = document.documentElement;
-          for (var prop in vars) {
-            root.style.setProperty(prop, vars[prop]);
-          }
+          var resolved = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+
+          // Dark palette attribute (default = petrol-black, the base values).
+          var dt = localStorage.getItem('nexus.darkTheme') || 'petrol-black';
+          root.setAttribute('data-dark-theme', dt);
+
+          // Accent ramp: 9 ordered vars [brand-50,500,600,700,900, action-400,500,600,700].
+          var ORDER = ['--color-brand-50','--color-brand-500','--color-brand-600','--color-brand-700','--color-brand-900','--color-action-400','--color-action-500','--color-action-600','--color-action-700'];
+          var T = {
+            'wyncrest-blue': { l:['#ECF1FC','#2E63CD','#1D4ED8','#1A41A8','#122A5E','#3B7BE6','#2563EB','#1D4ED8','#1A41A8'], d:['#0E1C33','#5E92EC','#2F66D6','#90B7F5','#D8E5FC','#4D86E8','#3570DC','#2A5ECF','#234EB0'] },
+            'electric-blue': { l:['#EBF2FE','#2F6FEF','#2563EB','#1D4FC4','#163172','#4485F2','#2F6FEF','#2056D6','#1D4FC4'], d:['#0D1C38','#62A0FF','#2A63E0','#93C5FD','#DBEAFE','#5C97FF','#3B82F6','#2F6FEF','#2056D6'] },
+            'ice-cyan': { l:['#E7F6FB','#1186A6','#0E7490','#0C6079','#073B4A','#1E9DBE','#1186A6','#0E7490','#0C6079'], d:['#082530','#34D8EC','#0E7C97','#5DE0F2','#C5F4FB','#2BB6D4','#1198BA','#0E7E9C','#0C6378'] },
+            'harbor-teal': { l:['#E6F2F1','#0D8278','#0A7068','#096058','#063E3A','#1C988F','#0D8278','#0A7068','#085048'], d:['#0E2A28','#2DD4BF','#0D8175','#5EEAD4','#A7F3E9','#19B3A4','#119A8D','#0E8175','#0B655C'] },
+            'signal-indigo': { l:['#EEEDFB','#5249CF','#4338CA','#372EA6','#211C63','#6B63D6','#5249CF','#4338CA','#372EA6'], d:['#15123A','#8B85F0','#4F46E5','#A5A0F8','#DEDBFD','#6D64EC','#5B52DE','#4C43CE','#3F37AC'] },
+            'estate-red': { l:['#FBEAE8','#C13325','#B42318','#971C13','#5C110B','#D14C3E','#C13325','#B42318','#971C13'], d:['#33100C','#F08070','#C9382B','#F4A79C','#FBDCD7','#DC5849','#CB4133','#B92F22','#97251A'] },
+            'slate-blue': { l:['#ECEFF7','#46609F','#3B5BA5','#324C87','#1F2F50','#5A73B0','#46609F','#39538F','#324C87'], d:['#131B30','#7C9BD8','#4163AE','#9DB5E2','#DBE3F4','#5778C0','#4663A8','#3B5494','#314676'] },
+          };
+          var accent = localStorage.getItem('nexus.accent') || 'wyncrest-blue';
+          var set = (T[accent] || T['wyncrest-blue'])[resolved === 'dark' ? 'd' : 'l'];
+          for (var i = 0; i < ORDER.length; i++) root.style.setProperty(ORDER[i], set[i]);
+          root.style.setProperty('--color-on-brand', '#FFFFFF');
+          root.style.setProperty('--color-on-action', '#FFFFFF');
         } catch (e) { /* no-op */ }
       })();
     </script>
     <meta
       name="description"
-      content="%BRAND_NAME% — %BRAND_TAGLINE% A secure property platform for tenants, landlords, and administrators."
+      content="%BRAND_NAME% | %BRAND_TAGLINE% A secure property platform for tenants, landlords, and administrators."
     />
-    <meta property="og:title" content="%BRAND_NAME% — %BRAND_DESCRIPTOR%" />
+    <meta property="og:title" content="%BRAND_NAME% | %BRAND_DESCRIPTOR%" />
     <meta property="og:description" content="%BRAND_TAGLINE%" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/android-chrome-512x512.png" />
-    <title>%BRAND_NAME% — %BRAND_DESCRIPTOR%</title>
+    <title>%BRAND_NAME% | %BRAND_DESCRIPTOR%</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Manrope = auth form UI face; Cormorant Garamond = auth hero display face.
          Only the weights actually used are requested (perf + no layout shift). -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesque:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesque:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
   </head>

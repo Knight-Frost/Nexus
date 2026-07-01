@@ -4,7 +4,6 @@ import { AppShell } from '@/components/layout/AppShell';
 import { RequireAuth, RequireRole, RedirectIfAuthed } from '@/components/routing/guards';
 import { useAuth } from '@/context/auth';
 
-import { Landing } from '@/pages/Landing';
 import { Login } from '@/pages/auth/Login';
 import { Register } from '@/pages/auth/Register';
 import { AcceptInvite } from '@/pages/auth/AcceptInvite';
@@ -15,6 +14,9 @@ import { NotFound } from '@/pages/NotFound';
 import { DashboardRouter } from '@/pages/DashboardRouter';
 
 /* ---- Lazy page imports --------------------------------------------------- */
+// Landing is lazy so its animation libs (gsap, lenis) chunk separately and only
+// load on "/", never for visitors who land straight on /login or /register.
+const Landing           = lazy(() => import('@/pages/Landing').then((m) => ({ default: m.Landing })));
 
 // Tenant
 const BrowseListings    = lazy(() => import('@/pages/tenant/BrowseListings').then((m) => ({ default: m.BrowseListings })));
@@ -102,7 +104,7 @@ export default function App() {
   return (
     <Routes>
       {/* Public */}
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<Lazy><Landing /></Lazy>} />
       <Route
         path="/login"
         element={

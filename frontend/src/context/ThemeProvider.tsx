@@ -9,16 +9,31 @@ import {
   resolveChoice,
   storeChoice,
 } from './theme';
+import {
+  applyDarkTheme,
+  getStoredDarkTheme,
+  storeDarkTheme,
+} from '@/config/darkThemes';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [choice, setChoiceState] = useState<ThemeChoice>(() => getStoredChoice());
   const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveChoice(getStoredChoice()));
+  // Dark palette: persisted independently and applied as `data-dark-theme`. It
+  // is set on <html> regardless of the current mode (harmless in light, since
+  // the CSS blocks are gated on [data-theme='dark']) so it's ready the instant
+  // dark mode activates.
+  const [darkTheme, setDarkThemeState] = useState<string>(() => getStoredDarkTheme());
   const animTimer = useRef<number | undefined>(undefined);
 
   // Apply the resolved theme to <html> whenever it changes.
   useEffect(() => {
     applyResolvedTheme(resolved);
   }, [resolved]);
+
+  // Apply the dark palette attribute whenever it changes (and on mount).
+  useEffect(() => {
+    applyDarkTheme(darkTheme);
+  }, [darkTheme]);
 
   // While the choice is "system", track the OS preference live so the page
   // follows the OS when it flips (e.g. the nightly light→dark switch).
@@ -55,9 +70,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setChoice(resolved === 'dark' ? 'light' : 'dark');
   }, [resolved, setChoice]);
 
+  const setDarkTheme = useCallback(
+    (key: string) => {
+      // Animate only when the change is actually visible (i.e. dark is active).
+      if (resolved === 'dark') pulseAnim();
+      setDarkThemeState(key);
+      storeDarkTheme(key);
+    },
+    [resolved, pulseAnim],
+  );
+
   const value = useMemo<ThemeContextValue>(
-    () => ({ choice, resolved, setChoice, toggle }),
-    [choice, resolved, setChoice, toggle],
+    () => ({ choice, resolved, setChoice, toggle, darkTheme, setDarkTheme }),
+    [choice, resolved, setChoice, toggle, darkTheme, setDarkTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

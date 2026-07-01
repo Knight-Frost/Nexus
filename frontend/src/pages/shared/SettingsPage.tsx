@@ -4,6 +4,7 @@ import { brand } from '@/config/brand';
 import { useTheme, type ThemeChoice } from '@/context/theme';
 import { useAccent } from '@/context/accent';
 import { ACCENTS, DEFAULT_ACCENT_KEY } from '@/config/accents';
+import { DARK_THEMES } from '@/config/darkThemes';
 import { useAuth } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
 import { notificationApi } from '@/lib/endpoints';
@@ -101,10 +102,67 @@ function PaletteIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+/* ── Dark-theme (palette) picker ─────────────────────────────────────────── */
+/* Controls the dark-mode ATMOSPHERE (surfaces/background) — separate from the
+   accent. Only takes visual effect while dark mode is active. */
+function DarkThemePicker() {
+  const { darkTheme, setDarkTheme, resolved } = useTheme();
+
+  return (
+    <div className="ac-accent-picker">
+      <div className="ac-accent-picker-header">
+        <span className="ac-field-lab" style={{ display: 'block' }}>Dark theme</span>
+        {resolved !== 'dark' && (
+          <span className="ac-dark-hint-tag">Applies in dark mode</span>
+        )}
+      </div>
+
+      <div role="radiogroup" aria-label="Choose dark theme" className="ac-dark-grid">
+        {DARK_THEMES.map((t) => {
+          const isActive = darkTheme === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              aria-label={t.label}
+              title={t.hint}
+              onClick={() => setDarkTheme(t.key)}
+              className={`ac-dark-opt${isActive ? ' on' : ''}`}
+            >
+              <span
+                className="ac-dark-swatch"
+                aria-hidden="true"
+                style={{ background: t.swatch[0], borderColor: t.swatch[2] }}
+              >
+                <span className="ac-dark-swatch-surface" style={{ background: t.swatch[1] }} />
+                <span className="ac-dark-swatch-edge" style={{ background: t.swatch[2] }} />
+                {isActive && (
+                  <IconCheck size={11} strokeWidth={3} className="ac-dark-swatch-check" aria-hidden="true" />
+                )}
+              </span>
+              <span className="ac-dark-lab">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="ac-accent-note" style={{ marginTop: 10 }}>
+        Sets the dark-mode background, surfaces and panels. Independent of your accent
+        colour. Saved on this device only.
+      </p>
+    </div>
+  );
+}
+
 /* ── Accent picker ───────────────────────────────────────────────────────── */
 function AccentPicker() {
   const { accent, setAccentKey, reset } = useAccent();
+  const { resolved } = useTheme();
   const isDefault = accent.key === DEFAULT_ACCENT_KEY;
+  // Preview swatches reflect the CURRENT mode's ramp so the demo stays truthful.
+  const previewVars = resolved === 'dark' ? accent.darkVars : accent.vars;
 
   return (
     <div className="ac-accent-picker">
@@ -115,7 +173,7 @@ function AccentPicker() {
             type="button"
             className="ac-accent-reset"
             onClick={reset}
-            aria-label="Reset accent to default (Ink Teal)"
+            aria-label="Reset accent to default (Wyncrest Blue)"
           >
             <IconRefresh size={13} aria-hidden="true" />
             Reset to default
@@ -163,22 +221,22 @@ function AccentPicker() {
         <div className="ac-accent-preview" aria-hidden="true">
           <span
             className="ac-accent-preview-btn"
-            style={{ background: accent.fill }}
+            style={{ background: previewVars['--color-action-600'], color: previewVars['--color-on-action'] }}
           >
             Preview
           </span>
           <span
             className="ac-accent-preview-link"
-            style={{ color: accent.vars['--color-brand-700'] }}
+            style={{ color: previewVars['--color-brand-700'] }}
           >
             Link text
           </span>
           <span
             className="ac-accent-preview-badge"
             style={{
-              background: accent.vars['--color-brand-50'],
-              color: accent.vars['--color-brand-700'],
-              borderColor: accent.vars['--color-brand-200'] ?? accent.vars['--color-brand-100'],
+              background: previewVars['--color-brand-50'],
+              color: previewVars['--color-brand-700'],
+              borderColor: previewVars['--color-brand-200'] ?? previewVars['--color-brand-100'],
             }}
           >
             Badge
@@ -187,7 +245,7 @@ function AccentPicker() {
       </div>
 
       <p className="ac-accent-note" style={{ marginTop: 10 }}>
-        Accent applies across the whole app — buttons, links, active states, and badges.
+        Accent applies across the whole app: buttons, links, active states, and badges.
         Saved on this device only.
       </p>
     </div>
@@ -319,11 +377,15 @@ export function SettingsPage() {
                 <span className="ac-sec-ico"><PaletteIcon size={20} /></span>
                 <div>
                   <div className="ac-sec-name">Appearance</div>
-                  <div className="ac-sec-desc">Choose how {brand.appName} looks for you.</div>
+                  <div className="ac-sec-desc">
+                    Three independent controls: <strong>Appearance</strong> (light / dark / system),
+                    a <strong>Dark theme</strong> palette, and an <strong>Accent</strong> colour.
+                  </div>
                 </div>
               </div>
               <div className="ac-sec-r">
-                <span className="ac-field-lab" style={{ display: 'block', marginBottom: 8 }}>Theme</span>
+                {/* 1 — Appearance mode */}
+                <span className="ac-field-lab" style={{ display: 'block', marginBottom: 8 }}>Appearance</span>
                 <div className="ac-theme-grid">
                   {THEMES.map(({ v, label, Icon }) => (
                     <button
@@ -344,6 +406,12 @@ export function SettingsPage() {
                   saved on this device and applies across the whole app.
                 </p>
 
+                {/* 2 — Dark theme palette */}
+                <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--color-ink-100)' }}>
+                  <DarkThemePicker />
+                </div>
+
+                {/* 3 — Accent colour */}
                 <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--color-ink-100)' }}>
                   <AccentPicker />
                 </div>

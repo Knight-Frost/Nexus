@@ -51,13 +51,13 @@ export const brand = {
 } as const;
 
 /**
- * Build a document title. `pageTitle('Payments')` → "Payments · Wyncrest";
- * `pageTitle()` → "Wyncrest — Property Platform".
+ * Build a document title. `pageTitle('Payments')` → "Payments | Wyncrest";
+ * `pageTitle()` → "Wyncrest | Property Platform".
  */
 export function pageTitle(section?: string): string {
   return section
-    ? `${section} · ${brand.appName}`
-    : `${brand.appName} — ${brand.brandDescriptor}`;
+    ? `${section} | ${brand.appName}`
+    : `${brand.appName} | ${brand.brandDescriptor}`;
 }
 
 export type Brand = typeof brand;

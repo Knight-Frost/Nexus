@@ -1,5 +1,5 @@
 /* ==========================================================================
-   NEXUS — "Editorial" app skin · WHITE LIQUID GLASS
+   WYNCREST — "Editorial" app skin · WHITE LIQUID GLASS
    --------------------------------------------------------------------------
    A cool, white, architectural identity: ice-white canvas, cool slate ink,
    ink-teal as the primary interactive color, oxblood rationed to danger only.
@@ -184,23 +184,37 @@
 [data-skin='editorial'][data-theme='dark'] {
   color-scheme: dark;
 
-  /* Brand = TEAL ramp — luminous on petrol-black */
-  --color-brand-50:  #0E2A28;
-  --color-brand-100: #123431;
-  --color-brand-200: #17433F;
-  --color-brand-300: #1E5852;
-  --color-brand-400: #2DD4BF;
-  --color-brand-500: #2DD4BF; /* focus ring */
-  --color-brand-600: #14B8A6; /* teal accent — links / active nav / badges */
-  --color-brand-700: #5EEAD4; /* text links / active nav — AA on petrol */
-  --color-brand-800: #7FF0E2;
-  --color-brand-900: #A7F3E9;
-  --color-brand-950: #D5FBF4;
+  /* Brand + action are owned by the ACCENT layer (inline `--color-brand-*` /
+     `--color-action-*` on <html>, see config/accents.ts). They must INHERIT into
+     this subtree so changing the accent updates the app in dark mode.
+     why: the base `[data-theme='dark']` block (index.css) is NOT :root-scoped,
+     so it also matches THIS element (`.nvx-shell` carries its own
+     data-theme="dark") and directly re-stamps the Wyncrest-Blue defaults —
+     which beats inheritance and pinned the whole app to blue in dark regardless
+     of the chosen accent. Forcing `inherit` here (specificity 0,2,0 > the base
+     0,1,0) makes the accent on <html> flow through as originally intended. */
+  --color-brand-50:  inherit;
+  --color-brand-100: inherit;
+  --color-brand-200: inherit;
+  --color-brand-300: inherit;
+  --color-brand-400: inherit;
+  --color-brand-500: inherit;
+  --color-brand-600: inherit;
+  --color-brand-700: inherit;
+  --color-brand-800: inherit;
+  --color-brand-900: inherit;
+  --color-brand-950: inherit;
+  --color-action-400: inherit;
+  --color-action-500: inherit;
+  --color-action-600: inherit;
+  --color-action-700: inherit;
+  --color-on-brand:  inherit;
+  --color-on-action: inherit;
 
-  /* on-brand: the text that sits ON a brand fill */
-  --color-on-brand: #04211E;
-
-  /* Ink = petrol/teal neutral ramp (low = surfaces, high = text) */
+  /* Ink ramp (low = surfaces, high = text) — Petrol Black default. These MUST be
+     declared here to override the light values from the base [data-skin='editorial']
+     block (same element). The dark PALETTE layer overrides the surface/border
+     steps per theme (see "DARK PALETTES" below). */
   --color-ink-50:  #182B2C; /* subtle elevated surface / row hover */
   --color-ink-100: #132324; /* hover bg / skeleton base */
   --color-ink-200: #1C2D2E; /* hairline borders */
@@ -230,20 +244,16 @@
   --color-info-500: #3FB6C4;
   --color-info-600: #6FD0DA;
 
-  /* Surfaces — petrol near-black */
+  /* Surfaces — Petrol Black default (overridden per dark PALETTE below). */
   --color-canvas:  #071011;
   --color-surface: #101C1D;
 
-  /* Action ramp — INK TEAL (primary buttons; matches "primary = teal") */
-  --color-action-400: #2DD4BF;
-  --color-action-500: #14B8A6;
-  --color-action-600: #0D9488;
-  --color-action-700: #0B7A70;
-  --color-on-action:  #04211E;
+  /* Action ramp is owned by the accent layer (see note above) — not set here. */
 
-  /* Action-soft — teal tint for sent bubbles + selected list rows (dark) */
-  --color-action-soft:        rgba(45, 212, 191, 0.14);
-  --color-action-soft-border: rgba(45, 212, 191, 0.32);
+  /* Action-soft — neutral tint for sent bubbles + selected list rows (dark),
+     kept accent-agnostic so it never clashes with the chosen accent. */
+  --color-action-soft:        rgba(255, 255, 255, 0.06);
+  --color-action-soft-border: rgba(255, 255, 255, 0.14);
 
   /* Domain accent (GH₵ amounts) — cool platinum on petrol */
   --color-money:    #CBD8D2;
@@ -269,17 +279,19 @@
   --nexus-cmd-neutral:   #16292A;
   --nexus-cmd-neutral-2: #0E1F20;
 
-  /* Sidebar (nvx) palette — petrol dark */
+  /* Sidebar (nvx) palette — petrol dark. Surface tokens are overridden per dark
+     PALETTE below; the active/accent tokens reference the accent brand ramp so
+     the sidebar follows the chosen accent (like light mode does). */
   --nvx-shell-bg:      #071011;
   --nvx-side-bg:       #0A1516;
   --nvx-border:        #1C2D2E;
   --nvx-text-strong:   #F3F7F5;
   --nvx-muted:         #93A19D;
   --nvx-hover-bg:      #101C1D;
-  --nvx-active-bg:     #102A27;
-  --nvx-active-text:   #5EEAD4;
-  --nvx-accent:        #2DD4BF;
-  --nvx-on-accent:     #04211E;
+  --nvx-active-bg:     var(--color-brand-50);
+  --nvx-active-text:   var(--color-brand-700);
+  --nvx-accent:        var(--color-brand-500);
+  --nvx-on-accent:     var(--color-on-brand);
   --nvx-iconbtn-hover: #101C1D;
   --nvx-mtop-bg:       rgba(7, 16, 17, 0.92);
 
@@ -306,6 +318,91 @@
   --glass-bg:     rgba(7, 16, 17, 0.55);
   --glass-strong: rgba(7, 16, 17, 0.74);
   --glass-border: rgba(243, 247, 245, 0.14);
+}
+
+/* ==========================================================================
+   DARK PALETTES — the dark-mode "atmosphere" layer (config/darkThemes.ts).
+   `data-dark-theme` lives on <html>; the skin attributes live on the AppShell,
+   so these use a DESCENDANT selector. Specificity (0,3,0) beats the skin's dark
+   block (0,2,0). They override ONLY surfaces / borders / muted text / sidebar —
+   never brand/action (accent) or semantic colours. "Petrol Black" = the base
+   above (no block). All gated on the dark skin, so ZERO effect in light mode.
+   ========================================================================== */
+
+/* Midnight Slate — navy-slate, softer than black. */
+[data-dark-theme='midnight-slate'] [data-skin='editorial'][data-theme='dark'] {
+  --color-canvas:  #0E1525;
+  --color-surface: #18213A;
+  --color-ink-50:  #1B2540;
+  --color-ink-100: #161F36;
+  --color-ink-200: #28324F;
+  --color-ink-300: #36436A;
+  --color-ink-400: #6E7B98;
+  --color-ink-500: #94A1BE;
+  --color-ink-600: #C2CADC;
+  --nvx-shell-bg:  #0E1525;
+  --nvx-side-bg:   #121A30;
+  --nvx-border:    #28324F;
+  --nvx-hover-bg:  #1B2540;
+  --nvx-muted:     #94A1BE;
+  --nvx-mtop-bg:   rgba(14, 21, 37, 0.92);
+}
+
+/* Graphite Blue — charcoal base, blue-gray surfaces. */
+[data-dark-theme='graphite-blue'] [data-skin='editorial'][data-theme='dark'] {
+  --color-canvas:  #0F1318;
+  --color-surface: #1A2028;
+  --color-ink-50:  #1C242E;
+  --color-ink-100: #161D25;
+  --color-ink-200: #28313D;
+  --color-ink-300: #36414F;
+  --color-ink-400: #6A7682;
+  --color-ink-500: #93A0AD;
+  --color-ink-600: #C4CDD6;
+  --nvx-shell-bg:  #0F1318;
+  --nvx-side-bg:   #141A22;
+  --nvx-border:    #28313D;
+  --nvx-hover-bg:  #1C242E;
+  --nvx-muted:     #93A0AD;
+  --nvx-mtop-bg:   rgba(15, 19, 24, 0.92);
+}
+
+/* Obsidian Teal — near-black with subtle teal-blue panels. */
+[data-dark-theme='obsidian-teal'] [data-skin='editorial'][data-theme='dark'] {
+  --color-canvas:  #060B0E;
+  --color-surface: #0E1A1F;
+  --color-ink-50:  #112127;
+  --color-ink-100: #0C181D;
+  --color-ink-200: #1A2D33;
+  --color-ink-300: #253D44;
+  --color-ink-400: #5E7178;
+  --color-ink-500: #8B9DA3;
+  --color-ink-600: #C0CDD1;
+  --nvx-shell-bg:  #060B0E;
+  --nvx-side-bg:   #0A1318;
+  --nvx-border:    #1A2D33;
+  --nvx-hover-bg:  #112127;
+  --nvx-muted:     #8B9DA3;
+  --nvx-mtop-bg:   rgba(6, 11, 14, 0.92);
+}
+
+/* Storm Ink — stormy blue-gray, clean and serious. */
+[data-dark-theme='storm-ink'] [data-skin='editorial'][data-theme='dark'] {
+  --color-canvas:  #0D1117;
+  --color-surface: #171D26;
+  --color-ink-50:  #1A2230;
+  --color-ink-100: #141B27;
+  --color-ink-200: #26303F;
+  --color-ink-300: #333E50;
+  --color-ink-400: #687585;
+  --color-ink-500: #909DAE;
+  --color-ink-600: #C1CAD7;
+  --nvx-shell-bg:  #0D1117;
+  --nvx-side-bg:   #121821;
+  --nvx-border:    #26303F;
+  --nvx-hover-bg:  #1A2230;
+  --nvx-muted:     #909DAE;
+  --nvx-mtop-bg:   rgba(13, 17, 23, 0.92);
 }
 
 /* Teal card hover ring on dark (overrides the base oxblood border). */
@@ -456,4 +553,203 @@
   --audit-accent-border: rgba(224, 106, 90, 0.30);
   --audit-accent-muted:  rgba(224, 106, 90, 0.10);
   --audit-ink:           #F3F7F5;
+}
+
+/* ==========================================================================
+   AUDIT — editorial identity (redesign)
+   --------------------------------------------------------------------------
+   Gives the Audit Logs list + detail pages a serious, on-the-record feel:
+   a condensed Big Shoulders display title with a Fraunces italic accent, a
+   truthful append-only banner (NO hash-chain theatre), day-grouped timeline
+   rows, and a strong detail header. All colours resolve from existing tokens
+   (--color-*, --glass-*, --audit-*) so it re-skins for free in dark mode.
+   Category node tints come from the semantic Tailwind ramps (bg-*-50/text-*-600).
+   ========================================================================== */
+.audit-center {
+  --audit-display: 'Big Shoulders Display', 'Arial Narrow', system-ui, sans-serif;
+}
+
+/* ---- Page header ---- */
+.au-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .62rem; letter-spacing: .24em; text-transform: uppercase;
+  color: var(--audit-accent);
+  display: inline-flex; align-items: center; gap: .6em;
+}
+.au-eyebrow::before {
+  content: ""; width: 26px; height: 1px;
+  background: var(--audit-accent); opacity: .7;
+}
+.au-title {
+  font-family: var(--audit-display);
+  font-weight: 800; text-transform: uppercase;
+  font-size: clamp(2.4rem, 5vw, 3.6rem); line-height: .9; letter-spacing: .01em;
+  color: var(--color-ink-950); margin: .55rem 0 .5rem;
+}
+.au-title em {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 500; text-transform: none;
+  color: var(--audit-accent);
+}
+.au-sub { color: var(--color-ink-500); max-width: 58ch; font-size: .95rem; line-height: 1.5; }
+
+/* ---- Append-only banner (truthful; no integrity/hash claims) ---- */
+.au-banner {
+  display: flex; align-items: center; gap: .9rem;
+  padding: .9rem 1.1rem; border-radius: 16px;
+  background: color-mix(in srgb, var(--color-success-500) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-success-500) 26%, transparent);
+}
+.au-banner__ic {
+  width: 38px; height: 38px; border-radius: 11px; flex: none;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--color-success-500) 16%, transparent);
+  color: var(--color-success-600);
+}
+.au-banner__t { font-weight: 600; font-size: .92rem; color: var(--color-ink-800); }
+.au-banner__s { font-size: .8rem; color: var(--color-ink-500); margin-top: .1rem; }
+.au-banner__meta {
+  margin-left: auto; text-align: right;
+  font-family: var(--font-mono); font-size: .7rem; color: var(--color-ink-400);
+}
+@media (max-width: 620px) { .au-banner__meta { display: none; } }
+
+/* ---- Day divider ---- */
+.au-day { display: flex; align-items: center; gap: 1rem; padding: 1.35rem .25rem .55rem; }
+.au-day:first-child { padding-top: .35rem; }
+.au-day h3 {
+  font-family: var(--font-mono); font-size: .64rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--color-ink-600);
+}
+.au-day .ln { flex: 1; height: 1px; background: var(--glass-border); }
+.au-day .ct { font-family: var(--font-mono); font-size: .62rem; color: var(--color-ink-400); }
+
+/* ---- Timeline entry ---- */
+.au-entry {
+  display: grid; grid-template-columns: 52px 34px 1fr auto; gap: .5rem .9rem; align-items: start;
+  padding: .9rem .75rem; border-radius: 14px; color: inherit;
+  transition: background .18s ease;
+}
+.au-entry:hover { background: color-mix(in srgb, var(--color-ink-500) 6%, transparent); }
+.au-entry:focus-visible { outline: 2px solid var(--audit-accent); outline-offset: 2px; }
+.au-entry__time { font-family: var(--font-mono); font-size: .74rem; color: var(--color-ink-400); white-space: nowrap; padding-top: .3rem; }
+.au-node { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center; }
+.au-entry__action { font-size: .96rem; line-height: 1.4; color: var(--color-ink-900); }
+.au-entry__action b { font-weight: 700; }
+.au-entry__action .tgt { font-family: var(--font-display); font-style: italic; font-weight: 500; color: var(--color-ink-900); }
+.au-entry__sub { display: flex; align-items: center; gap: .5rem .7rem; flex-wrap: wrap; margin-top: .45rem; }
+.au-sev-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+.au-cat {
+  font-family: var(--font-mono); font-size: .58rem; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; padding: .28em .7em; border-radius: 100px;
+}
+.au-right { display: flex; align-items: center; gap: .6rem; padding-top: .25rem; }
+.au-hashpill {
+  font-family: var(--font-mono); font-size: .66rem; color: var(--color-ink-400);
+  background: color-mix(in srgb, var(--color-ink-500) 6%, transparent);
+  border: 1px solid var(--glass-border); padding: .3em .6em; border-radius: 7px;
+  display: inline-flex; align-items: center; gap: .4em; white-space: nowrap;
+}
+.au-hashpill .hk { width: 6px; height: 6px; border-radius: 50%; background: var(--color-success-500); flex: none; }
+.au-chev { color: var(--color-ink-300); transition: transform .18s ease, color .18s ease; }
+.au-entry:hover .au-chev { transform: translateX(2px); color: var(--audit-accent); }
+.au-entry + .au-entry { border-top: 1px solid color-mix(in srgb, var(--glass-border) 60%, transparent); }
+@media (max-width: 640px) {
+  .au-entry { grid-template-columns: 34px 1fr; }
+  .au-entry__time { grid-column: 2; padding-top: 0; order: -1; }
+  .au-right { display: none; }
+}
+
+/* ---- Chain banner states (default = intact/green) ---- */
+.au-banner--checking {
+  background: color-mix(in srgb, var(--color-warning-500) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning-500) 30%, transparent);
+}
+.au-banner--checking .au-banner__ic {
+  background: color-mix(in srgb, var(--color-warning-500) 16%, transparent);
+  color: var(--color-warning-600);
+}
+.au-banner--broken {
+  background: color-mix(in srgb, var(--color-danger-500) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-danger-500) 32%, transparent);
+}
+.au-banner--broken .au-banner__ic {
+  background: color-mix(in srgb, var(--color-danger-500) 16%, transparent);
+  color: var(--color-danger-600);
+}
+.au-banner__meta b { color: var(--color-ink-800); }
+.au-spin { animation: au-spin 1s linear infinite; }
+@keyframes au-spin { to { transform: rotate(360deg); } }
+
+/* ---- Stat strip (4 cards) ---- */
+.au-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.au-stat {
+  padding: 1.25rem 1.35rem; border-radius: 20px;
+  background: var(--color-surface); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+}
+.au-stat .k {
+  font-family: var(--font-mono); font-size: .58rem; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--color-ink-400); display: flex; align-items: center; gap: .5em;
+}
+.au-stat .k .kd { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.au-stat .v {
+  font-family: var(--audit-display); font-weight: 800; line-height: 1;
+  font-size: clamp(1.9rem, 2.6vw, 2.4rem); margin-top: .6rem; color: var(--color-ink-950);
+}
+.au-stat .v.ok { color: var(--color-success-600); }
+.au-stat .v.bad { color: var(--color-danger-600); }
+.au-stat .d { font-size: .74rem; margin-top: .45rem; color: var(--color-ink-500); }
+@media (max-width: 900px) { .au-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 460px) { .au-stats { grid-template-columns: 1fr; } }
+
+/* ---- Toolbar (search + chips + selects) ---- */
+.au-toolbar {
+  padding: 1rem 1.1rem; border-radius: 20px;
+  background: var(--color-surface); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  display: flex; flex-direction: column; gap: .8rem;
+}
+.au-toolbar__row { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+.au-search {
+  display: flex; align-items: center; gap: .55rem; flex: 1; min-width: 200px;
+  background: color-mix(in srgb, var(--color-ink-500) 5%, transparent);
+  border: 1px solid var(--glass-border); border-radius: 100px; padding: .55rem 1rem;
+  transition: background .18s ease;
+}
+.au-search:focus-within { background: var(--color-surface); }
+.au-search input { border: none; background: none; outline: none; width: 100%; font: inherit; font-size: .88rem; color: var(--color-ink-900); }
+.au-chips { display: flex; gap: .4rem; flex-wrap: wrap; }
+.au-chip {
+  font-size: .8rem; padding: .5rem .85rem; border-radius: 100px; white-space: nowrap;
+  border: 1px solid var(--glass-border); background: transparent; color: var(--color-ink-500);
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.au-chip:hover { background: color-mix(in srgb, var(--color-ink-500) 6%, transparent); color: var(--color-ink-800); }
+.au-chip.on { background: var(--color-ink-900); color: #fff; border-color: var(--color-ink-900); }
+.au-chip:focus-visible { outline: 2px solid var(--audit-accent); outline-offset: 2px; }
+
+/* Verify-integrity button — uses the page's own audit accent (oxblood is this
+   page's identity colour, not a danger signal here). */
+.au-verify { background: var(--audit-accent); transition: background .18s ease, transform .18s ease; }
+.au-verify:hover:not(:disabled) { background: var(--audit-accent-strong); }
+.au-verify:focus-visible { outline: 2px solid var(--audit-accent); outline-offset: 2px; }
+
+/* ---- Detail page ---- */
+.au-back {
+  display: inline-flex; align-items: center; gap: .45rem;
+  font-family: var(--font-mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--color-ink-500); transition: color .18s ease;
+}
+.au-back:hover { color: var(--audit-accent); }
+.au-dtitle {
+  font-family: var(--audit-display); font-weight: 800; text-transform: uppercase;
+  font-size: clamp(2rem, 4vw, 3rem); line-height: .92; letter-spacing: .01em;
+  color: var(--color-ink-950);
+}
+.au-dlabel {
+  font-family: var(--font-mono); font-size: .58rem; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--color-ink-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .au-entry, .au-chev, .au-back { transition: none; }
 }
