@@ -33,40 +33,77 @@ import {
   IconCheck,
   IconSettings,
   IconSearch,
-  IconFilter,
   IconChevronRight,
   IconBell,
   IconCheckCircle,
   IconDoc,
+  IconUsers,
+  IconStar,
+  IconShield,
 } from '@/components/ui/icons';
 import './notifications.css';
 
 /* ── type → visual category (drives icon + CSS badge colour) ──────────────── */
 
-type VisualCategory = 'payments' | 'lease';
+type VisualCategory =
+  | 'payments'
+  | 'lease'
+  | 'applications'
+  | 'messages'
+  | 'system';
 
+/** Every NotificationType maps to a visual category. The Record type makes this
+ *  exhaustive — adding a new NotificationType forces a mapping here, so the feed
+ *  can never render an unknown type. A runtime `?? 'system'` fallback (below)
+ *  guards against any drift between the API enum and this client. */
 const TYPE_CATEGORY: Record<NotificationType, VisualCategory> = {
-  rent_generated:      'payments',
-  rent_due_soon:       'payments',
-  rent_overdue:        'payments',
-  payment_succeeded:   'payments',
-  payment_failed:      'payments',
-  late_fee_added:      'payments',
-  contract_signed:     'lease',
-  contract_terminated: 'lease',
+  rent_generated:         'payments',
+  rent_due_soon:          'payments',
+  rent_overdue:           'payments',
+  payment_succeeded:      'payments',
+  payment_failed:         'payments',
+  late_fee_added:         'payments',
+  contract_signed:        'lease',
+  contract_terminated:    'lease',
+  listing_approved:       'applications',
+  listing_rejected:       'applications',
+  application_submitted:  'applications',
+  application_approved:   'applications',
+  application_rejected:   'applications',
+  review_submitted:       'messages',
+  review_approved:        'messages',
+  review_response:        'messages',
+  verification_submitted: 'system',
+  verification_approved:  'system',
+  verification_rejected:  'system',
+  verification_needs_info:'system',
+  account_suspended:      'system',
+  account_reactivated:    'system',
+  account_blocked:        'system',
+  account_archived:       'system',
+  password_changed:       'system',
 };
 
 type CategoryIconComp = React.ComponentType<{ size?: number; className?: string }>;
 
 const CATEGORY_ICON: Record<VisualCategory, CategoryIconComp> = {
-  payments: IconCheckCircle,
-  lease:    IconDoc,
+  payments:     IconCheckCircle,
+  lease:        IconDoc,
+  applications: IconUsers,
+  messages:     IconStar,
+  system:       IconShield,
 };
 
 const CATEGORY_LABEL: Record<VisualCategory, string> = {
-  payments: 'Payments',
-  lease:    'Lease & Rent',
+  payments:     'Payments',
+  lease:        'Lease & Rent',
+  applications: 'Applications & Listings',
+  messages:     'Reviews',
+  system:       'Account & Verification',
 };
+
+/** Default category for any type missing from the map (defensive). */
+const FALLBACK_CATEGORY: VisualCategory = 'system';
 
 /* ── tabs ─────────────────────────────────────────────────────────────────── */
 
@@ -426,7 +463,7 @@ export function Notifications() {
       <div key={label}>
         <div className="nt-group-label">{label}</div>
         {list.map((n) => {
-          const cat  = TYPE_CATEGORY[n.type];
+          const cat  = TYPE_CATEGORY[n.type] ?? FALLBACK_CATEGORY;
           const Icon = CATEGORY_ICON[cat];
           const isUnread = n.read_at === null;
           return (
@@ -613,9 +650,6 @@ export function Notifications() {
                 aria-label="Search notifications"
               />
             </div>
-            <button className="nt-filter" aria-label="Filter notifications">
-              <IconFilter size={16} /> Filter
-            </button>
           </div>
         </div>
 

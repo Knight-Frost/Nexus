@@ -48,14 +48,39 @@ export type LedgerType = 'rent' | 'late_fee' | 'payment' | 'refund';
 export type LedgerStatus = 'pending' | 'paid' | 'overdue' | 'waived';
 
 export type NotificationType =
+  // payments / rent
   | 'rent_generated'
   | 'rent_due_soon'
   | 'rent_overdue'
   | 'payment_succeeded'
   | 'payment_failed'
   | 'late_fee_added'
+  // lease
   | 'contract_signed'
-  | 'contract_terminated';
+  | 'contract_terminated'
+  // listings
+  | 'listing_approved'
+  | 'listing_rejected'
+  // applications
+  | 'application_submitted'
+  | 'application_approved'
+  | 'application_rejected'
+  // reviews
+  | 'review_submitted'
+  | 'review_approved'
+  | 'review_response'
+  // verification
+  | 'verification_submitted'
+  | 'verification_approved'
+  | 'verification_rejected'
+  | 'verification_needs_info'
+  // account governance
+  | 'account_suspended'
+  | 'account_reactivated'
+  | 'account_blocked'
+  | 'account_archived'
+  // security
+  | 'password_changed';
 
 export type TerminatedBy = 'landlord' | 'tenant' | 'admin';
 
