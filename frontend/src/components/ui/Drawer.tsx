@@ -33,10 +33,10 @@ export function Drawer({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        {/* Soft veil — a light dim, never near-black; works in light + dark. */}
+        {/* Calm veil — token-based dim, never near-black; works in light + dark. */}
         <Dialog.Overlay
           className="fixed inset-0 z-50 animate-fade-in"
-          style={{ background: 'rgba(20, 17, 13, 0.30)', backdropFilter: 'blur(2px)' }}
+          style={{ background: 'var(--color-scrim)', backdropFilter: 'blur(2px)' }}
         />
         <Dialog.Content
           aria-describedby={undefined}
